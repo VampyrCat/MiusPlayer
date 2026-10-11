@@ -1,0 +1,809 @@
+i_window:window  obj=0000000004DCBD70  vtbl=base_main.codelib+0x24678  refs=143 flags=3
+  dispatch=base_main.codelib+0x1ad10
+  cmd run                          base_main.codelib+0xca00
+  cmd sync                         base_main.codelib+0x1aac0
+i_timer:timer  obj=0000000004DE84F0  vtbl=base_main.codelib+0x24610  refs=1 flags=3
+  dispatch=base_main.codelib+0x1ad10
+  deps: i_window:window i_pipeline:pipeline
+  cmd pump                         base_main.codelib+0xb700
+  cmd sync                         base_main.codelib+0x1aac0
+i_loader:loader  obj=0000000004DCC040  vtbl=base_main.codelib+0x249d0  refs=1 flags=3
+  dispatch=base_main.codelib+0x1ad10
+  deps: i_render:render i_pipeline:pipeline i_window:window i_env:env i_profiles:profiles
+  cmd tick                         base_main.codelib+0xebc0
+  cmd generate                     base_main.codelib+0xeaf0
+  cmd winmes                       base_main.codelib+0xebd0
+  cmd reninv                       base_main.codelib+0xebe0
+  cmd renres                       base_main.codelib+0xec10
+  cmd pump                         base_main.codelib+0xed60
+  cmd sync                         base_main.codelib+0x1aac0
+i_pipeline:pipeline  obj=0000000004DCC310  vtbl=base_main.codelib+0x244d8  refs=10 flags=2
+  dispatch=base_main.codelib+0x90d0
+i_render:render  obj=0000000004E2FB90  vtbl=basic_render.codelib+0x4ab70  refs=133 flags=3
+  dispatch=basic_render.codelib+0x38280
+  deps: i_env:env i_window:window i_pipeline:pipeline
+  cmd winmes                       basic_render.codelib+0x361c0
+  cmd tick                         basic_render.codelib+0x361a0
+  cmd activate                     basic_render.codelib+0x361b0
+  cmd generate                     basic_render.codelib+0x36160
+  cmd sync                         basic_render.codelib+0x38060
+i_effman:effman  obj=0000000004E35F30  vtbl=basic_render.codelib+0x495c0  refs=37 flags=3
+  dispatch=basic_render.codelib+0x38280
+  deps: i_render:render i_env:env
+  cmd generate                     basic_render.codelib+0xc810
+  cmd reninv                       basic_render.codelib+0xc880
+  cmd renres                       basic_render.codelib+0xc8f0
+  cmd sync                         basic_render.codelib+0x38060
+i_texman:texman  obj=0000000004DE5F40  vtbl=basic_render.codelib+0x4a190  refs=35 flags=3
+  dispatch=basic_render.codelib+0x38280
+  deps: i_render:render i_env:env
+  cmd generate                     basic_render.codelib+0x24dd0
+  cmd reninv                       basic_render.codelib+0x25010
+  cmd renres                       basic_render.codelib+0x25200
+  cmd tick                         basic_render.codelib+0x24de0
+  cmd sync                         basic_render.codelib+0x38060
+i_matlib:matlib  obj=0000000004DC9510  vtbl=basic_render.codelib+0x49a50  refs=4 flags=3
+  dispatch=basic_render.codelib+0x38280
+  deps: i_effman:effman i_texman:texman
+  cmd generate                     basic_render.codelib+0x1b710
+  cmd sync                         basic_render.codelib+0x38060
+i_camera:camera  obj=0000000004E36100  vtbl=basic_render.codelib+0x4aa10  refs=2 flags=3
+  dispatch=basic_render.codelib+0x38280
+  deps: i_render:render
+  cmd tick                         basic_render.codelib+0x333c0
+  cmd save                         basic_render.codelib+0x332d0
+  cmd load                         basic_render.codelib+0x33380
+  cmd sync                         basic_render.codelib+0x38060
+i_gobjects:gobjects  obj=0000000004E36580  vtbl=basic_render.codelib+0x49700  refs=29 flags=3
+  dispatch=basic_render.codelib+0x38280
+  deps: i_matlib:matlib
+  cmd generate                     basic_render.codelib+0xf8b0
+  cmd save                         basic_render.codelib+0xf7e0
+  cmd load                         basic_render.codelib+0xf7f0
+  cmd loaded                       basic_render.codelib+0xf800
+  cmd sync                         basic_render.codelib+0x38060
+i_scrshoteff:scrshoteff  obj=0000000004E3C680  vtbl=basic_render.codelib+0x4a7e0  refs=1 flags=3
+  dispatch=basic_render.codelib+0x38280
+  deps: i_window:window i_render:render i_cursor:cursor i_steam:steam
+  cmd render                       basic_render.codelib+0x2e100
+  cmd sync                         basic_render.codelib+0x38060
+i_simplefont:simplefont  obj=0000000004E3CC10  vtbl=basic_render.codelib+0x49af0  refs=2 flags=3
+  dispatch=basic_render.codelib+0x38280
+  deps: i_render:render i_effman:effman i_texman:texman i_window:window i_env:env
+  cmd generate                     basic_render.codelib+0x1e340
+  cmd render                       basic_render.codelib+0x1e350
+  cmd renres                       basic_render.codelib+0x1e1b0
+  cmd reninv                       basic_render.codelib+0x1e2f0
+  cmd sync                         basic_render.codelib+0x38060
+i_reninfo:reninfo  obj=0000000004E3CF80  vtbl=basic_render.codelib+0x4a6c8  refs=1 flags=3
+  dispatch=basic_render.codelib+0x38280
+  deps: i_env:env i_render:render i_simplefont:simplefont i_camera:camera i_ctrltimer:ctrltimer i_videocap:videocap
+  cmd generate                     basic_render.codelib+0x2cc40
+  cmd render                       basic_render.codelib+0x2cb50
+  cmd tick                         basic_render.codelib+0x2cb60
+  cmd sync                         basic_render.codelib+0x38060
+i_ctrltimer:ctrltimer  obj=0000000004DC9390  vtbl=base_main.codelib+0x23bc8  refs=2 flags=3
+  dispatch=base_main.codelib+0x1ad10
+  deps: i_env:env i_timer:timer i_pipeline:pipeline
+  cmd tick                         base_main.codelib+0x3d70
+  cmd sync                         base_main.codelib+0x1aac0
+i_env:env  obj=0000000004E3D110  vtbl=base_main.codelib+0x243b8  refs=7 flags=3
+  dispatch=base_main.codelib+0x1ad10
+  deps: i_pipeline:pipeline
+  cmd generate                     base_main.codelib+0x5270
+  cmd sync                         base_main.codelib+0x1aac0
+i_simpskyeff:simpskyeff  obj=0000000004E42060  vtbl=basic_game.codelib+0xe2ab8  refs=1 flags=3
+  dispatch=basic_game.codelib+0xbad70
+  deps: i_camera:camera i_gobjects:gobjects i_weatherman:weatherman i_matlib:matlib i_meshbase:meshbase i_defrender:defrender
+  cmd generate                     basic_game.codelib+0x68b70
+  cmd render_l                     basic_game.codelib+0x68be0
+  cmd sync                         basic_game.codelib+0xbaac0
+i_audioman:audioman  obj=0000000004E3E800  vtbl=basic_sound.codelib+0x19168  refs=7 flags=3
+  dispatch=basic_sound.codelib+0x117e0
+  deps: i_env:env i_window:window i_camera:camera
+  cmd generate                     basic_sound.codelib+0xb030
+  cmd tick                         basic_sound.codelib+0xb040
+  cmd activate                     basic_sound.codelib+0xb110
+  cmd stop                         basic_sound.codelib+0xb100
+  cmd save                         basic_sound.codelib+0xb000
+  cmd load                         basic_sound.codelib+0xb010
+  cmd loaded                       basic_sound.codelib+0xb020
+  cmd sync                         basic_sound.codelib+0x11300
+i_weatherman:weatherman  obj=0000000004E438F0  vtbl=basic_game.codelib+0xe1780  refs=1 flags=3
+  dispatch=basic_game.codelib+0xbad70
+  deps: i_env:env i_render:render i_camera:camera i_effman:effman i_lights:lights i_simpskyeff:simpskyeff i_texman:texman i_defglobal:defglobal i_deflocal:deflocal i_landman:landman i_landbase:landbase i_grasseff:grasseff i_defrender:defrender i_moisture:moisture i_snow:snow i_lighter:lighter i_ctrltimer:ctrltimer i_audioman:audioman i_timer:timer i_tactics:tactics i_gamespec:gamespec i_deffog:deffog i_defscatter:defscatter
+  cmd tick                         basic_game.codelib+0x36990
+  cmd ctrl_tick                    basic_game.codelib+0x36970
+  cmd generate                     basic_game.codelib+0x36930
+  cmd render_z                     basic_game.codelib+0x369a0
+  cmd save                         basic_game.codelib+0x36740
+  cmd load                         basic_game.codelib+0x36850
+  cmd sync                         basic_game.codelib+0xbaac0
+i_defrender:defrender  obj=0000000004E47520  vtbl=adv_render.codelib+0x4a4e8  refs=12 flags=3
+  dispatch=adv_render.codelib+0x3a930
+  deps: i_render:render i_pipeline:pipeline i_window:window i_env:env i_defglobal:defglobal i_effman:effman i_camera:camera i_defcompose:defcompose i_smoothpp:smoothpp
+  cmd generate                     adv_render.codelib+0x106f0
+  cmd renres                       adv_render.codelib+0x10660
+  cmd reninv                       adv_render.codelib+0x10670
+  cmd render                       adv_render.codelib+0x106e0
+  cmd rencreate                    adv_render.codelib+0x106d0
+  cmd sync                         adv_render.codelib+0x3a720
+i_lights:lights  obj=0000000004E3F0F0  vtbl=adv_render.codelib+0x4a228  refs=1 flags=3
+  dispatch=adv_render.codelib+0x3a930
+  cmd tick                         adv_render.codelib+0xea00
+  cmd save                         adv_render.codelib+0xe700
+  cmd load                         adv_render.codelib+0xe890
+  cmd sync                         adv_render.codelib+0x3a720
+i_defglobal:defglobal  obj=0000000004E48F00  vtbl=adv_render.codelib+0x49d48  refs=1 flags=3
+  dispatch=adv_render.codelib+0x3a930
+  deps: i_effman:effman i_render:render i_lights:lights i_defrender:defrender i_env:env
+  cmd generate                     adv_render.codelib+0x8640
+  cmd render                       adv_render.codelib+0x8650
+  cmd render_l                     adv_render.codelib+0x8650
+  cmd sync                         adv_render.codelib+0x3a720
+i_deflocal:deflocal  obj=0000000004E49D40  vtbl=adv_render.codelib+0x4a028  refs=1 flags=3
+  dispatch=adv_render.codelib+0x3a930
+  deps: i_env:env i_lights:lights i_meshbase:meshbase i_render:render i_defglobal:defglobal i_defrender:defrender i_camera:camera i_gobjects:gobjects
+  cmd generate                     adv_render.codelib+0xa530
+  cmd render_l                     adv_render.codelib+0xa540
+  cmd sync                         adv_render.codelib+0x3a720
+i_meshbase:meshbase  obj=0000000004E49EE0  vtbl=adv_render.codelib+0x4a650  refs=18 flags=3
+  dispatch=adv_render.codelib+0x3a930
+  deps: i_render:render i_gobjects:gobjects i_effman:effman
+  cmd generate                     adv_render.codelib+0x12b80
+  cmd reninv                       adv_render.codelib+0x12ca0
+  cmd renres                       adv_render.codelib+0x12bd0
+  cmd reload_sh                    adv_render.codelib+0x12d60
+  cmd save                         adv_render.codelib+0x12940
+  cmd load                         adv_render.codelib+0x12950
+  cmd loaded                       adv_render.codelib+0x12a70
+  cmd sync                         adv_render.codelib+0x3a720
+i_landman:landman  obj=0000000004EE90E0  vtbl=basic_game.codelib+0xe0f20  refs=2 flags=3
+  dispatch=basic_game.codelib+0xbad70
+  deps: i_env:env i_gamespec:gamespec i_landbase:landbase
+  cmd tick                         basic_game.codelib+0x2de70
+  cmd generate                     basic_game.codelib+0x2de60
+  cmd save                         basic_game.codelib+0x27ef0
+  cmd load                         basic_game.codelib+0x27f90
+  cmd loaded                       basic_game.codelib+0x2de00
+  cmd sync                         basic_game.codelib+0xbaac0
+i_landeff:landeff  obj=0000000004EE9B70  vtbl=basic_game.codelib+0xe3150  refs=1 flags=3
+  dispatch=basic_game.codelib+0xbad70
+  deps: i_render:render i_camera:camera i_gamecam:gamecam i_landman:landman i_effman:effman i_texman:texman i_matman:matman i_matlib:matlib i_weatherman:weatherman i_landbase:landbase i_gamespec:gamespec i_defrender:defrender
+  cmd tick                         basic_game.codelib+0x10200
+  cmd generate                     basic_game.codelib+0x71d30
+  cmd render_z                     basic_game.codelib+0x71db0
+  cmd render_g                     basic_game.codelib+0x71da0
+  cmd render_s                     basic_game.codelib+0x71dd0
+  cmd renres                       basic_game.codelib+0x71df0
+  cmd reninv                       basic_game.codelib+0x71e00
+  cmd save                         basic_game.codelib+0x27ef0
+  cmd load                         basic_game.codelib+0x27f90
+  cmd loaded                       basic_game.codelib+0x71ce0
+  cmd sync                         basic_game.codelib+0xbaac0
+i_matman:matman  obj=0000000004EE9F20  vtbl=basic_game.codelib+0xe10f0  refs=1 flags=3
+  dispatch=basic_game.codelib+0xbad70
+  deps: i_landbase:landbase i_render:render i_weatherman:weatherman
+  cmd tick                         basic_game.codelib+0x2eb40
+  cmd generate                     basic_game.codelib+0x2eb30
+  cmd save                         basic_game.codelib+0x27ef0
+  cmd load                         basic_game.codelib+0x27f90
+  cmd sync                         basic_game.codelib+0xbaac0
+i_landbase:landbase  obj=0000000004EEA0D0  vtbl=basic_game.codelib+0xe2868  refs=13 flags=3
+  dispatch=basic_game.codelib+0xbad70
+  deps: i_texman:texman i_gobjects:gobjects i_pipeline:pipeline i_render:render i_grasseff:grasseff
+  cmd generate                     basic_game.codelib+0x5e7c0
+  cmd save                         basic_game.codelib+0x5e7a0
+  cmd load                         basic_game.codelib+0x5e7b0
+  cmd sync                         basic_game.codelib+0xbaac0
+i_watereff:watereff  obj=0000000004EEC480  vtbl=basic_game.codelib+0xe2dd8  refs=1 flags=3
+  dispatch=basic_game.codelib+0xbad70
+  deps: i_render:render i_camera:camera i_effman:effman i_texman:texman i_landman:landman i_matlib:matlib i_landbase:landbase i_gamecam:gamecam i_defrender:defrender i_weatherman:weatherman i_defglobal:defglobal
+  cmd tick                         basic_game.codelib+0x6b9e0
+  cmd generate                     basic_game.codelib+0x6b9d0
+  cmd render_z                     basic_game.codelib+0x6ba20
+  cmd render_g                     basic_game.codelib+0x6bae0
+  cmd sync                         basic_game.codelib+0xbaac0
+i_weapons:weapons  obj=0000000004DC8F10  vtbl=adv_game.codelib+0x12e180  refs=1 flags=3
+  dispatch=adv_game.codelib+0x100870
+  cmd generate                     adv_game.codelib+0x6a430
+  cmd sync                         adv_game.codelib+0x100530
+i_scenecplx:scenecplx  obj=0000000004EEFA50  vtbl=adv_render.codelib+0x4ab00  refs=1 flags=3
+  dispatch=adv_render.codelib+0x3a930
+  deps: i_meshbase:meshbase i_gobjects:gobjects i_matlib:matlib i_defrender:defrender i_camera:camera i_weatherman:weatherman i_effman:effman i_texman:texman
+  cmd generate                     adv_render.codelib+0x1e1d0
+  cmd tick                         adv_render.codelib+0x1e1e0
+  cmd render                       adv_render.codelib+0x8270
+  cmd render_z                     adv_render.codelib+0x1e1f0
+  cmd render_g                     adv_render.codelib+0x1e200
+  cmd render_s                     adv_render.codelib+0x1e210
+  cmd save                         adv_render.codelib+0x1e030
+  cmd load                         adv_render.codelib+0x1e130
+  cmd sync                         adv_render.codelib+0x3a720
+i_divisions:divisions  obj=0000000004EEFC30  vtbl=adv_game.codelib+0x12e8f8  refs=1 flags=3
+  dispatch=adv_game.codelib+0x100870
+  deps: i_env:env i_gamespec:gamespec i_plcmapeff:plcmapeff i_landbase:landbase i_sides:sides i_weapons:weapons i_shellphys:shellphys i_formation:formation i_audioman:audioman i_lights:lights i_target:target i_intereff:intereff i_partsys:partsys i_coldet:coldet i_select:select i_trigman:trigman i_sre_resolver:sre_resolver i_statistic:statistic i_enpres:enpres i_aiplacer:aiplacer i_aicolonel:aicolonel i_weatherman:weatherman
+  cmd generate                     adv_game.codelib+0x81470
+  cmd ctrl_tick                    adv_game.codelib+0x81500
+  cmd tick                         adv_game.codelib+0x81480
+  cmd gamemode                     adv_game.codelib+0x81c60
+  cmd explosion                    adv_game.codelib+0x43e20
+  cmd save                         adv_game.codelib+0x81450
+  cmd load                         adv_game.codelib+0x81460
+  cmd sync                         adv_game.codelib+0x100530
+i_gamespec:gamespec  obj=0000000004EF0150  vtbl=adv_game.codelib+0x131258  refs=4 flags=3
+  dispatch=adv_game.codelib+0x100870
+  deps: i_landbase:landbase i_redef:redef i_scrshoteff:scrshoteff i_user:user i_weatherman:weatherman i_window:window i_orender:orender i_env:env i_scenespr:scenespr i_mapeff:mapeff i_trigman:trigman i_gobjects:gobjects i_loader:loader
+  cmd generate                     adv_game.codelib+0xfd460
+  cmd tick                         adv_game.codelib+0xfd470
+  cmd save                         adv_game.codelib+0xfd200
+  cmd load                         adv_game.codelib+0xfd320
+  cmd sync                         adv_game.codelib+0x100530
+i_pileff:pileff  obj=0000000004EF0510  vtbl=adv_game.codelib+0x12eee8  refs=1 flags=3
+  dispatch=adv_game.codelib+0x100870
+  deps: i_meshbase:meshbase i_camera:camera i_gobjects:gobjects i_texman:texman i_env:env i_weatherman:weatherman
+  cmd tick                         adv_game.codelib+0x988c0
+  cmd render_z                     adv_game.codelib+0x98960
+  cmd render_g                     adv_game.codelib+0x98970
+  cmd render_s                     adv_game.codelib+0x98980
+  cmd generate                     adv_game.codelib+0x98990
+  cmd save                         adv_game.codelib+0x98810
+  cmd load                         adv_game.codelib+0x98820
+  cmd sync                         adv_game.codelib+0x100530
+i_mapeff:mapeff  obj=0000000004EF1F00  vtbl=basic_game.codelib+0xe3198  refs=1 flags=3
+  dispatch=basic_game.codelib+0xbad70
+  deps: i_render:render i_camera:camera i_user:user i_effman:effman i_texman:texman i_landbase:landbase i_meshbase:meshbase i_gobjects:gobjects i_weatherman:weatherman i_redef:redef i_env:env i_scenespr:scenespr i_sides:sides i_intereff:intereff i_simplefont:simplefont i_gamespec:gamespec i_visman:visman i_lines2d:lines2d i_divisions:divisions i_defrender:defrender i_aicolonel:aicolonel i_controls:controls i_trigman:trigman i_landeff:landeff i_landmarks:landmarks i_gamecam:gamecam i_select:select
+  cmd tick                         basic_game.codelib+0x75830
+  cmd generate                     basic_game.codelib+0x75810
+  cmd render                       basic_game.codelib+0x75870
+  cmd gamemode                     basic_game.codelib+0x75820
+  cmd save                         basic_game.codelib+0x756c0
+  cmd load                         basic_game.codelib+0x756d0
+  cmd loaded                       basic_game.codelib+0x757a0
+  cmd sync                         basic_game.codelib+0xbaac0
+i_input:input  obj=0000000004F0E930  vtbl=basic_input.codelib+0x19de8  refs=1 flags=3
+  dispatch=basic_input.codelib+0x12e10
+  deps: i_env:env i_window:window i_proxy:proxy
+  cmd generate                     basic_input.codelib+0x51c0
+  cmd winmes                       basic_input.codelib+0x5290
+  cmd tick                         basic_input.codelib+0x51d0
+  cmd activate                     basic_input.codelib+0x5260
+  cmd sync                         basic_input.codelib+0x12bc0
+i_di_input:di_input  obj=0000000004F0FB80  vtbl=basic_input.codelib+0x19c48  refs=1 flags=3
+  dispatch=basic_input.codelib+0x12e10
+  deps: i_env:env i_window:window i_proxy:proxy
+  cmd generate                     basic_input.codelib+0x2ce0
+  cmd tick                         basic_input.codelib+0x2d90
+  cmd activate                     basic_input.codelib+0x2f30
+  cmd sync                         basic_input.codelib+0x12bc0
+i_proxy:proxy  obj=0000000004F0FD60  vtbl=basic_input.codelib+0x19e78  refs=1 flags=3
+  dispatch=basic_input.codelib+0x12e10
+  cmd generate                     basic_input.codelib+0x70c0
+  cmd setinput                     basic_input.codelib+0x7040
+  cmd tick                         basic_input.codelib+0x70d0
+  cmd sync                         basic_input.codelib+0x12bc0
+i_redef:redef  obj=0000000004E47D80  vtbl=basic_input.codelib+0x19f00  refs=1 flags=3
+  dispatch=basic_input.codelib+0x12e10
+  deps: i_env:env i_input:input
+  cmd generate                     basic_input.codelib+0x8d00
+  cmd setinput                     basic_input.codelib+0x8e50
+  cmd tick                         basic_input.codelib+0x8d10
+  cmd sync                         basic_input.codelib+0x12bc0
+i_user:user  obj=0000000004DEC4E0  vtbl=basic_input.codelib+0x1a150  refs=8 flags=3
+  dispatch=basic_input.codelib+0x12e10
+  deps: i_redef:redef
+  cmd generate                     basic_input.codelib+0xe480
+  cmd sync                         basic_input.codelib+0x12bc0
+i_gamecam:gamecam  obj=0000000004F13F60  vtbl=basic_game.codelib+0xe3ca8  refs=1 flags=3
+  dispatch=basic_game.codelib+0xbad70
+  deps: i_render:render i_camera:camera i_landbase:landbase i_weatherman:weatherman i_window:window i_gamespec:gamespec i_cursor:cursor i_controls:controls i_pcs:pcs i_mapeff:mapeff i_env:env i_ctrltimer:ctrltimer
+  cmd tick                         basic_game.codelib+0x88900
+  cmd generate                     basic_game.codelib+0x888f0
+  cmd regctrls                     basic_game.codelib+0x88910
+  cmd gamemode                     basic_game.codelib+0x88920
+  cmd save                         basic_game.codelib+0x88780
+  cmd load                         basic_game.codelib+0x88860
+  cmd sync                         basic_game.codelib+0xbaac0
+i_armor_maps:armor_maps  obj=0000000004E42EC0  vtbl=basic_physic.codelib+0x3bd38  refs=1 flags=3
+  dispatch=basic_physic.codelib+0x2d670
+  cmd generate                     basic_physic.codelib+0x12380
+  cmd sync                         basic_physic.codelib+0x2d420
+i_scenespr:scenespr  obj=0000000004F14380  vtbl=adv_render.codelib+0x4ac98  refs=10 flags=3
+  dispatch=adv_render.codelib+0x3a930
+  deps: i_texman:texman i_render:render i_effman:effman
+  cmd generate                     adv_render.codelib+0x20c90
+  cmd tick                         adv_render.codelib+0x8270
+  cmd renres                       adv_render.codelib+0x20ca0
+  cmd reninv                       adv_render.codelib+0x20de0
+  cmd sync                         adv_render.codelib+0x3a720
+i_sides:sides  obj=0000000004E43030  vtbl=basic_game.codelib+0xe40f0  refs=1 flags=3
+  dispatch=basic_game.codelib+0xbad70
+  deps: i_env:env
+  cmd generate                     basic_game.codelib+0x8e840
+  cmd sync                         basic_game.codelib+0xbaac0
+i_cursor:cursor  obj=0000000004F2CE00  vtbl=basic_game.codelib+0xe0df0  refs=1 flags=3
+  dispatch=basic_game.codelib+0xbad70
+  deps: i_user:user i_env:env i_window:window i_input:input i_scenespr:scenespr i_texman:texman i_render:render i_simplefont:simplefont
+  cmd generate                     basic_game.codelib+0x27fa0
+  cmd render                       basic_game.codelib+0x27fb0
+  cmd winmes                       basic_game.codelib+0x27fc0
+  cmd save                         basic_game.codelib+0x27ef0
+  cmd load                         basic_game.codelib+0x27f90
+  cmd sync                         basic_game.codelib+0xbaac0
+i_intereff:intereff  obj=0000000004F2D010  vtbl=adv_interf.codelib+0x9a578  refs=1 flags=3
+  dispatch=adv_interf.codelib+0xebc0
+  deps: i_user:user i_render:render i_camera:camera i_redef:redef i_window:window i_landmarks:landmarks i_fader:fader i_simplefont:simplefont i_controls:controls i_ctrltimer:ctrltimer i_plcmapeff:plcmapeff i_select:select i_divisions:divisions i_landbase:landbase i_mapeff:mapeff i_trencher:trencher i_epurviewer:epurviewer i_gamespec:gamespec i_trigman:trigman i_weatherman:weatherman i_tabviewer:tabviewer i_lines2d:lines2d i_weapons:weapons i_coldet:coldet i_gobjects:gobjects i_shellphys:shellphys i_statistic:statistic i_scenespr:scenespr i_orender:orender i_gamecam:gamecam i_ambientman:ambientman i_visman:visman i_redefiner:redefiner i_env:env i_input:input i_formation:formation i_aicolonel:aicolonel i_cursor:cursor i_defrender:defrender i_audioman:audioman i_sighteff:sighteff i_sightman:sightman i_reninfo:reninfo i_sides:sides i_logic:logic i_aiplacer:aiplacer i_aar:aar i_tracker:tracker
+  cmd tick                         adv_interf.codelib+0x46d80
+  cmd ctrl_tick                    adv_interf.codelib+0x46d90
+  cmd render                       adv_interf.codelib+0x46cc0
+  cmd end_game                     adv_interf.codelib+0x46dd0
+  cmd generate                     adv_interf.codelib+0x46be0
+  cmd gamemode                     adv_interf.codelib+0x46df0
+  cmd save                         adv_interf.codelib+0x46e00
+  cmd load                         adv_interf.codelib+0x46e10
+  cmd loaded                       adv_interf.codelib+0x46e20
+  cmd sync                         adv_interf.codelib+0xe930
+i_controls:controls  obj=0000000004F2E350  vtbl=basic_game.codelib+0xe4718  refs=6 flags=3
+  dispatch=basic_game.codelib+0xbad70
+  deps: i_render:render i_meshbase:meshbase i_gobjects:gobjects i_cursor:cursor i_simplefont:simplefont i_user:user i_scenespr:scenespr i_imgstore:imgstore i_texman:texman i_audioman:audioman i_env:env i_lines2d:lines2d i_effman:effman
+  cmd generate                     basic_game.codelib+0x936d0
+  cmd render                       basic_game.codelib+0x936f0
+  cmd tick                         basic_game.codelib+0x936e0
+  cmd renres                       basic_game.codelib+0x93700
+  cmd reninv                       basic_game.codelib+0x93710
+  cmd save                         basic_game.codelib+0x936b0
+  cmd load                         basic_game.codelib+0x936c0
+  cmd sync                         basic_game.codelib+0xbaac0
+i_fader:fader  obj=0000000004F36C90  vtbl=basic_render.codelib+0x4a518  refs=1 flags=3
+  dispatch=basic_render.codelib+0x38280
+  deps: i_render:render i_effman:effman
+  cmd render                       basic_render.codelib+0x2ad80
+  cmd tick                         basic_render.codelib+0x2af20
+  cmd generate                     basic_render.codelib+0x2ad90
+  cmd sync                         basic_render.codelib+0x38060
+i_plantload:plantload  obj=0000000004F36E30  vtbl=basic_game.codelib+0xe3eb8  refs=1 flags=3
+  dispatch=basic_game.codelib+0xbad70
+  deps: i_env:env i_landbase:landbase i_landbase_ai:landbase_ai i_orender:orender
+  cmd generate                     basic_game.codelib+0x8d1a0
+  cmd sync                         basic_game.codelib+0xbaac0
+i_objload:objload  obj=0000000004F36FE0  vtbl=basic_game.codelib+0xe3db8  refs=1 flags=3
+  dispatch=basic_game.codelib+0xbad70
+  deps: i_env:env i_landbase:landbase i_landbase_ai:landbase_ai i_orender:orender i_powerlines:powerlines
+  cmd generate                     basic_game.codelib+0x8b7b0
+  cmd sync                         basic_game.codelib+0xbaac0
+i_orender:orender  obj=0000000004F37120  vtbl=basic_game.codelib+0xe5110  refs=1 flags=3
+  dispatch=basic_game.codelib+0xbad70
+  deps: i_gobjects:gobjects i_env:env i_landbase:landbase i_landbase_ai:landbase_ai i_coldet:coldet i_scenestat:scenestat i_pcs:pcs i_lights:lights i_matman:matman i_sre_resolver:sre_resolver i_fireman:fireman i_armor_maps:armor_maps i_trencher:trencher i_gamespec:gamespec i_tactics:tactics i_camera:camera i_weatherman:weatherman i_addins:addins i_weapons:weapons i_shellphys:shellphys i_intereff:intereff i_mapeff:mapeff
+  cmd generate                     basic_game.codelib+0xac660
+  cmd ctrl_tick                    basic_game.codelib+0xac7a0
+  cmd save_dams                    basic_game.codelib+0xac7e0
+  cmd track_save                   basic_game.codelib+0xac880
+  cmd save                         basic_game.codelib+0xac580
+  cmd load                         basic_game.codelib+0xac590
+  cmd loaded                       basic_game.codelib+0xac5a0
+  cmd sync                         basic_game.codelib+0xbaac0
+i_scenestat:scenestat  obj=000000000688C390  vtbl=adv_render.codelib+0x4ae60  refs=2 flags=3
+  dispatch=adv_render.codelib+0x3a930
+  deps: i_meshbase:meshbase i_gobjects:gobjects i_matlib:matlib i_defrender:defrender i_camera:camera i_weatherman:weatherman i_effman:effman i_render:render i_landbase:landbase i_gamecam:gamecam i_env:env
+  cmd generate                     adv_render.codelib+0x29e50
+  cmd tick                         adv_render.codelib+0x29fa0
+  cmd render                       adv_render.codelib+0x8270
+  cmd render_z                     adv_render.codelib+0x2a160
+  cmd render_g                     adv_render.codelib+0x2a170
+  cmd render_s                     adv_render.codelib+0x2a180
+  cmd save                         adv_render.codelib+0x29d50
+  cmd load                         adv_render.codelib+0x29d60
+  cmd loaded                       adv_render.codelib+0x29d70
+  cmd sync                         adv_render.codelib+0x3a720
+i_tactics:tactics  obj=00000000068E1B80  vtbl=adv_game.codelib+0x12f740  refs=1 flags=3
+  dispatch=adv_game.codelib+0x100870
+  deps: i_landbase:landbase i_plcmapeff:plcmapeff
+  cmd ctrl_tick                    adv_game.codelib+0xc3220
+  cmd generate                     adv_game.codelib+0xc3150
+  cmd save                         adv_game.codelib+0xc3130
+  cmd load                         adv_game.codelib+0xc3140
+  cmd sync                         adv_game.codelib+0x100530
+i_grasseff:grasseff  obj=00000000068E8360  vtbl=basic_game.codelib+0xe3658  refs=1 flags=3
+  dispatch=basic_game.codelib+0xbad70
+  deps: i_env:env i_landbase:landbase i_meshbase:meshbase i_camera:camera i_matlib:matlib i_texman:texman i_gamecam:gamecam i_defrender:defrender
+  cmd tick                         basic_game.codelib+0x83540
+  cmd generate                     basic_game.codelib+0x83530
+  cmd render_z                     basic_game.codelib+0x835e0
+  cmd render_g                     basic_game.codelib+0x83630
+  cmd save                         basic_game.codelib+0x833f0
+  cmd load                         basic_game.codelib+0x834f0
+  cmd sync                         basic_game.codelib+0xbaac0
+i_coldet:coldet  obj=00000000068EDC70  vtbl=basic_physic.codelib+0x3c1a8  refs=2 flags=3
+  dispatch=basic_physic.codelib+0x2d670
+  deps: i_env:env i_landbase:landbase i_matman:matman i_gobjects:gobjects i_debinfo:debinfo i_pcs:pcs i_grasseff:grasseff i_audioman:audioman i_landeff:landeff i_weatherman:weatherman i_sides:sides i_orender:orender i_trencher:trencher i_armor_maps:armor_maps i_formation:formation
+  cmd ctrl_tick                    basic_physic.codelib+0x1e770
+  cmd generate                     basic_physic.codelib+0x1e760
+  cmd save                         basic_physic.codelib+0x1e740
+  cmd load                         basic_physic.codelib+0x1e750
+  cmd sync                         basic_physic.codelib+0x2d420
+i_pcs:pcs  obj=00000000068FDF20  vtbl=basic_physic.codelib+0x3c268  refs=2 flags=3
+  dispatch=basic_physic.codelib+0x2d670
+  deps: i_env:env i_landbase:landbase i_landbase_ai:landbase_ai
+  cmd ctrl_tick                    basic_physic.codelib+0x20ae0
+  cmd generate                     basic_physic.codelib+0x20a70
+  cmd save                         basic_physic.codelib+0x20a50
+  cmd load                         basic_physic.codelib+0x20a60
+  cmd sync                         basic_physic.codelib+0x2d420
+i_deffog:deffog  obj=00000000068FE0E0  vtbl=adv_render.codelib+0x4af48  refs=1 flags=3
+  dispatch=adv_render.codelib+0x3a930
+  deps: i_effman:effman i_defcompose:defcompose i_render:render
+  cmd generate                     adv_render.codelib+0x31150
+  cmd render_l                     adv_render.codelib+0xb990
+  cmd sync                         adv_render.codelib+0x3a720
+i_moisture:moisture  obj=00000000068FE290  vtbl=adv_render.codelib+0x4af78  refs=1 flags=3
+  dispatch=adv_render.codelib+0x3a930
+  deps: i_texman:texman i_effman:effman i_render:render i_defrender:defrender i_defcompose:defcompose i_camera:camera
+  cmd generate                     adv_render.codelib+0x31500
+  cmd render                       adv_render.codelib+0x315f0
+  cmd render_l                     adv_render.codelib+0x315f0
+  cmd sync                         adv_render.codelib+0x3a720
+i_snow:snow  obj=00000000068FE440  vtbl=adv_render.codelib+0x4b100  refs=1 flags=3
+  dispatch=adv_render.codelib+0x3a930
+  deps: i_meshbase:meshbase i_texman:texman i_defrender:defrender
+  cmd generate                     adv_render.codelib+0x33ae0
+  cmd render                       adv_render.codelib+0x33c20
+  cmd render_l                     adv_render.codelib+0x33c20
+  cmd sync                         adv_render.codelib+0x3a720
+i_defcompose:defcompose  obj=0000000004F4EE80  vtbl=adv_render.codelib+0x4af00  refs=7 flags=3
+  dispatch=adv_render.codelib+0x3a930
+  deps: i_window:window i_render:render i_defrender:defrender
+  cmd generate                     adv_render.codelib+0x30470
+  cmd sync                         adv_render.codelib+0x3a720
+i_partsys:partsys  obj=00000000068FE5E0  vtbl=adv_render.codelib+0x4a968  refs=1 flags=3
+  dispatch=adv_render.codelib+0x3a930
+  deps: i_meshbase:meshbase i_texman:texman i_camera:camera i_landbase:landbase i_weatherman:weatherman i_pcs:pcs i_env:env i_defrender:defrender i_render:render
+  cmd generate                     adv_render.codelib+0x167a0
+  cmd render                       adv_render.codelib+0x167b0
+  cmd render_l                     adv_render.codelib+0x167b0
+  cmd ctrl_tick                    adv_render.codelib+0x168e0
+  cmd tick                         adv_render.codelib+0x16900
+  cmd save                         adv_render.codelib+0x16670
+  cmd load                         adv_render.codelib+0x16680
+  cmd sync                         adv_render.codelib+0x3a720
+i_animch:animch  obj=0000000006919910  vtbl=adv_game.codelib+0x12f128  refs=1 flags=3
+  dispatch=adv_game.codelib+0x100870
+  deps: i_env:env i_gobjects:gobjects
+  cmd generate                     adv_game.codelib+0xa12c0
+  cmd ctrl_tick                    adv_game.codelib+0xa12d0
+  cmd save                         adv_game.codelib+0xa1110
+  cmd load                         adv_game.codelib+0xa1230
+  cmd sync                         adv_game.codelib+0x100530
+i_fireman:fireman  obj=0000000006919AB0  vtbl=adv_game.codelib+0x12eca0  refs=1 flags=3
+  dispatch=adv_game.codelib+0x100870
+  deps: i_lights:lights i_camera:camera i_gobjects:gobjects i_partsys:partsys i_audioman:audioman i_landbase:landbase i_heat:heat i_weatherman:weatherman i_trencher:trencher i_pcs:pcs i_matman:matman i_orender:orender i_env:env
+  cmd ctrl_tick                    adv_game.codelib+0x8f9b0
+  cmd generate                     adv_game.codelib+0x8f9a0
+  cmd del_pgen                     adv_game.codelib+0x8f9c0
+  cmd save                         adv_game.codelib+0x8f870
+  cmd load                         adv_game.codelib+0x8f880
+  cmd sync                         adv_game.codelib+0x100530
+i_sightman:sightman  obj=0000000004DC9990  vtbl=adv_game.codelib+0x12db68  refs=1 flags=3
+  dispatch=adv_game.codelib+0x100870
+  cmd generate                     adv_game.codelib+0x5fba0
+  cmd sync                         adv_game.codelib+0x100530
+i_addins:addins  obj=0000000006919D60  vtbl=adv_game.codelib+0x12daa0  refs=1 flags=3
+  dispatch=adv_game.codelib+0x100870
+  deps: i_meshbase:meshbase i_gobjects:gobjects i_texman:texman i_weatherman:weatherman i_landbase:landbase i_env:env i_camera:camera i_coldet:coldet i_defrender:defrender i_sre_resolver:sre_resolver
+  cmd generate                     adv_game.codelib+0x59500
+  cmd ctrl_tick                    adv_game.codelib+0x59540
+  cmd tick                         adv_game.codelib+0x595d0
+  cmd render_z                     adv_game.codelib+0x595e0
+  cmd render_g                     adv_game.codelib+0x595f0
+  cmd render_s                     adv_game.codelib+0x59630
+  cmd render_l                     adv_game.codelib+0x59640
+  cmd save                         adv_game.codelib+0x594e0
+  cmd load                         adv_game.codelib+0x594f0
+  cmd sync                         adv_game.codelib+0x100530
+i_trigman:trigman  obj=000000000691A010  vtbl=adv_game.codelib+0x130640  refs=1 flags=3
+  dispatch=adv_game.codelib+0x100870
+  deps: i_landbase:landbase i_gamespec:gamespec i_divisions:divisions i_plcmapeff:plcmapeff i_statistic:statistic i_intereff:intereff i_visman:visman i_steam:steam i_sides:sides
+  cmd generate                     adv_game.codelib+0xf1390
+  cmd ctrl_tick                    adv_game.codelib+0xf1560
+  cmd save                         adv_game.codelib+0xf1370
+  cmd load                         adv_game.codelib+0xf1380
+  cmd sync                         adv_game.codelib+0x100530
+i_formation:formation  obj=000000000691A480  vtbl=adv_game.codelib+0x12f930  refs=1 flags=3
+  dispatch=adv_game.codelib+0x100870
+  deps: i_env:env i_trigman:trigman i_divisions:divisions i_target:target i_trencher:trencher
+  cmd generate                     adv_game.codelib+0xd07f0
+  cmd ctrl_tick                    adv_game.codelib+0xd0880
+  cmd save                         adv_game.codelib+0xd07d0
+  cmd load                         adv_game.codelib+0xd07e0
+  cmd sync                         adv_game.codelib+0x100530
+i_target:target  obj=000000000691A6E0  vtbl=adv_game.codelib+0x12f348  refs=1 flags=3
+  dispatch=adv_game.codelib+0x100870
+  deps: i_env:env i_coldet:coldet i_sides:sides i_weatherman:weatherman i_sightman:sightman i_gamespec:gamespec
+  cmd generate                     adv_game.codelib+0xab8c0
+  cmd ctrl_tick                    adv_game.codelib+0xab990
+  cmd save                         adv_game.codelib+0xab840
+  cmd load                         adv_game.codelib+0xab850
+  cmd loaded                       adv_game.codelib+0xab860
+  cmd sync                         adv_game.codelib+0x100530
+i_shellphys:shellphys  obj=000000000691E8F0  vtbl=basic_physic.codelib+0x3c0e8  refs=1 flags=3
+  dispatch=basic_physic.codelib+0x2d670
+  deps: i_env:env i_coldet:coldet i_camera:camera i_matman:matman i_landbase:landbase i_tracereff:tracereff i_landeff:landeff i_gobjects:gobjects i_debinfo:debinfo i_sides:sides i_pcs:pcs i_audioman:audioman i_statistic:statistic i_orender:orender i_weatherman:weatherman i_sre_resolver:sre_resolver i_fireact:fireact i_partsys:partsys i_fireman:fireman i_deflocal:deflocal i_lights:lights i_weapons:weapons
+  cmd ctrl_tick                    basic_physic.codelib+0x16c20
+  cmd generate                     basic_physic.codelib+0x16c10
+  cmd save                         basic_physic.codelib+0x16b70
+  cmd load                         basic_physic.codelib+0x16b80
+  cmd sync                         basic_physic.codelib+0x2d420
+i_tracereff:tracereff  obj=00000000069620A0  vtbl=adv_game.codelib+0x12efe8  refs=1 flags=3
+  dispatch=adv_game.codelib+0x100870
+  deps: i_meshbase:meshbase i_gobjects:gobjects i_camera:camera i_texman:texman i_defrender:defrender i_render:render i_effman:effman
+  cmd generate                     adv_game.codelib+0x9b670
+  cmd ctrl_tick                    adv_game.codelib+0x9b720
+  cmd render_l                     adv_game.codelib+0x9b740
+  cmd render_z                     adv_game.codelib+0x9b750
+  cmd render_g                     adv_game.codelib+0x9b850
+  cmd renres                       adv_game.codelib+0x9b980
+  cmd reninv                       adv_game.codelib+0x9b9f0
+  cmd save                         adv_game.codelib+0x9b510
+  cmd load                         adv_game.codelib+0x9b520
+  cmd sync                         adv_game.codelib+0x100530
+i_patheff:patheff  obj=00000000069622B0  vtbl=adv_game.codelib+0x12edf8  refs=1 flags=3
+  dispatch=adv_game.codelib+0x100870
+  deps: i_meshbase:meshbase i_landbase:landbase i_gobjects:gobjects i_texman:texman i_env:env i_defrender:defrender
+  cmd tick                         adv_game.codelib+0x95510
+  cmd generate                     adv_game.codelib+0x95500
+  cmd render_g                     adv_game.codelib+0x95520
+  cmd save                         adv_game.codelib+0x954e0
+  cmd load                         adv_game.codelib+0x954f0
+  cmd sync                         adv_game.codelib+0x100530
+i_markseff:markseff  obj=0000000006962480  vtbl=adv_game.codelib+0x12ed88  refs=1 flags=3
+  dispatch=adv_game.codelib+0x100870
+  deps: i_meshbase:meshbase i_camera:camera i_gobjects:gobjects i_texman:texman i_weatherman:weatherman i_defrender:defrender
+  cmd ctrl_tick                    adv_game.codelib+0x92cc0
+  cmd tick                         adv_game.codelib+0x92cd0
+  cmd generate                     adv_game.codelib+0x92cb0
+  cmd render_g                     adv_game.codelib+0x92ce0
+  cmd render                       adv_game.codelib+0x92df0
+  cmd save                         adv_game.codelib+0x92c90
+  cmd load                         adv_game.codelib+0x92ca0
+  cmd sync                         adv_game.codelib+0x100530
+i_select:select  obj=0000000006962650  vtbl=adv_interf.codelib+0x9a9e0  refs=1 flags=3
+  dispatch=adv_interf.codelib+0xebc0
+  deps: i_render:render i_camera:camera i_controls:controls i_formation:formation i_landbase:landbase i_cursor:cursor i_texman:texman i_gobjects:gobjects i_meshbase:meshbase i_weatherman:weatherman i_gamecam:gamecam i_trigman:trigman i_gamespec:gamespec i_sides:sides i_coldet:coldet i_divisions:divisions i_simplefont:simplefont i_lines2d:lines2d i_scenespr:scenespr i_aiplacer:aiplacer i_statistic:statistic i_visman:visman i_env:env i_mapeff:mapeff i_effman:effman i_target:target i_intereff:intereff i_window:window i_sightman:sightman i_landmarks:landmarks i_ctrltimer:ctrltimer i_epurviewer:epurviewer i_logic:logic i_shellphys:shellphys i_user:user i_tactics:tactics
+  cmd generate                     adv_interf.codelib+0x50ed0
+  cmd tick                         adv_interf.codelib+0x50f10
+  cmd setinput                     adv_interf.codelib+0x56ba0
+  cmd render                       adv_interf.codelib+0x50f20
+  cmd render_c                     adv_interf.codelib+0x50f70
+  cmd render_back                  adv_interf.codelib+0x510c0
+  cmd gamemode                     adv_interf.codelib+0x51200
+  cmd save                         adv_interf.codelib+0x50eb0
+  cmd load                         adv_interf.codelib+0x50ec0
+  cmd sync                         adv_interf.codelib+0xe930
+i_lines2d:lines2d  obj=00000000009CEEB0  vtbl=basic_render.codelib+0x4a908  refs=8 flags=3
+  dispatch=basic_render.codelib+0x38280
+  deps: i_render:render i_effman:effman
+  cmd generate                     basic_render.codelib+0x2e730
+  cmd sync                         basic_render.codelib+0x38060
+i_sre_resolver:sre_resolver  obj=000000000698D600  vtbl=adv_game.codelib+0x12de28  refs=2 flags=3
+  dispatch=adv_game.codelib+0x100870
+  deps: i_lights:lights i_camera:camera i_gobjects:gobjects i_partsys:partsys i_landbase:landbase i_matman:matman i_trencher:trencher i_env:env i_weatherman:weatherman
+  cmd generate                     adv_game.codelib+0x60c00
+  cmd ctrl_tick                    adv_game.codelib+0x60d50
+  cmd del_pgen                     adv_game.codelib+0x60ea0
+  cmd save                         adv_game.codelib+0x60ab0
+  cmd load                         adv_game.codelib+0x60bb0
+  cmd sync                         adv_game.codelib+0x100530
+i_smoothpp:smoothpp  obj=000000000698D7F0  vtbl=adv_render.codelib+0x4b328  refs=1 flags=3
+  dispatch=adv_render.codelib+0x3a930
+  deps: i_effman:effman i_defcompose:defcompose i_defrender:defrender i_render:render i_heat:heat
+  cmd generate                     adv_render.codelib+0x358b0
+  cmd render_c                     adv_render.codelib+0x358c0
+  cmd render                       adv_render.codelib+0x358d0
+  cmd renres                       adv_render.codelib+0x358e0
+  cmd reninv                       adv_render.codelib+0x35a20
+  cmd sync                         adv_render.codelib+0x3a720
+i_tonepp:tonepp  obj=0000000002F26140  vtbl=adv_render.codelib+0x4b358  refs=1 flags=3
+  dispatch=adv_render.codelib+0x3a930
+  deps: i_effman:effman i_defcompose:defcompose i_defrender:defrender i_render:render
+  cmd generate                     adv_render.codelib+0x36e50
+  cmd render_c                     adv_render.codelib+0x36e60
+  cmd renres                       adv_render.codelib+0x36e70
+  cmd reninv                       adv_render.codelib+0x36e80
+  cmd tick                         adv_render.codelib+0x36e90
+  cmd sync                         adv_render.codelib+0x3a720
+i_ambientpp:ambientpp  obj=000000000698EA60  vtbl=adv_render.codelib+0x4b1e0  refs=1 flags=3
+  dispatch=adv_render.codelib+0x3a930
+  deps: i_effman:effman i_render:render i_defrender:defrender i_defcompose:defcompose i_texman:texman i_camera:camera
+  cmd generate                     adv_render.codelib+0x344c0
+  cmd render_l                     adv_render.codelib+0x344d0
+  cmd renres                       adv_render.codelib+0x344e0
+  cmd reninv                       adv_render.codelib+0x34630
+  cmd sync                         adv_render.codelib+0x3a720
+i_transpp:transpp  obj=0000000004DC9B10  vtbl=adv_render.codelib+0x4add8  refs=1 flags=3
+  dispatch=adv_render.codelib+0x3a930
+  deps: i_effman:effman i_defcompose:defcompose i_defrender:defrender i_render:render
+  cmd generate                     adv_render.codelib+0x231e0
+  cmd render_c                     adv_render.codelib+0x232f0
+  cmd renres                       adv_render.codelib+0x23300
+  cmd sync                         adv_render.codelib+0x3a720
+i_landmarks:landmarks  obj=0000000004E42620  vtbl=adv_game.codelib+0x130218  refs=1 flags=3
+  dispatch=adv_game.codelib+0x100870
+  deps: i_user:user i_trigman:trigman i_sides:sides i_landbase:landbase i_gamespec:gamespec i_select:select i_gamecam:gamecam i_camera:camera i_weatherman:weatherman i_env:env
+  cmd generate                     adv_game.codelib+0xed620
+  cmd save                         adv_game.codelib+0xed570
+  cmd load                         adv_game.codelib+0xed610
+  cmd sync                         adv_game.codelib+0x100530
+i_epurviewer:epurviewer  obj=000000000698ED80  vtbl=basic_game.codelib+0xe4b78  refs=1 flags=3
+  dispatch=basic_game.codelib+0xbad70
+  deps: i_weapons:weapons i_render:render i_simplefont:simplefont i_controls:controls i_tabviewer:tabviewer i_lines2d:lines2d i_scenespr:scenespr i_target:target i_env:env
+  cmd tick                         basic_game.codelib+0x10200
+  cmd generate                     basic_game.codelib+0x9a190
+  cmd render                       basic_game.codelib+0x9a2c0
+  cmd sync                         basic_game.codelib+0xbaac0
+i_aiplacer:aiplacer  obj=000000000698EF50  vtbl=adv_game.codelib+0x12f4e8  refs=1 flags=3
+  dispatch=adv_game.codelib+0x100870
+  deps: i_landbase:landbase i_sides:sides i_gamespec:gamespec i_plcmapeff:plcmapeff i_divisions:divisions i_trigman:trigman i_aicolonel:aicolonel i_tactics:tactics
+  cmd generate                     adv_game.codelib+0xb6390
+  cmd save                         adv_game.codelib+0xb6270
+  cmd load                         adv_game.codelib+0xb6330
+  cmd sync                         adv_game.codelib+0x100530
+i_trencher:trencher  obj=000000000698F370  vtbl=adv_game.codelib+0x12fea0  refs=18 flags=3
+  dispatch=adv_game.codelib+0x100870
+  deps: i_landbase:landbase i_plcmapeff:plcmapeff i_divisions:divisions i_matman:matman i_landeff:landeff i_grasseff:grasseff i_tactics:tactics i_gamespec:gamespec i_orender:orender i_pcs:pcs i_sides:sides i_mapeff:mapeff i_camera:camera i_landman:landman
+  cmd generate                     adv_game.codelib+0xda420
+  cmd ctrl_tick                    adv_game.codelib+0xda480
+  cmd save                         adv_game.codelib+0xda400
+  cmd load                         adv_game.codelib+0xda410
+  cmd sync                         adv_game.codelib+0x100530
+i_specman:specman  obj=00000000069D7960  vtbl=adv_game.codelib+0x12fa98  refs=1 flags=3
+  dispatch=adv_game.codelib+0x100870
+  deps: i_landbase:landbase i_orender:orender i_pcs:pcs
+  cmd generate                     adv_game.codelib+0xd8f20
+  cmd save                         adv_game.codelib+0xd8ea0
+  cmd load                         adv_game.codelib+0xd8eb0
+  cmd sync                         adv_game.codelib+0x100530
+i_aicolonel:aicolonel  obj=0000000006A04AD0  vtbl=adv_game.codelib+0x12f650  refs=1 flags=3
+  dispatch=adv_game.codelib+0x100870
+  deps: i_landbase:landbase i_sides:sides i_gamespec:gamespec i_plcmapeff:plcmapeff i_divisions:divisions i_trigman:trigman i_aiplacer:aiplacer i_trencher:trencher i_formation:formation i_statistic:statistic i_intereff:intereff i_target:target i_tactics:tactics i_weatherman:weatherman i_env:env
+  cmd generate                     adv_game.codelib+0xbeb10
+  cmd ctrl_tick                    adv_game.codelib+0xbec30
+  cmd ord_done                     adv_game.codelib+0xbedc0
+  cmd ord_start                    adv_game.codelib+0xbede0
+  cmd save                         adv_game.codelib+0xbeaf0
+  cmd load                         adv_game.codelib+0xbeb00
+  cmd sync                         adv_game.codelib+0x100530
+i_logic:logic  obj=0000000006A0E500  vtbl=adv_game.codelib+0x12d6d0  refs=1 flags=3
+  dispatch=adv_game.codelib+0x100870
+  deps: i_landbase:landbase i_select:select i_gamespec:gamespec i_intereff:intereff i_mapeff:mapeff i_controls:controls i_divisions:divisions i_aiplacer:aiplacer i_plcmapeff:plcmapeff i_gamecam:gamecam i_trigman:trigman i_formation:formation i_redef:redef i_window:window i_tabviewer:tabviewer
+  cmd generate                     adv_game.codelib+0x4e430
+  cmd tick                         adv_game.codelib+0x4e470
+  cmd ctrl_tick                    adv_game.codelib+0x4e480
+  cmd save                         adv_game.codelib+0x4e320
+  cmd load                         adv_game.codelib+0x4e330
+  cmd sync                         adv_game.codelib+0x100530
+i_statistic:statistic  obj=0000000006A100C0  vtbl=adv_game.codelib+0x12df90  refs=1 flags=3
+  dispatch=adv_game.codelib+0x100870
+  deps: i_camera:camera i_sides:sides i_gamespec:gamespec i_divisions:divisions i_controls:controls i_render:render i_select:select i_meshbase:meshbase i_gobjects:gobjects i_simplefont:simplefont i_trigman:trigman i_orender:orender i_env:env i_pcs:pcs
+  cmd generate                     adv_game.codelib+0x659e0
+  cmd render_c                     adv_game.codelib+0x65b40
+  cmd render                       adv_game.codelib+0x65b60
+  cmd tick                         adv_game.codelib+0x65b90
+  cmd end_game                     adv_game.codelib+0x65b80
+  cmd save                         adv_game.codelib+0x658d0
+  cmd load                         adv_game.codelib+0x658e0
+  cmd sync                         adv_game.codelib+0x100530
+i_tabviewer:tabviewer  obj=0000000006A11640  vtbl=basic_game.codelib+0xe4e18  refs=2 flags=3
+  dispatch=basic_game.codelib+0xbad70
+  deps: i_render:render i_simplefont:simplefont i_controls:controls i_scenespr:scenespr i_cursor:cursor i_lines2d:lines2d i_input:input i_window:window i_env:env i_user:user
+  cmd tick                         basic_game.codelib+0xa71c0
+  cmd generate                     basic_game.codelib+0xa7110
+  cmd render                       basic_game.codelib+0xa71d0
+  cmd winmes                       basic_game.codelib+0x567d0
+  cmd sync                         basic_game.codelib+0xbaac0
+i_aimap:aimap  obj=0000000006A131D0  vtbl=adv_game.codelib+0x12f2c8  refs=1 flags=3
+  dispatch=adv_game.codelib+0x100870
+  deps: i_render:render i_effman:effman i_landbase:landbase
+  cmd generate                     adv_game.codelib+0xa8ed0
+  cmd ctrl_tick                    adv_game.codelib+0xa8ee0
+  cmd render                       adv_game.codelib+0xa8f10
+  cmd renres                       adv_game.codelib+0xa9020
+  cmd reninv                       adv_game.codelib+0xa90b0
+  cmd save                         adv_game.codelib+0xa8eb0
+  cmd load                         adv_game.codelib+0xa8ec0
+  cmd sync                         adv_game.codelib+0x100530
+i_lighter:lighter  obj=0000000006A74770  vtbl=adv_game.codelib+0x12ecd0  refs=1 flags=3
+  dispatch=adv_game.codelib+0x100870
+  deps: i_aimap:aimap i_lights:lights i_deflocal:deflocal i_landbase:landbase i_heat:heat
+  cmd generate                     adv_game.codelib+0x916d0
+  cmd ctrl_tick                    adv_game.codelib+0x91730
+  cmd save                         adv_game.codelib+0x91590
+  cmd load                         adv_game.codelib+0x91660
+  cmd sync                         adv_game.codelib+0x100530
+i_fireact:fireact  obj=0000000006A809A0  vtbl=adv_game.codelib+0x130120  refs=1 flags=3
+  dispatch=adv_game.codelib+0x100870
+  deps: i_aimap:aimap i_sides:sides
+  cmd generate                     adv_game.codelib+0xebb00
+  cmd ctrl_tick                    adv_game.codelib+0xebb70
+  cmd save                         adv_game.codelib+0xebae0
+  cmd load                         adv_game.codelib+0xebaf0
+  cmd sync                         adv_game.codelib+0x100530
+i_visman:visman  obj=0000000004DE58E0  vtbl=adv_game.codelib+0x12ffb0  refs=1 flags=3
+  dispatch=adv_game.codelib+0x100870
+  deps: i_target:target i_sides:sides i_trigman:trigman i_gamespec:gamespec i_env:env i_divisions:divisions i_landbase:landbase i_formation:formation i_select:select i_ctrltimer:ctrltimer i_statistic:statistic
+  cmd generate                     adv_game.codelib+0xe36b0
+  cmd tick                         adv_game.codelib+0xe3850
+  cmd ctrl_tick                    adv_game.codelib+0xe3860
+  cmd gamemode                     adv_game.codelib+0xe3880
+  cmd save                         adv_game.codelib+0xe3690
+  cmd load                         adv_game.codelib+0xe36a0
+  cmd sync                         adv_game.codelib+0x100530
+i_ambientman:ambientman  obj=0000000006AA0CF0  vtbl=adv_game.codelib+0x1300a8  refs=1 flags=3
+  dispatch=adv_game.codelib+0x100870
+  deps: i_camera:camera i_audioman:audioman i_fireact:fireact i_weatherman:weatherman i_env:env i_landbase:landbase i_gamecam:gamecam i_gamespec:gamespec
+  cmd tick                         adv_game.codelib+0xe7900
+  cmd generate                     adv_game.codelib+0xe78f0
+  cmd save                         adv_game.codelib+0xe7750
+  cmd load                         adv_game.codelib+0xe7840
+  cmd loaded                       adv_game.codelib+0xe7880
+  cmd sync                         adv_game.codelib+0x100530
+i_plcmapeff:plcmapeff  obj=0000000006AA10B0  vtbl=basic_game.codelib+0xe2f20  refs=3 flags=3
+  dispatch=basic_game.codelib+0xbad70
+  deps: i_landbase:landbase i_texman:texman i_divisions:divisions i_gamespec:gamespec i_sides:sides i_trigman:trigman
+  cmd generate                     basic_game.codelib+0x6d900
+  cmd save                         basic_game.codelib+0x6d760
+  cmd load                         basic_game.codelib+0x6d880
+  cmd sync                         basic_game.codelib+0xbaac0
+i_redefiner:redefiner  obj=0000000006AA14D0  vtbl=basic_game.codelib+0xe4dc0  refs=2 flags=3
+  dispatch=basic_game.codelib+0xbad70
+  deps: i_user:user i_render:render i_env:env i_redef:redef i_controls:controls i_simplefont:simplefont i_gamespec:gamespec i_profiles:profiles i_tabviewer:tabviewer i_scenespr:scenespr i_intereff:intereff
+  cmd generate                     basic_game.codelib+0xa4db0
+  cmd setinput                     basic_game.codelib+0xa4e40
+  cmd sync                         basic_game.codelib+0xbaac0
+i_heat:heat  obj=0000000006AA16A0  vtbl=adv_render.codelib+0x4a1a0  refs=1 flags=3
+  dispatch=adv_render.codelib+0x3a930
+  cmd tick                         adv_render.codelib+0x8270
+  cmd save                         adv_render.codelib+0xcc70
+  cmd load                         adv_render.codelib+0xcdc0
+  cmd sync                         adv_render.codelib+0x3a720
+i_defheat:defheat  obj=0000000004DC8D90  vtbl=adv_render.codelib+0x49ed8  refs=1 flags=3
+  dispatch=adv_render.codelib+0x3a930
+  deps: i_heat:heat i_meshbase:meshbase i_render:render i_defrender:defrender i_camera:camera i_gobjects:gobjects i_weatherman:weatherman
+  cmd generate                     adv_render.codelib+0x9970
+  cmd render_l                     adv_render.codelib+0x9a80
+  cmd sync                         adv_render.codelib+0x3a720
+i_metahum:metahum  obj=0000000006AA1800  vtbl=adv_physic.codelib+0xc6f38  refs=1 flags=3
+  dispatch=adv_physic.codelib+0x9930
+  cmd ctrl_tick                    adv_physic.codelib+0x7b7c0
+  cmd generate                     adv_physic.codelib+0x7b7b0
+  cmd sync                         adv_physic.codelib+0x96d0
+i_enpres:enpres  obj=0000000006AA1950  vtbl=adv_game.codelib+0x1300d0  refs=1 flags=3
+  dispatch=adv_game.codelib+0x100870
+  deps: i_aimap:aimap i_sides:sides i_trigman:trigman i_gamespec:gamespec i_target:target i_shellphys:shellphys i_landbase:landbase
+  cmd generate                     adv_game.codelib+0xea6c0
+  cmd ctrl_tick                    adv_game.codelib+0xea760
+  cmd save                         adv_game.codelib+0xea590
+  cmd load                         adv_game.codelib+0xea6b0
+  cmd sync                         adv_game.codelib+0x100530
+i_manhu:manhu  obj=0000000004DEC3B0  vtbl=adv_physic.codelib+0xc6ec8  refs=1 flags=2
+  dispatch=adv_physic.codelib+0x9930
+i_steam:steam  obj=0000000006B61FE0  vtbl=basic_steam.codelib+0xce90  refs=2 flags=3
+  dispatch=basic_steam.codelib+0x21f0
+  deps: i_window:window
+  cmd generate                     basic_steam.codelib+0x4d90
+  cmd tick                         basic_steam.codelib+0x4db0
+  cmd sync                         basic_steam.codelib+0x1fa0
+i_manam:manam  obj=0000000006B621B0  vtbl=adv_physic.codelib+0xc6e60  refs=1 flags=3
+  dispatch=adv_physic.codelib+0x9930
+  deps: i_gamespec:gamespec
+  cmd generate                     adv_physic.codelib+0x9990
+  cmd sync                         adv_physic.codelib+0x96d0
+i_aar:aar  obj=0000000006B62300  vtbl=adv_interf.codelib+0x99260  refs=1 flags=3
+  dispatch=adv_interf.codelib+0xebc0
+  deps: i_gamespec:gamespec i_divisions:divisions i_lines2d:lines2d i_simplefont:simplefont i_visman:visman i_env:env
+  cmd generate                     adv_interf.codelib+0x419d0
+  cmd ctrl_tick                    adv_interf.codelib+0x41960
+  cmd sync                         adv_interf.codelib+0xe930
+i_network:network  obj=0000000006B625D0  vtbl=basic_network.codelib+0x7040  refs=1 flags=3
+  dispatch=basic_network.codelib+0x10bc
+  cmd sync                         basic_network.codelib+0x1ae4
+  cmd tick                         basic_network.codelib+0x1b68
+  cmd generate                     basic_network.codelib+0x1a9c

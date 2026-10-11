@@ -1,0 +1,756 @@
+// RTTI class names
+//   .?AVbad_alloc@std@@
+//   .?AVexception@std@@
+//   .?AVbad_array_new_length@std@@
+//   .?AVh_except@errors@@
+//   .?AVbad_cast@std@@
+//   .?AVh_except_sync@errors@@
+//   .?AVtype_info@@
+//   .?AVh_mes_ctrl_tick@iCtrlTimer@main@@
+//   .?AViObject@base@@
+//   .?AVh_message@base@@
+//   .?AVi_ctrltimer@@
+//   .?AVi_object@base@@
+//   .?AVh_mes_addobject@base@@
+//   .?AVi_env@@
+//   .?AVi_pipeline@@
+//   .?AVh_mes_tick@iTimer@main@@
+//   .?AVi_timer@@
+//   .?AVh_mes_activate@iWindow@main@@
+//   .?AVh_mes_winmes@iWindow@main@@
+//   .?AVi_window@@
+//   .?AVh_sync@@
+//   .?AVi_loader@@
+//   .?AV?$basic_filebuf@DU?$char_traits@D@std@@@std@@
+//   .?AV?$basic_fstream@DU?$char_traits@D@std@@@std@@
+//   .?AVios_base@std@@
+//   .?AV?$basic_iostream@DU?$char_traits@D@std@@@std@@
+//   .?AV?$_Iosb@H@std@@
+//   .?AV?$basic_streambuf@DU?$char_traits@D@std@@@std@@
+//   .?AVi_script_proc@@
+//   .?AV?$basic_istream@DU?$char_traits@D@std@@@std@@
+//   .?AV?$basic_ios@DU?$char_traits@D@std@@@std@@
+//   .?AV?$basic_ostream@DU?$char_traits@D@std@@@std@@
+//   .?AVh_image@adv_image@@
+//   .?AVh_tga_image@adv_image@@
+//   .?AVh_factory@base@@
+
+//==== GetFactory3 @ 18001b330  (export)
+
+undefined ** GetFactory3(void)
+
+{
+                    /* 0x1b330  1  GetFactory3 */
+  if (*(int *)(*(longlong *)((longlong)ThreadLocalStoragePointer + (ulonglong)_tls_index * 8) + 4) <
+      DAT_18002ea30) {
+    FUN_18001b830(&DAT_18002ea30);
+    if (DAT_18002ea30 == -1) {
+      DAT_18002b248 = FUN_18001bc4c(0x30);
+      *(longlong *)DAT_18002b248 = DAT_18002b248;
+      *(longlong *)(DAT_18002b248 + 8) = DAT_18002b248;
+      *(longlong *)(DAT_18002b248 + 0x10) = DAT_18002b248;
+      *(undefined2 *)(DAT_18002b248 + 0x18) = 0x101;
+      atexit(FUN_18001e830);
+      _Init_thread_footer(&DAT_18002ea30);
+      return &PTR_vftable_18002b240;
+    }
+  }
+  return &PTR_vftable_18002b240;
+}
+
+
+
+//==== FUN_18001bc4c @ 18001bc4c  (called by GetFactory3)
+
+void FUN_18001bc4c(size_t param_1)
+
+{
+  int iVar1;
+  void *pvVar2;
+  
+  do {
+    pvVar2 = malloc(param_1);
+    if (pvVar2 != (void *)0x0) {
+      return;
+    }
+    iVar1 = _callnewh(param_1);
+  } while (iVar1 != 0);
+  if (param_1 == 0xffffffffffffffff) {
+                    /* WARNING: Subroutine does not return */
+    FUN_180005090();
+  }
+                    /* WARNING: Subroutine does not return */
+  FUN_18001c430();
+}
+
+
+
+//==== atexit @ 18001bc00  (called by GetFactory3)
+
+/* Library Function - Single Match
+    atexit
+   
+   Library: Visual Studio 2019 Release */
+
+int __cdecl atexit(_func_5014 *param_1)
+
+{
+  _onexit_t p_Var1;
+  
+  p_Var1 = _onexit((_onexit_t)param_1);
+  return (p_Var1 != (_onexit_t)0x0) - 1;
+}
+
+
+
+//==== FUN_18001b830 @ 18001b830  (called by GetFactory3)
+
+void FUN_18001b830(int *param_1)
+
+{
+  AcquireSRWLockExclusive((PSRWLOCK)&DAT_18002b918);
+  do {
+    if (*param_1 == 0) {
+      *param_1 = -1;
+LAB_18001b895:
+                    /* WARNING: Could not recover jumptable at 0x00018001b8a1. Too many branches */
+                    /* WARNING: Treating indirect jump as call */
+      ReleaseSRWLockExclusive((PSRWLOCK)&DAT_18002b918);
+      return;
+    }
+    if (*param_1 != -1) {
+      *(undefined4 *)
+       (*(longlong *)((longlong)ThreadLocalStoragePointer + (ulonglong)_tls_index * 8) + 4) =
+           DAT_18002b000;
+      goto LAB_18001b895;
+    }
+    SleepConditionVariableSRW
+              ((PCONDITION_VARIABLE)&DAT_18002b910,(PSRWLOCK)&DAT_18002b918,0xffffffff,0);
+  } while( true );
+}
+
+
+
+//==== _Init_thread_footer @ 18001b7c4  (called by GetFactory3)
+
+/* Library Function - Single Match
+    _Init_thread_footer
+   
+   Library: Visual Studio 2019 Release */
+
+void _Init_thread_footer(int *param_1)
+
+{
+  ulonglong uVar1;
+  
+  AcquireSRWLockExclusive((PSRWLOCK)&DAT_18002b918);
+  uVar1 = (ulonglong)_tls_index;
+  DAT_18002b000 = DAT_18002b000 + 1;
+  *param_1 = DAT_18002b000;
+  *(int *)(*(longlong *)((longlong)ThreadLocalStoragePointer + uVar1 * 8) + 4) = DAT_18002b000;
+  ReleaseSRWLockExclusive((PSRWLOCK)&DAT_18002b918);
+                    /* WARNING: Could not recover jumptable at 0x00018001b826. Too many branches */
+                    /* WARNING: Treating indirect jump as call */
+  WakeAllConditionVariable(&DAT_18002b910);
+  return;
+}
+
+
+
+// VTABLE @ 180023bc8
+//   [0] +0x0 -> 180004160 FUN_180004160
+
+//==== FUN_180004160 @ 180004160  (vtable 180023bc8 slot 0)
+
+undefined8 * FUN_180004160(undefined8 *param_1,ulonglong param_2)
+
+{
+  *param_1 = base::i_object::vftable;
+  if ((void *)param_1[0x16] != (void *)0x0) {
+    _aligned_free((void *)param_1[0x16]);
+  }
+  if ((void *)param_1[0x13] != (void *)0x0) {
+    _aligned_free((void *)param_1[0x13]);
+  }
+  if ((void *)param_1[0x10] != (void *)0x0) {
+    _aligned_free((void *)param_1[0x10]);
+  }
+  *param_1 = base::iObject::vftable;
+  if ((param_2 & 1) != 0) {
+    if ((param_2 & 4) == 0) {
+      _aligned_free(param_1);
+      return param_1;
+    }
+    _guard_check_icall();
+  }
+  return param_1;
+}
+
+
+//   [1] +0x8 -> 180003ba0 FUN_180003ba0
+
+//==== FUN_180003ba0 @ 180003ba0  (vtable 180023bc8 slot 1)
+
+undefined8 FUN_180003ba0(undefined8 param_1,undefined4 *param_2)
+
+{
+  *param_2 = 0;
+  return 0;
+}
+
+
+//   [2] +0x10 -> 18001ad10 FUN_18001ad10
+
+//==== FUN_18001ad10 @ 18001ad10  (vtable 180023bc8 slot 2)
+
+void FUN_18001ad10(longlong param_1,longlong param_2)
+
+{
+  undefined8 *puVar1;
+  
+  puVar1 = (undefined8 *)FUN_18001b070(param_1 + 0x80,param_2 + 8);
+  if (puVar1 != (undefined8 *)
+                (*(longlong *)(param_1 + 0x80) + (ulonglong)*(uint *)(param_1 + 0x8c) * 8)) {
+    (*(code *)*puVar1)(param_1,param_2);
+  }
+  return;
+}
+
+
+//   [3] +0x18 -> 180004680 FUN_180004680
+
+//==== FUN_180004680 @ 180004680  (vtable 180023bc8 slot 3)
+
+void FUN_180004680(longlong param_1,float param_2)
+
+{
+  float fVar1;
+  
+  if (param_2 <= 0.0) {
+    param_2 = 0.0;
+  }
+  *(float *)(param_1 + 0x108) = param_2;
+  if (*(char *)(param_1 + 0x15d) != '\0') {
+    fVar1 = *(float *)(param_1 + 0x10c);
+    if (param_2 <= *(float *)(param_1 + 0x10c)) {
+      fVar1 = param_2;
+    }
+    *(float *)(param_1 + 0x10c) = fVar1;
+    return;
+  }
+  *(float *)(param_1 + 0x10c) = param_2;
+  return;
+}
+
+
+//   [4] +0x20 -> 180003d80 FUN_180003d80
+
+//==== FUN_180003d80 @ 180003d80  (vtable 180023bc8 slot 4)
+
+undefined4 FUN_180003d80(longlong param_1,char param_2)
+
+{
+  if (*(char *)(param_1 + 0x15c) != '\0') {
+    return 0;
+  }
+  if ((param_2 != '\0') && (0xf < *(uint *)(param_1 + 0x158))) {
+    return *(undefined4 *)(param_1 + 0x10c);
+  }
+  return *(undefined4 *)(param_1 + 0x108);
+}
+
+
+//   [5] +0x28 -> 180003db0 FUN_180003db0
+
+//==== FUN_180003db0 @ 180003db0  (vtable 180023bc8 slot 5)
+
+void FUN_180003db0(longlong param_1,undefined1 param_2)
+
+{
+  *(undefined1 *)(param_1 + 0x15c) = param_2;
+  return;
+}
+
+
+//   [6] +0x30 -> 180003dc0 FUN_180003dc0
+
+//==== FUN_180003dc0 @ 180003dc0  (vtable 180023bc8 slot 6)
+
+undefined1 FUN_180003dc0(longlong param_1)
+
+{
+  return *(undefined1 *)(param_1 + 0x15c);
+}
+
+
+//   [7] +0x38 -> 180003dd0 FUN_180003dd0
+
+//==== FUN_180003dd0 @ 180003dd0  (vtable 180023bc8 slot 7)
+
+undefined1 FUN_180003dd0(longlong param_1)
+
+{
+  return *(undefined1 *)(param_1 + 0x15d);
+}
+
+
+//   [8] +0x40 -> 1800254c8 (no func)
+//   [9] +0x48 -> 180003d40 FUN_180003d40
+
+//==== FUN_180003d40 @ 180003d40  (vtable 180023bc8 slot 9)
+
+undefined8 * FUN_180003d40(undefined8 *param_1,ulonglong param_2)
+
+{
+  *param_1 = base::h_message::vftable;
+  if ((param_2 & 1) != 0) {
+    free(param_1);
+  }
+  return param_1;
+}
+
+
+//   [10] +0x50 -> 180025570 (no func)
+//   [11] +0x58 -> 180003b70 FUN_180003b70
+
+//==== FUN_180003b70 @ 180003b70  (vtable 180023bc8 slot 11)
+
+undefined8 * FUN_180003b70(undefined8 *param_1,ulonglong param_2)
+
+{
+  *param_1 = base::h_message::vftable;
+  if ((param_2 & 1) != 0) {
+    free(param_1);
+  }
+  return param_1;
+}
+
+
+//   [12] +0x60 -> 206e776f6e6b6e55 (no func)
+//   [13] +0x68 -> 6f69747065637865 (no func)
+//   [14] +0x70 -> 0000006e (no func)
+//   [15] +0x78 -> 6172726120646162 (no func)
+//   [16] +0x80 -> 656c2077656e2079 (no func)
+//   [17] +0x88 -> 6874676e (no func)
+//   [18] +0x90 -> 7420676e69727473 (no func)
+//   [19] +0x98 -> 676e6f6c206f6f (no func)
+//   [20] +0xa0 -> 3736353433323130 (no func)
+//   [21] +0xa8 -> 4645444342413938 (no func)
+//   [22] +0xb0 -> 7325732500000000 (no func)
+//   [23] +0xb8 -> 00000000 (no func)
+
+// STRING 'ctrl_tick' @ 1800205b8
+//   ref from 180004579 in FUN_180004200
+
+//==== FUN_180004200 @ 180004200  (refs 'ctrl_tick')
+
+/* WARNING: Globals starting with '_' overlap smaller symbols at the same address */
+
+void FUN_180004200(longlong param_1,float param_2,undefined4 param_3)
+
+{
+  longlong *plVar1;
+  double dVar2;
+  uint uVar3;
+  char cVar4;
+  uint uVar5;
+  float *pfVar6;
+  longlong lVar7;
+  undefined8 uVar8;
+  ulonglong uVar9;
+  uint uVar10;
+  char *pcVar11;
+  char *pcVar12;
+  uint uVar13;
+  uint uVar14;
+  float fVar15;
+  float fVar16;
+  float fVar17;
+  float fVar18;
+  float fVar19;
+  undefined4 local_res18 [2];
+  undefined **local_98;
+  char *pcStack_90;
+  undefined8 local_88;
+  undefined8 uStack_80;
+  undefined8 local_78;
+  undefined8 uStack_70;
+  undefined8 local_68;
+  undefined8 uStack_60;
+  float local_58 [12];
+  
+  uVar13 = 1;
+  local_res18[0] = param_3;
+  if (*(char *)(param_1 + 0x15e) == '\0') {
+    *(undefined1 *)(param_1 + 0x15e) = 1;
+    plVar1 = *(longlong **)(param_1 + 0xf0);
+    if (plVar1 != (longlong *)0x0) {
+      local_res18[0] = CONCAT31((int3)((uint)param_3 >> 8),1);
+      local_98 = (undefined **)0x180020650;
+      pcStack_90 = (char *)local_res18;
+      (**(code **)(*plVar1 + 0x58))(plVar1,param_1 + 8,&local_98,1);
+      if ((char)local_res18[0] == '\0') {
+        *(undefined1 *)(param_1 + 0x15d) = 0;
+      }
+      pcVar11 = "disable";
+      pcVar12 = "disable";
+      if ((char)local_res18[0] != '\0') {
+        pcVar12 = "enable";
+      }
+      FUN_18001ac90(param_1,0x10000,"Auto speed ctrl %C",pcVar12);
+      if (*(char *)(param_1 + 0x15d) != '\0') {
+        pcVar11 = "enable";
+      }
+      FUN_18001ac90(param_1,0x10000,"Actual auto speed ctrl %C",pcVar11);
+    }
+  }
+  cVar4 = (**(code **)(**(longlong **)(param_1 + 0x100) + 0x20))();
+  fVar19 = param_2;
+  if (((cVar4 == '\0') && (fVar18 = *(float *)(param_1 + 0x114), _DAT_180024f48 < fVar18)) &&
+     (fVar19 = fVar18, param_2 <= fVar18)) {
+    fVar19 = param_2;
+  }
+  if (*(char *)(param_1 + 0x15c) == '\0') {
+    fVar18 = *(float *)(param_1 + 0x108);
+  }
+  else {
+    fVar18 = 0.0;
+  }
+  if (*(char *)(param_1 + 0x15d) != '\0') {
+    if (*(uint *)(param_1 + 0x158) < 0x10) {
+      *(float *)(param_1 + 0x118 + (ulonglong)*(uint *)(param_1 + 0x158) * 4) = param_2;
+      *(int *)(param_1 + 0x158) = *(int *)(param_1 + 0x158) + 1;
+    }
+    else {
+      *(undefined4 *)(param_1 + 0x118) = *(undefined4 *)(param_1 + 0x11c);
+      *(undefined4 *)(param_1 + 0x11c) = *(undefined4 *)(param_1 + 0x120);
+      *(undefined4 *)(param_1 + 0x120) = *(undefined4 *)(param_1 + 0x124);
+      *(undefined4 *)(param_1 + 0x124) = *(undefined4 *)(param_1 + 0x128);
+      *(undefined4 *)(param_1 + 0x128) = *(undefined4 *)(param_1 + 300);
+      *(undefined4 *)(param_1 + 300) = *(undefined4 *)(param_1 + 0x130);
+      *(undefined4 *)(param_1 + 0x130) = *(undefined4 *)(param_1 + 0x134);
+      *(undefined4 *)(param_1 + 0x134) = *(undefined4 *)(param_1 + 0x138);
+      *(undefined4 *)(param_1 + 0x138) = *(undefined4 *)(param_1 + 0x13c);
+      *(undefined4 *)(param_1 + 0x13c) = *(undefined4 *)(param_1 + 0x140);
+      *(undefined4 *)(param_1 + 0x140) = *(undefined4 *)(param_1 + 0x144);
+      *(undefined4 *)(param_1 + 0x144) = *(undefined4 *)(param_1 + 0x148);
+      *(undefined4 *)(param_1 + 0x148) = *(undefined4 *)(param_1 + 0x14c);
+      *(undefined4 *)(param_1 + 0x14c) = *(undefined4 *)(param_1 + 0x150);
+      *(undefined4 *)(param_1 + 0x150) = *(undefined4 *)(param_1 + 0x154);
+      *(float *)(param_1 + 0x154) = param_2;
+      local_98 = *(undefined ***)(param_1 + 0x118);
+      pcStack_90 = *(char **)(param_1 + 0x120);
+      local_88 = *(undefined8 *)(param_1 + 0x128);
+      uStack_80 = *(undefined8 *)(param_1 + 0x130);
+      local_78 = *(undefined8 *)(param_1 + 0x138);
+      uStack_70 = *(undefined8 *)(param_1 + 0x140);
+      local_68 = *(undefined8 *)(param_1 + 0x148);
+      uStack_60 = *(undefined8 *)(param_1 + 0x150);
+      FUN_1800047d0((float *)&local_98,local_58,0x10,0);
+      uVar9 = 0;
+      pfVar6 = (float *)&DAT_18002b100;
+      do {
+        if ((float)local_78 < *pfVar6) {
+          lVar7 = uVar9 * 8;
+          fVar17 = *(float *)(param_1 + 0x108);
+          if ((int)uVar9 == 0) goto LAB_1800044aa;
+          goto LAB_18000449d;
+        }
+        uVar5 = (int)uVar9 + 1;
+        uVar9 = (ulonglong)uVar5;
+        pfVar6 = pfVar6 + 2;
+      } while (uVar5 < 8);
+      lVar7 = 0x38;
+LAB_18000449d:
+      fVar17 = fVar18;
+      if (*(float *)(lVar7 + 0x18002b104) <= fVar18) {
+        fVar17 = *(float *)(lVar7 + 0x18002b104);
+      }
+LAB_1800044aa:
+      fVar17 = fVar17 - *(float *)(param_1 + 0x10c);
+      fVar16 = (float)((uint)(fVar17 * DAT_180024f54 * param_2) & _DAT_1800250c0);
+      fVar15 = (float)((uint)fVar17 & _DAT_1800250c0);
+      if (fVar16 <= (float)((uint)fVar17 & _DAT_1800250c0)) {
+        fVar15 = fVar16;
+      }
+      dVar2 = _copysign((double)fVar15,(double)fVar17);
+      fVar17 = (float)dVar2 + *(float *)(param_1 + 0x10c);
+      *(float *)(param_1 + 0x10c) = fVar17;
+      if (fVar17 <= fVar18) {
+        fVar18 = fVar17;
+      }
+    }
+  }
+  uVar5 = (**(code **)(**(longlong **)(param_1 + 0x100) + 0x28))();
+  if (uVar5 < 2) {
+    uVar9 = 1;
+  }
+  else {
+    uVar5 = (**(code **)(**(longlong **)(param_1 + 0x100) + 0x28))();
+    uVar9 = (ulonglong)uVar5;
+  }
+  fVar17 = DAT_180024f44;
+  uVar14 = (uint)uVar9;
+  uVar5 = (int)((uint)(int)(fVar18 * fVar19 * DAT_180024f70) / uVar9) * uVar14;
+  if ((_DAT_180024f48 < fVar18) && (uVar5 < uVar14)) {
+    uVar5 = uVar14;
+  }
+  uVar14 = (int)((uint)(int)(*(float *)(param_1 + 0x110) * DAT_180024f70) / uVar9) * uVar14;
+  do {
+    uVar3 = uVar5;
+    if (uVar14 < uVar5) {
+      uVar3 = uVar14;
+    }
+    pcStack_90 = "ctrl_tick";
+    local_98 = main::iCtrlTimer::h_mes_ctrl_tick::vftable;
+    local_88 = CONCAT44((float)uVar3 * fVar17,fVar18 * fVar19);
+    uVar10 = 0;
+    if (uVar3 == uVar5) {
+      uVar10 = 2;
+    }
+    uStack_80 = CONCAT44(uVar10 | -(uint)(*(char *)(param_1 + 0x15c) != '\0') & 4 | uVar13,uVar3);
+    if (*(longlong **)(param_1 + 0xf8) == (longlong *)0x0) {
+      uVar8 = FUN_180003bd0(*(longlong *)(param_1 + 0x60),(undefined **)"ctrl_tick",'\0');
+      if ((char)uVar8 == '\0') {
+        (**(code **)(**(longlong **)(param_1 + 0x60) + 0x30))
+                  (*(longlong **)(param_1 + 0x60),"ctrl_tick","ctrl_tick",0);
+      }
+      (**(code **)(**(longlong **)(param_1 + 0x60) + 0x60))();
+    }
+    else {
+      (**(code **)(**(longlong **)(param_1 + 0xf8) + 0x10))();
+    }
+    uVar5 = uVar5 - uVar3;
+    uVar13 = 0;
+  } while (uVar5 != 0);
+  return;
+}
+
+
+//   ref from 1800045a9 in FUN_180004200
+//   ref from 180004604 in FUN_180004200
+//   ref from 1800206e8 in ?
+
+// STRING 'b:auto_tm_ctrl' @ 180020640
+//   ref from 180003f30 in FUN_180003e20
+
+//==== FUN_180003e20 @ 180003e20  (refs 'b:auto_tm_ctrl')
+
+/* WARNING: Globals starting with '_' overlap smaller symbols at the same address */
+
+longlong * FUN_180003e20(longlong *param_1,longlong param_2)
+
+{
+  float *pfVar1;
+  undefined1 *puVar2;
+  longlong *plVar3;
+  char cVar4;
+  undefined8 *puVar5;
+  undefined *local_res10;
+  char *local_88;
+  float *local_80;
+  char *local_78;
+  undefined1 *local_70;
+  char *local_68;
+  longlong *local_60;
+  char *local_58;
+  undefined4 *local_50;
+  char *local_48;
+  undefined1 *local_40;
+  
+  FUN_18001a890(param_1,*(undefined8 *)(param_2 + 0x18),(undefined **)"i_ctrltimer",
+                *(undefined ***)(param_2 + 0x10));
+  *param_1 = (longlong)i_ctrltimer::vftable;
+  pfVar1 = (float *)(param_1 + 0x21);
+  *pfVar1 = 1.0;
+  *(undefined4 *)((longlong)param_1 + 0x10c) = 0x3f800000;
+  *(undefined4 *)(param_1 + 0x22) = 0x3e800000;
+  *(undefined4 *)((longlong)param_1 + 0x114) = 0xbf800000;
+  *(undefined4 *)(param_1 + 0x2b) = 0;
+  *(undefined1 *)((longlong)param_1 + 0x15c) = 0;
+  puVar2 = (undefined1 *)((longlong)param_1 + 0x15d);
+  *puVar2 = 0;
+  *(undefined1 *)((longlong)param_1 + 0x15e) = 0;
+  plVar3 = *(longlong **)(param_2 + 0x20);
+  if (plVar3 != (longlong *)0x0) {
+    cVar4 = (**(code **)(*plVar3 + 0x10))(plVar3,param_1 + 1,0,&local_res10,0);
+    if (cVar4 != '\0') {
+      local_88 = "f:mult";
+      local_78 = "b:pause";
+      local_68 = "f:max_tick";
+      local_58 = "f:max_quant";
+      local_48 = "b:auto_tm_ctrl";
+      local_80 = pfVar1;
+      local_70 = (undefined1 *)((longlong)param_1 + 0x15c);
+      local_60 = param_1 + 0x22;
+      local_50 = (undefined4 *)((longlong)param_1 + 0x114);
+      local_40 = puVar2;
+      (**(code **)(*plVar3 + 0x30))(plVar3,(ulonglong)local_res10 & 0xffffffff,&local_88,5);
+      *puVar2 = 1;
+      if (*(code **)(*param_1 + 0x18) == FUN_180004680) {
+        FUN_180004680((longlong)param_1,*pfVar1);
+      }
+      else {
+        (**(code **)(*param_1 + 0x18))();
+      }
+    }
+  }
+  if (*(int *)(*(longlong *)((longlong)ThreadLocalStoragePointer + (ulonglong)_tls_index * 8) + 4) <
+      DAT_18002ea20) {
+    FUN_18001b830(&DAT_18002ea20);
+    if (DAT_18002ea20 == -1) {
+      _DAT_18002b0b0 = param_1 + 0x1e;
+      if (_DAT_18002b0b0 != (longlong *)0x0) {
+        *_DAT_18002b0b0 = 0;
+      }
+      _DAT_18002b0c0 = "i_timer";
+      _DAT_18002b0c8 = "timer";
+      _DAT_18002b0d0 = param_1 + 0x20;
+      _DAT_18002b0d8 = 1;
+      if (_DAT_18002b0d0 != (longlong *)0x0) {
+        *_DAT_18002b0d0 = 0;
+      }
+      _DAT_18002b0e0 = "i_pipeline";
+      _DAT_18002b0e8 = "pipeline";
+      _DAT_18002b0f0 = param_1 + 0x1f;
+      _DAT_18002b0f8 = 0;
+      if (_DAT_18002b0f0 != (longlong *)0x0) {
+        *_DAT_18002b0f0 = 0;
+      }
+      _Init_thread_footer(&DAT_18002ea20);
+    }
+  }
+  param_1[0x1c] = (longlong)&PTR_s_i_env_18002b0a0;
+  *(undefined4 *)(param_1 + 0x1d) = 3;
+  plVar3 = param_1 + 0x10;
+  FUN_18001ae20(plVar3,2);
+  local_res10 = &DAT_1800205ac;
+  puVar5 = (undefined8 *)FUN_18001b070(plVar3,&local_res10);
+  if (puVar5 == (undefined8 *)(*plVar3 + (ulonglong)*(uint *)((longlong)param_1 + 0x8c) * 8)) {
+    puVar5 = (undefined8 *)FUN_18001af10(plVar3,&local_res10,param_1 + 0x1b);
+  }
+  *puVar5 = &LAB_180003d70;
+  local_res10 = &DAT_180020590;
+  puVar5 = (undefined8 *)FUN_18001b070(plVar3,&local_res10);
+  if (puVar5 == (undefined8 *)(*plVar3 + (ulonglong)*(uint *)((longlong)param_1 + 0x8c) * 8)) {
+    puVar5 = (undefined8 *)FUN_18001af10(plVar3,&local_res10,param_1 + 0x1b);
+  }
+  *puVar5 = FUN_18001aac0;
+  return param_1;
+}
+
+
+//   ref from 180003f37 in FUN_180003e20
+
+// STRING 'f:fixed_tick' @ 180024590
+//   ref from 18000b8af in FUN_18000b770
+
+//==== FUN_18000b770 @ 18000b770  (refs 'f:fixed_tick')
+
+/* WARNING: Globals starting with '_' overlap smaller symbols at the same address */
+
+undefined8 * FUN_18000b770(undefined8 *param_1,longlong param_2)
+
+{
+  int *piVar1;
+  char cVar2;
+  longlong *plVar3;
+  undefined8 *puVar4;
+  undefined *local_res10;
+  char *local_88;
+  undefined8 *local_80;
+  char *local_78;
+  undefined4 *local_70;
+  char *local_68;
+  undefined1 *local_60;
+  char *local_58;
+  undefined8 *local_50;
+  char *local_48;
+  int *local_40;
+  
+  FUN_18001a890(param_1,*(undefined8 *)(param_2 + 0x18),(undefined **)"i_timer",
+                *(undefined ***)(param_2 + 0x10));
+  *param_1 = i_timer::vftable;
+  param_1[0x1e] = 0;
+  param_1[0x1f] = 0;
+  puVar4 = param_1 + 0x22;
+  *(undefined4 *)puVar4 = 0x3f800000;
+  *(undefined4 *)((longlong)param_1 + 0x114) = 0x3c23d70a;
+  *(undefined4 *)(param_1 + 0x23) = 0x3d23d70a;
+  *(undefined4 *)((longlong)param_1 + 0x11c) = 0;
+  piVar1 = (int *)(param_1 + 0x24);
+  *piVar1 = 10;
+  *(undefined1 *)((longlong)param_1 + 0x124) = 0;
+  (**(code **)(*(longlong *)param_1[0xc] + 0x120))();
+  plVar3 = FUN_18000b5f0((longlong *)&local_res10);
+  param_1[0x1e] = *plVar3 / 1000000;
+  plVar3 = *(longlong **)(param_2 + 0x20);
+  if (plVar3 != (longlong *)0x0) {
+    cVar2 = (**(code **)(*plVar3 + 0x10))(plVar3,param_1 + 1,0,&local_res10,0);
+    if (cVar2 != '\0') {
+      local_88 = "f:max_time";
+      local_78 = "f:min_time";
+      local_68 = "b:fixed";
+      local_58 = "f:fixed_tick";
+      local_48 = "u:discrete";
+      local_80 = puVar4;
+      local_70 = (undefined4 *)((longlong)param_1 + 0x114);
+      local_60 = (undefined1 *)((longlong)param_1 + 0x124);
+      local_50 = param_1 + 0x23;
+      local_40 = piVar1;
+      (**(code **)(*plVar3 + 0x30))(plVar3,(ulonglong)local_res10 & 0xffffffff,&local_88,5);
+      if (*piVar1 == 0) {
+        *piVar1 = 10;
+      }
+      FUN_18001ac90((longlong)param_1,0x10001,"%HMax time = %f,  min time = %f, discrete = %u",
+                    puVar4);
+    }
+  }
+  if (*(int *)(*(longlong *)((longlong)ThreadLocalStoragePointer + (ulonglong)_tls_index * 8) + 4) <
+      DAT_18002ea28) {
+    FUN_18001b830(&DAT_18002ea28);
+    if (DAT_18002ea28 == -1) {
+      _DAT_18002b170 = param_1 + 0x20;
+      if (_DAT_18002b170 != (undefined8 *)0x0) {
+        *_DAT_18002b170 = 0;
+      }
+      _DAT_18002b180 = "i_pipeline";
+      _DAT_18002b188 = "pipeline";
+      _DAT_18002b190 = param_1 + 0x21;
+      _DAT_18002b198 = 0;
+      if (_DAT_18002b190 != (undefined8 *)0x0) {
+        *_DAT_18002b190 = 0;
+      }
+      _Init_thread_footer(&DAT_18002ea28);
+    }
+  }
+  param_1[0x1c] = &PTR_s_i_window_18002b160;
+  *(undefined4 *)(param_1 + 0x1d) = 2;
+  plVar3 = param_1 + 0x10;
+  FUN_18001ae20(plVar3,2);
+  local_res10 = &DAT_180024548;
+  puVar4 = (undefined8 *)FUN_18001b070(plVar3,&local_res10);
+  if (puVar4 == (undefined8 *)(*plVar3 + (ulonglong)*(uint *)((longlong)param_1 + 0x8c) * 8)) {
+    puVar4 = (undefined8 *)FUN_18001af10(plVar3,&local_res10,param_1 + 0x1b);
+  }
+  *puVar4 = &LAB_18000b700;
+  local_res10 = &DAT_180020590;
+  puVar4 = (undefined8 *)FUN_18001b070(plVar3,&local_res10);
+  if (puVar4 == (undefined8 *)(*plVar3 + (ulonglong)*(uint *)((longlong)param_1 + 0x8c) * 8)) {
+    puVar4 = (undefined8 *)FUN_18001af10(plVar3,&local_res10,param_1 + 0x1b);
+  }
+  *puVar4 = FUN_18001aac0;
+  return param_1;
+}
+
+
+//   ref from 18000b8b6 in FUN_18000b770
+
+// STRING 'u:discrete' @ 1800245a0
+//   ref from 18000b8c0 in FUN_18000b770
+//   ref from 18000b8c7 in FUN_18000b770
+
+// STRING '%HMax time = %f,  min time = %f, discrete = %u' @ 1800245b0
+//   ref from 18000b904 in FUN_18000b770
+
+// STRING '.?AVh_mes_ctrl_tick@iCtrlTimer@main@@' @ 18002b3a0

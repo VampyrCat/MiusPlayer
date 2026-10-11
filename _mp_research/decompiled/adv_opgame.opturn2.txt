@@ -1,0 +1,296 @@
+// RTTI class names
+//   .?AVbad_alloc@std@@
+//   .?AVbad_cast@std@@
+//   .?AVexception@std@@
+//   .?AVbad_array_new_length@std@@
+//   .?AVh_except_sync@errors@@
+//   .?AVh_except@errors@@
+//   .?AVtype_info@@
+
+//==== GetFactory3 @ 180104e10  (export)
+
+/* WARNING: Globals starting with '_' overlap smaller symbols at the same address */
+
+undefined ** GetFactory3(void)
+
+{
+                    /* 0x104e10  1  GetFactory3 */
+  if (*(int *)(*(longlong *)((longlong)ThreadLocalStoragePointer + (ulonglong)_tls_index * 8) + 4) <
+      DAT_18016bcd8) {
+    FUN_180109e2c(&DAT_18016bcd8);
+    if (DAT_18016bcd8 == -1) {
+      _DAT_180158e38 = FUN_180109d14(0x30);
+      *(longlong *)_DAT_180158e38 = _DAT_180158e38;
+      *(longlong *)(_DAT_180158e38 + 8) = _DAT_180158e38;
+      *(longlong *)(_DAT_180158e38 + 0x10) = _DAT_180158e38;
+      *(undefined2 *)(_DAT_180158e38 + 0x18) = 0x101;
+      atexit((_func_5014 *)&LAB_180113060);
+      _Init_thread_footer(&DAT_18016bcd8);
+      return &PTR_PTR_180158e30;
+    }
+  }
+  return &PTR_PTR_180158e30;
+}
+
+
+
+//==== FUN_180109d14 @ 180109d14  (called by GetFactory3)
+
+void FUN_180109d14(size_t param_1)
+
+{
+  int iVar1;
+  void *pvVar2;
+  
+  do {
+    pvVar2 = malloc(param_1);
+    if (pvVar2 != (void *)0x0) {
+      return;
+    }
+    iVar1 = _callnewh(param_1);
+  } while (iVar1 != 0);
+  if (param_1 == 0xffffffffffffffff) {
+                    /* WARNING: Subroutine does not return */
+    FUN_180015d90();
+  }
+                    /* WARNING: Subroutine does not return */
+  FUN_18010a754();
+}
+
+
+
+//==== _Init_thread_footer @ 180109dc0  (called by GetFactory3)
+
+/* Library Function - Single Match
+    _Init_thread_footer
+   
+   Library: Visual Studio 2019 Release */
+
+void _Init_thread_footer(int *param_1)
+
+{
+  ulonglong uVar1;
+  
+  AcquireSRWLockExclusive((PSRWLOCK)&DAT_180158f98);
+  uVar1 = (ulonglong)_tls_index;
+  DAT_180151000 = DAT_180151000 + 1;
+  *param_1 = DAT_180151000;
+  *(int *)(*(longlong *)((longlong)ThreadLocalStoragePointer + uVar1 * 8) + 4) = DAT_180151000;
+  ReleaseSRWLockExclusive((PSRWLOCK)&DAT_180158f98);
+                    /* WARNING: Could not recover jumptable at 0x000180109e22. Too many branches */
+                    /* WARNING: Treating indirect jump as call */
+  WakeAllConditionVariable(&DAT_180158f90);
+  return;
+}
+
+
+
+//==== atexit @ 18010a2cc  (called by GetFactory3)
+
+/* Library Function - Single Match
+    atexit
+   
+   Library: Visual Studio 2019 Release */
+
+int __cdecl atexit(_func_5014 *param_1)
+
+{
+  _onexit_t p_Var1;
+  
+  p_Var1 = _onexit((_onexit_t)param_1);
+  return (p_Var1 != (_onexit_t)0x0) - 1;
+}
+
+
+
+//==== FUN_180109e2c @ 180109e2c  (called by GetFactory3)
+
+void FUN_180109e2c(int *param_1)
+
+{
+  AcquireSRWLockExclusive((PSRWLOCK)&DAT_180158f98);
+  do {
+    if (*param_1 == 0) {
+      *param_1 = -1;
+LAB_180109e91:
+                    /* WARNING: Could not recover jumptable at 0x000180109e9d. Too many branches */
+                    /* WARNING: Treating indirect jump as call */
+      ReleaseSRWLockExclusive((PSRWLOCK)&DAT_180158f98);
+      return;
+    }
+    if (*param_1 != -1) {
+      *(undefined4 *)
+       (*(longlong *)((longlong)ThreadLocalStoragePointer + (ulonglong)_tls_index * 8) + 4) =
+           DAT_180151000;
+      goto LAB_180109e91;
+    }
+    SleepConditionVariableSRW
+              ((PCONDITION_VARIABLE)&DAT_180158f90,(PSRWLOCK)&DAT_180158f98,0xffffffff,0);
+  } while( true );
+}
+
+
+
+//==== FUN_1800d6660 @ 1800d6660  (requested)
+
+void FUN_1800d6660(undefined8 *****param_1)
+
+{
+  void **ppvVar1;
+  void *_Memory;
+  undefined8 ****ppppuVar2;
+  undefined4 in_stack_fffffffffffffe28;
+  void *local_1c8;
+  undefined8 uStack_1c0;
+  longlong local_1b8;
+  undefined8 local_1b0;
+  void **local_1a8;
+  undefined8 local_1a0;
+  undefined2 local_198;
+  undefined1 local_196 [62];
+  undefined8 local_158;
+  undefined8 local_14c;
+  undefined8 local_140;
+  undefined8 local_134;
+  int iStack_12c;
+  longlong local_128 [2];
+  basic_ostream<char,std::char_traits<char>_> local_118 [8];
+  basic_streambuf<char,std::char_traits<char>_> local_110 [8];
+  basic_iostream<char,std::char_traits<char>_> local_108 [152];
+  basic_ios<char,std::char_traits<char>_> local_70 [104];
+  
+  local_1c8 = (void *)0x0;
+  uStack_1c0 = 0;
+  local_1b8 = 0;
+  local_1b0 = 0;
+  local_1a8 = &local_1c8;
+  local_1a0 = 0;
+  local_196[0] = 0;
+  local_198 = 0;
+  local_158 = 0;
+  local_14c = 0;
+  local_140 = 0;
+  local_134 = 0;
+  FUN_180066f40((longlong)&local_1a8,0x40);
+  FUN_1800dc1b0((longlong *)param_1,(longlong)&local_1a8);
+  FUN_1800dc430((longlong)param_1,(longlong)&local_1a8);
+  FUN_1800dc870((longlong)param_1,(longlong)&local_1a8);
+  ppppuVar2 = *param_1;
+  if ((undefined8 ***)0xf < ppppuVar2[3]) {
+    ppppuVar2 = (undefined8 ****)*ppppuVar2;
+  }
+  FUN_1800ffc80((longlong *)&local_1a8,(char *)ppppuVar2,0,0,
+                CONCAT31((int3)((uint)in_stack_fffffffffffffe28 >> 8),1));
+  ppvVar1 = local_1a8;
+  ppppuVar2 = *param_1 + 4;
+  if ((undefined8 ***)0xf < (*param_1)[7]) {
+    ppppuVar2 = (undefined8 ****)*ppppuVar2;
+  }
+  if ((local_1a8 == (void **)0x0) || (*(int *)(local_1a8 + 1) == *(int *)local_1a8)) {
+    FUN_1801023c0((longlong)param_1[4],0x10003,"Error save config \'%C\' !",local_196);
+  }
+  else {
+    FUN_18001a620((basic_iostream<char,std::char_traits<char>_> *)local_128,(char *)ppppuVar2,0x32);
+    std::basic_ostream<char,std::char_traits<char>_>::write
+              (local_118,*ppvVar1,(ulonglong)(uint)(*(int *)(ppvVar1 + 1) - *(int *)ppvVar1));
+    *(undefined ***)((longlong)local_128 + (longlong)*(int *)(local_128[0] + 4)) =
+         &PTR_LAB_180132070;
+    *(int *)((longlong)&iStack_12c + (longlong)*(int *)(local_128[0] + 4)) =
+         *(int *)(local_128[0] + 4) + -0xb8;
+    FUN_18001a5b0(local_110);
+    std::basic_iostream<char,std::char_traits<char>_>::~basic_iostream<char,std::char_traits<char>_>
+              (local_108);
+    std::basic_ios<char,std::char_traits<char>_>::~basic_ios<char,std::char_traits<char>_>(local_70)
+    ;
+  }
+  if (*(char *)((longlong)param_1 + 0xa9) == '\0') {
+    FUN_1800dcd60(param_1);
+  }
+  FUN_180066d90((longlong)&local_1a8);
+  if (local_1c8 != (void *)0x0) {
+    _Memory = local_1c8;
+    if ((0xfff < (ulonglong)(local_1b8 - (longlong)local_1c8)) &&
+       (_Memory = *(void **)((longlong)local_1c8 + -8),
+       0x1f < (ulonglong)((longlong)local_1c8 + (-8 - (longlong)_Memory)))) {
+                    /* WARNING: Subroutine does not return */
+      _invalid_parameter_noinfo_noreturn();
+    }
+    free(_Memory);
+  }
+  return;
+}
+
+
+
+//==== FUN_180036b40 @ 180036b40  (requested)
+
+void FUN_180036b40(uint *param_1,undefined8 param_2,longlong param_3)
+
+{
+  uint uVar1;
+  undefined *puVar2;
+  longlong lVar3;
+  longlong *plVar4;
+  undefined8 uVar5;
+  
+  if (*(float *)(param_3 + 8) <= 0.0 && *(float *)(param_3 + 8) != 0.0) {
+    if (param_1[0x498] == 2) {
+      FUN_1800385b0((longlong)param_1,0,'\0');
+      return;
+    }
+    puVar2 = FUN_18002a990("mbox",0x180158530,0x12);
+    if (*(int *)(puVar2 + 0x48) != 0) {
+      lVar3 = FUN_18002b460((longlong)param_1);
+      if (*(int *)(lVar3 + 0x238) == 0) {
+        uVar1 = *(uint *)(param_3 + 4);
+        plVar4 = (longlong *)(**(code **)(**(longlong **)(param_1 + 0x18) + 0x110))();
+        uVar5 = (**(code **)(*plVar4 + 8))(plVar4,"it_mm_next_turn",0);
+        FUN_1800eec00((longlong)param_1,7,uVar5,0,(byte)(uVar1 >> 0x13) & 1);
+        return;
+      }
+    }
+    FUN_180076810(param_1,'\0',(uint *)0x0,(uint *)0x0);
+  }
+  return;
+}
+
+
+
+//==== FUN_1800353e0 @ 1800353e0  (requested)
+
+void FUN_1800353e0(longlong *param_1,undefined8 param_2,longlong param_3,char *param_4)
+
+{
+  bool bVar1;
+  longlong lVar2;
+  ulonglong uVar3;
+  undefined8 uVar4;
+  
+  if ((int)param_1[0x1af] != 2) {
+    return;
+  }
+  lVar2 = param_1[0x142];
+  if ((((int)lVar2 == 8) && (param_1[0x3b] != 0)) && (*(char *)(param_1[0x3b] + 0xa8) != '\0')) {
+    bVar1 = true;
+  }
+  else {
+    bVar1 = false;
+  }
+  FUN_1800337f0((longlong)param_1,'\0',param_3);
+  uVar4 = 0;
+  FUN_1800762e0((ulonglong)param_1,0,0,param_4);
+  FUN_180075ca0(param_1,0,uVar4);
+  if (bVar1) {
+    uVar3 = 6;
+  }
+  else {
+    if ((int)lVar2 != 8) goto LAB_18003546c;
+    uVar3 = 2;
+  }
+  FUN_1800762e0((ulonglong)param_1,uVar3,0,param_4);
+LAB_18003546c:
+  (**(code **)(*(longlong *)param_1[0x22] + 0x98))();
+  return;
+}
+
+

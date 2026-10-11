@@ -1,0 +1,167 @@
+// RTTI class names
+//   .?AVbad_alloc@std@@
+//   .?AVbad_cast@std@@
+//   .?AVexception@std@@
+//   .?AVbad_array_new_length@std@@
+//   .?AVh_except_sync@errors@@
+//   .?AVh_except@errors@@
+//   .?AVtype_info@@
+
+//==== GetFactory3 @ 180104e10  (export)
+
+/* WARNING: Globals starting with '_' overlap smaller symbols at the same address */
+
+undefined ** GetFactory3(void)
+
+{
+                    /* 0x104e10  1  GetFactory3 */
+  if (*(int *)(*(longlong *)((longlong)ThreadLocalStoragePointer + (ulonglong)_tls_index * 8) + 4) <
+      DAT_18016bcd8) {
+    FUN_180109e2c(&DAT_18016bcd8);
+    if (DAT_18016bcd8 == -1) {
+      _DAT_180158e38 = FUN_180109d14(0x30);
+      *(longlong *)_DAT_180158e38 = _DAT_180158e38;
+      *(longlong *)(_DAT_180158e38 + 8) = _DAT_180158e38;
+      *(longlong *)(_DAT_180158e38 + 0x10) = _DAT_180158e38;
+      *(undefined2 *)(_DAT_180158e38 + 0x18) = 0x101;
+      atexit((_func_5014 *)&LAB_180113060);
+      _Init_thread_footer(&DAT_18016bcd8);
+      return &PTR_PTR_180158e30;
+    }
+  }
+  return &PTR_PTR_180158e30;
+}
+
+
+
+//==== FUN_180109e2c @ 180109e2c  (called by GetFactory3)
+
+void FUN_180109e2c(int *param_1)
+
+{
+  AcquireSRWLockExclusive((PSRWLOCK)&DAT_180158f98);
+  do {
+    if (*param_1 == 0) {
+      *param_1 = -1;
+LAB_180109e91:
+                    /* WARNING: Could not recover jumptable at 0x000180109e9d. Too many branches */
+                    /* WARNING: Treating indirect jump as call */
+      ReleaseSRWLockExclusive((PSRWLOCK)&DAT_180158f98);
+      return;
+    }
+    if (*param_1 != -1) {
+      *(undefined4 *)
+       (*(longlong *)((longlong)ThreadLocalStoragePointer + (ulonglong)_tls_index * 8) + 4) =
+           DAT_180151000;
+      goto LAB_180109e91;
+    }
+    SleepConditionVariableSRW
+              ((PCONDITION_VARIABLE)&DAT_180158f90,(PSRWLOCK)&DAT_180158f98,0xffffffff,0);
+  } while( true );
+}
+
+
+
+//==== FUN_180109d14 @ 180109d14  (called by GetFactory3)
+
+void FUN_180109d14(size_t param_1)
+
+{
+  int iVar1;
+  void *pvVar2;
+  
+  do {
+    pvVar2 = malloc(param_1);
+    if (pvVar2 != (void *)0x0) {
+      return;
+    }
+    iVar1 = _callnewh(param_1);
+  } while (iVar1 != 0);
+  if (param_1 == 0xffffffffffffffff) {
+                    /* WARNING: Subroutine does not return */
+    FUN_180015d90();
+  }
+                    /* WARNING: Subroutine does not return */
+  FUN_18010a754();
+}
+
+
+
+//==== atexit @ 18010a2cc  (called by GetFactory3)
+
+/* Library Function - Single Match
+    atexit
+   
+   Library: Visual Studio 2019 Release */
+
+int __cdecl atexit(_func_5014 *param_1)
+
+{
+  _onexit_t p_Var1;
+  
+  p_Var1 = _onexit((_onexit_t)param_1);
+  return (p_Var1 != (_onexit_t)0x0) - 1;
+}
+
+
+
+//==== _Init_thread_footer @ 180109dc0  (called by GetFactory3)
+
+/* Library Function - Single Match
+    _Init_thread_footer
+   
+   Library: Visual Studio 2019 Release */
+
+void _Init_thread_footer(int *param_1)
+
+{
+  ulonglong uVar1;
+  
+  AcquireSRWLockExclusive((PSRWLOCK)&DAT_180158f98);
+  uVar1 = (ulonglong)_tls_index;
+  DAT_180151000 = DAT_180151000 + 1;
+  *param_1 = DAT_180151000;
+  *(int *)(*(longlong *)((longlong)ThreadLocalStoragePointer + uVar1 * 8) + 4) = DAT_180151000;
+  ReleaseSRWLockExclusive((PSRWLOCK)&DAT_180158f98);
+                    /* WARNING: Could not recover jumptable at 0x000180109e22. Too many branches */
+                    /* WARNING: Treating indirect jump as call */
+  WakeAllConditionVariable(&DAT_180158f90);
+  return;
+}
+
+
+
+// STRING 'opn_con_type_' @ 18013a658
+
+// STRING 'opn_port' @ 18013a668
+//   ref from 180156200 in ?
+
+// STRING 'i_network:network' @ 18013a678
+//   ref from 180156208 in ?
+//   ref from 180156260 in ?
+//   ref from 1801562b8 in ?
+//   ref from 180156310 in ?
+//   ref from 180156368 in ?
+
+// STRING 'port_num' @ 18013a690
+//   ref from 180156210 in ?
+
+// STRING 'opn_ports_' @ 18013a6a0
+
+// STRING 'opn_traffic_limit' @ 18013a6f0
+//   ref from 180156308 in ?
+
+// STRING 'traffic_limit' @ 18013a708
+//   ref from 180156318 in ?
+
+// STRING 'opn_con_type' @ 18013a748
+//   ref from 180156258 in ?
+
+// STRING 'con_type' @ 18013a758
+//   ref from 180156268 in ?
+
+// STRING 'opn_net_step' @ 18013a7b8
+//   ref from 180156360 in ?
+
+// STRING 'net_step' @ 18013a7c8
+//   ref from 180156370 in ?

@@ -1,0 +1,877 @@
+// RTTI class names
+//   .?AVbad_alloc@std@@
+//   .?AVbad_cast@std@@
+//   .?AVexception@std@@
+//   .?AVbad_array_new_length@std@@
+//   .?AVh_except_sync@errors@@
+//   .?AVh_except@errors@@
+//   .?AVtype_info@@
+
+//==== GetFactory3 @ 180104e10  (export)
+
+/* WARNING: Globals starting with '_' overlap smaller symbols at the same address */
+
+undefined ** GetFactory3(void)
+
+{
+                    /* 0x104e10  1  GetFactory3 */
+  if (*(int *)(*(longlong *)((longlong)ThreadLocalStoragePointer + (ulonglong)_tls_index * 8) + 4) <
+      DAT_18016bcd8) {
+    FUN_180109e2c(&DAT_18016bcd8);
+    if (DAT_18016bcd8 == -1) {
+      _DAT_180158e38 = FUN_180109d14(0x30);
+      *(longlong *)_DAT_180158e38 = _DAT_180158e38;
+      *(longlong *)(_DAT_180158e38 + 8) = _DAT_180158e38;
+      *(longlong *)(_DAT_180158e38 + 0x10) = _DAT_180158e38;
+      *(undefined2 *)(_DAT_180158e38 + 0x18) = 0x101;
+      atexit((_func_5014 *)&LAB_180113060);
+      _Init_thread_footer(&DAT_18016bcd8);
+      return &PTR_PTR_180158e30;
+    }
+  }
+  return &PTR_PTR_180158e30;
+}
+
+
+
+//==== atexit @ 18010a2cc  (called by GetFactory3)
+
+/* Library Function - Single Match
+    atexit
+   
+   Library: Visual Studio 2019 Release */
+
+int __cdecl atexit(_func_5014 *param_1)
+
+{
+  _onexit_t p_Var1;
+  
+  p_Var1 = _onexit((_onexit_t)param_1);
+  return (p_Var1 != (_onexit_t)0x0) - 1;
+}
+
+
+
+//==== FUN_180109d14 @ 180109d14  (called by GetFactory3)
+
+void FUN_180109d14(size_t param_1)
+
+{
+  int iVar1;
+  void *pvVar2;
+  
+  do {
+    pvVar2 = malloc(param_1);
+    if (pvVar2 != (void *)0x0) {
+      return;
+    }
+    iVar1 = _callnewh(param_1);
+  } while (iVar1 != 0);
+  if (param_1 == 0xffffffffffffffff) {
+                    /* WARNING: Subroutine does not return */
+    FUN_180015d90();
+  }
+                    /* WARNING: Subroutine does not return */
+  FUN_18010a754();
+}
+
+
+
+//==== FUN_180109e2c @ 180109e2c  (called by GetFactory3)
+
+void FUN_180109e2c(int *param_1)
+
+{
+  AcquireSRWLockExclusive((PSRWLOCK)&DAT_180158f98);
+  do {
+    if (*param_1 == 0) {
+      *param_1 = -1;
+LAB_180109e91:
+                    /* WARNING: Could not recover jumptable at 0x000180109e9d. Too many branches */
+                    /* WARNING: Treating indirect jump as call */
+      ReleaseSRWLockExclusive((PSRWLOCK)&DAT_180158f98);
+      return;
+    }
+    if (*param_1 != -1) {
+      *(undefined4 *)
+       (*(longlong *)((longlong)ThreadLocalStoragePointer + (ulonglong)_tls_index * 8) + 4) =
+           DAT_180151000;
+      goto LAB_180109e91;
+    }
+    SleepConditionVariableSRW
+              ((PCONDITION_VARIABLE)&DAT_180158f90,(PSRWLOCK)&DAT_180158f98,0xffffffff,0);
+  } while( true );
+}
+
+
+
+//==== _Init_thread_footer @ 180109dc0  (called by GetFactory3)
+
+/* Library Function - Single Match
+    _Init_thread_footer
+   
+   Library: Visual Studio 2019 Release */
+
+void _Init_thread_footer(int *param_1)
+
+{
+  ulonglong uVar1;
+  
+  AcquireSRWLockExclusive((PSRWLOCK)&DAT_180158f98);
+  uVar1 = (ulonglong)_tls_index;
+  DAT_180151000 = DAT_180151000 + 1;
+  *param_1 = DAT_180151000;
+  *(int *)(*(longlong *)((longlong)ThreadLocalStoragePointer + uVar1 * 8) + 4) = DAT_180151000;
+  ReleaseSRWLockExclusive((PSRWLOCK)&DAT_180158f98);
+                    /* WARNING: Could not recover jumptable at 0x000180109e22. Too many branches */
+                    /* WARNING: Treating indirect jump as call */
+  WakeAllConditionVariable(&DAT_180158f90);
+  return;
+}
+
+
+
+// STRING 'do_mm_campaign' @ 180132bd8
+//   ref from 18002f11d in FUN_18002eca0
+
+//==== FUN_18002eca0 @ 18002eca0  (refs 'do_mm_campaign')
+
+/* WARNING: Globals starting with '_' overlap smaller symbols at the same address */
+
+void FUN_18002eca0(longlong *param_1,undefined8 param_2,undefined8 param_3,uint *param_4)
+
+{
+  byte bVar1;
+  char cVar2;
+  int iVar3;
+  undefined4 uVar4;
+  undefined *puVar5;
+  longlong lVar6;
+  undefined8 uVar7;
+  longlong *plVar8;
+  undefined4 *puVar9;
+  uint uVar10;
+  ulonglong uVar12;
+  uint *puVar13;
+  undefined **ppuVar14;
+  uint uVar15;
+  char *pcVar16;
+  code **ppcVar17;
+  char ***pppcVar18;
+  char *pcVar19;
+  char *pcVar20;
+  longlong lVar21;
+  bool bVar22;
+  longlong *local_res8;
+  uint local_res10 [2];
+  undefined4 local_res18 [4];
+  ulonglong in_stack_fffffffffffffb48;
+  code *local_468;
+  longlong *local_460;
+  char *local_458;
+  longlong local_450;
+  undefined4 local_448;
+  undefined4 local_444;
+  uint local_440;
+  undefined4 local_43c;
+  undefined4 local_438;
+  undefined4 local_434;
+  undefined4 local_430;
+  undefined4 local_42c;
+  undefined8 local_424;
+  undefined8 uStack_41c;
+  undefined8 local_414;
+  undefined4 local_40c;
+  longlong local_3a0 [12];
+  undefined4 local_340;
+  undefined4 local_33c;
+  undefined1 local_2eb;
+  undefined2 local_2e5;
+  undefined1 local_2e3;
+  char *pcVar11;
+  
+  pcVar20 = (char *)0x0;
+  puVar13 = &DAT_1801575d0;
+  do {
+    if (*puVar13 != 0) {
+      param_4 = puVar13 + -8;
+      pcVar11 = pcVar20;
+      do {
+        *(uint **)((longlong)pcVar11 * 0x58 + 0x40 + *(longlong *)(puVar13 + -2)) = param_4;
+        uVar10 = (int)pcVar11 + 1;
+        pcVar11 = (char *)(ulonglong)uVar10;
+      } while (uVar10 < *puVar13);
+    }
+    bVar22 = puVar13 != (uint *)0x180157750;
+    puVar13 = puVar13 + 0xc;
+  } while (bVar22);
+  local_res8 = param_1;
+  FUN_1800cada0((longlong)param_1,0);
+  iVar3 = FUN_1800cc120();
+  *(int *)((longlong)param_1 + 0x125c) = iVar3;
+  *(undefined1 *)(param_1 + 0x790) = 0;
+  puVar5 = FUN_18002a990("skin",0x180158b60,4);
+  FUN_180099a30((longlong)param_1,
+                (char *)((ulonglong)*(uint *)(puVar5 + 0x48) * 0x80 + 2 + param_1[0x12d]),'\0');
+  param_1[0x23c] = param_1[0x24];
+  param_1[0x23d] = param_1[0x33];
+  lVar6 = (**(code **)(*(longlong *)param_1[0x24] + 0x58))();
+  param_1[0x23e] = lVar6;
+  local_468 = (code *)0x0;
+  *(undefined8 *)((longlong)param_1 + 0x6bd4) = 0;
+  *(undefined4 *)((longlong)param_1 + 0x6bdc) = 0;
+  local_448 = (uint)local_448._3_1_ << 0x18;
+  uVar7 = (**(code **)(*(longlong *)param_1[0x30] + 0x78))();
+  FUN_18001a8d0((undefined2 *)&local_448,"%shopts.cfgpack",uVar7,param_4);
+  plVar8 = (longlong *)(**(code **)(*(longlong *)param_1[0xc] + 0x100))();
+  in_stack_fffffffffffffb48 = in_stack_fffffffffffffb48 & 0xffffffffffffff00;
+  plVar8 = (longlong *)
+           (**(code **)(*plVar8 + 0xe8))
+                     (plVar8,(longlong)&local_448 + 2,0,0,in_stack_fffffffffffffb48);
+  if ((plVar8[1] != 0) && ((int)plVar8[2] != 0)) {
+    in_stack_fffffffffffffb48 = 0;
+    cVar2 = (**(code **)(*plVar8 + 0x10))(plVar8,param_1 + 1,0,local_res10,0);
+    if (cVar2 != '\0') {
+      local_468 = (code *)0x180134998;
+      local_460 = param_1 + 0xd7b;
+      local_458 = "u:camp_flt";
+      local_450 = (longlong)param_1 + 0x6bdc;
+      (**(code **)(*plVar8 + 0x30))(plVar8,local_res10[0],&local_468,2);
+      *(uint *)((longlong)param_1 + 0x6bd4) = *(uint *)((longlong)param_1 + 0x6bd4) | 0xffff;
+    }
+    plVar8 = (longlong *)(**(code **)(*(longlong *)param_1[0xc] + 0x100))();
+    (**(code **)(*plVar8 + 0xf0))(plVar8,(longlong)&local_448 + 2);
+  }
+  param_1[0x25c] = 0;
+  plVar8 = (longlong *)(**(code **)(*(longlong *)param_1[0xc] + 0x100))();
+  plVar8 = (longlong *)(**(code **)(*plVar8 + 0x128))(plVar8,"config\\update_id.cfgpack",1,0);
+  if ((plVar8[1] != 0) && ((int)plVar8[2] != 0)) {
+    in_stack_fffffffffffffb48 = 0;
+    cVar2 = (**(code **)(*plVar8 + 0x10))(plVar8,param_1 + 1,0,local_res10,0);
+    if (cVar2 != '\0') {
+      local_468 = (code *)0x180132b70;
+      local_460 = param_1 + 0x25c;
+      (**(code **)(*plVar8 + 0x28))(plVar8,local_res10[0],&local_468);
+    }
+  }
+  puVar13 = &DAT_180133560;
+  lVar6 = 0x15;
+  do {
+    uVar10 = *puVar13;
+    pcVar11 = (char *)param_1[(ulonglong)uVar10 + 0xbca];
+    if ((pcVar11 != (char *)0x0) && (*pcVar11 != '\0')) {
+      in_stack_fffffffffffffb48 = in_stack_fffffffffffffb48 & 0xffffffffffffff00;
+      (**(code **)(*(longlong *)param_1[0x1e] + 0x18))
+                ((longlong *)param_1[0x1e],local_res10,"tabs\\menu.cfgpack",pcVar11,
+                 in_stack_fffffffffffffb48);
+      *(uint *)((longlong)param_1 + (ulonglong)uVar10 * 4 + 0x990) = local_res10[0];
+    }
+    puVar13 = puVar13 + 1;
+    lVar6 = lVar6 + -1;
+  } while (lVar6 != 0);
+  uVar4 = (undefined4)param_1[0x132];
+  (**(code **)(*(longlong *)param_1[0x1e] + 0x1e0))
+            ((longlong *)param_1[0x1e],uVar4,param_1[0xbdf],(int)param_1[0xbe0]);
+  in_stack_fffffffffffffb48 = in_stack_fffffffffffffb48 & 0xffffffffffffff00;
+  (**(code **)(*(longlong *)param_1[0x1e] + 0x18))
+            ((longlong *)param_1[0x1e],local_res10,"tabs\\menu.cfgpack","popstat",
+             in_stack_fffffffffffffb48);
+  *(uint *)((longlong)param_1 + 0x9e4) = local_res10[0];
+  in_stack_fffffffffffffb48 = in_stack_fffffffffffffb48 & 0xffffffffffffff00;
+  (**(code **)(*(longlong *)param_1[0x1e] + 0x18))
+            ((longlong *)param_1[0x1e],local_res10,"tabs\\menu.cfgpack","popbg",
+             in_stack_fffffffffffffb48);
+  *(uint *)(param_1 + 0x13d) = local_res10[0];
+  in_stack_fffffffffffffb48 = in_stack_fffffffffffffb48 & 0xffffffffffffff00;
+  (**(code **)(*(longlong *)param_1[0x1e] + 0x18))
+            ((longlong *)param_1[0x1e],local_res10,"tabs\\menu.cfgpack","yesno",
+             in_stack_fffffffffffffb48);
+  *(uint *)(param_1 + 0x13f) = local_res10[0];
+  in_stack_fffffffffffffb48 = in_stack_fffffffffffffb48 & 0xffffffffffffff00;
+  (**(code **)(*(longlong *)param_1[0x1e] + 0x18))
+            ((longlong *)param_1[0x1e],local_res10,"tabs\\menu.cfgpack","popcc",
+             in_stack_fffffffffffffb48);
+  *(uint *)(param_1 + 0x13e) = local_res10[0];
+  (**(code **)(*(longlong *)param_1[0x1e] + 0x18))
+            ((longlong *)param_1[0x1e],local_res10,"tabs\\menu.cfgpack","popup_oper",
+             in_stack_fffffffffffffb48 & 0xffffffffffffff00);
+  *(uint *)((longlong)param_1 + 0x9f4) = local_res10[0];
+  lVar6 = param_1[0x27];
+  local_460 = (longlong *)param_1[0x20];
+  local_468 = (code *)&LAB_18002b240;
+  local_458 = (char *)0x0;
+  (**(code **)(*(longlong *)param_1[0x1e] + 0x100))
+            ((longlong *)param_1[0x1e],uVar4,"do_mm_profile",&local_468,0);
+  local_460 = (longlong *)param_1[0x20];
+  local_468 = (code *)&LAB_18002b210;
+  local_458 = (char *)0x0;
+  (**(code **)(*(longlong *)param_1[0x1e] + 0x100))
+            ((longlong *)param_1[0x1e],uVar4,"do_mm_campaign",&local_468,0);
+  local_460 = (longlong *)param_1[0x20];
+  local_468 = (code *)&LAB_18002b220;
+  local_458 = (char *)0x0;
+  (**(code **)(*(longlong *)param_1[0x1e] + 0x100))
+            ((longlong *)param_1[0x1e],uVar4,"do_mm_options",&local_468,0);
+  local_460 = (longlong *)param_1[0x20];
+  local_468 = (code *)&LAB_18002a980;
+  local_458 = (char *)0x0;
+  (**(code **)(*(longlong *)param_1[0x1e] + 0x100))
+            ((longlong *)param_1[0x1e],uVar4,"do_mm_redefine",&local_468,0);
+  local_460 = (longlong *)param_1[0x20];
+  local_468 = FUN_1800627f0;
+  local_458 = (char *)0x0;
+  (**(code **)(*(longlong *)param_1[0x1e] + 0x100))
+            ((longlong *)param_1[0x1e],uVar4,"do_mm_skirmish",&local_468,0);
+  local_460 = (longlong *)param_1[0x20];
+  local_468 = (code *)&LAB_18002b230;
+  local_458 = (char *)0x0;
+  (**(code **)(*(longlong *)param_1[0x1e] + 0x100))
+            ((longlong *)param_1[0x1e],uVar4,"do_mm_credits",&local_468,0);
+  local_460 = (longlong *)param_1[0x20];
+  local_468 = FUN_18002acf0;
+  local_458 = (char *)0x0;
+  (**(code **)(*(longlong *)param_1[0x1e] + 0x100))
+            ((longlong *)param_1[0x1e],uVar4,"do_mm_exit",&local_468,0);
+  local_460 = (longlong *)param_1[0x20];
+  local_468 = FUN_180035490;
+  local_458 = (char *)0x0;
+  (**(code **)(*(longlong *)param_1[0x1e] + 0x100))
+            ((longlong *)param_1[0x1e],uVar4,"do_mm_encycl",&local_468,0);
+  local_460 = (longlong *)param_1[0x20];
+  local_468 = (code *)&LAB_18002b250;
+  local_458 = (char *)0x0;
+  (**(code **)(*(longlong *)param_1[0x1e] + 0x100))
+            ((longlong *)param_1[0x1e],uVar4,"do_mm_qbattle",&local_468,0);
+  local_460 = (longlong *)param_1[0x20];
+  local_468 = (code *)&LAB_18002b260;
+  local_458 = (char *)0x0;
+  (**(code **)(*(longlong *)param_1[0x1e] + 0x100))
+            ((longlong *)param_1[0x1e],uVar4,"do_mm_train",&local_468,0);
+  local_460 = (longlong *)param_1[0x20];
+  local_468 = (code *)&LAB_18002b270;
+  local_458 = (char *)0x0;
+  (**(code **)(*(longlong *)param_1[0x1e] + 0x100))
+            ((longlong *)param_1[0x1e],uVar4,"do_mm_qbattle_edit",&local_468,0);
+  plVar8 = (longlong *)param_1[0x27];
+  if (plVar8 != (longlong *)0x0) {
+    (**(code **)(*plVar8 + 0x78))(plVar8,FUN_1800383d0,param_1,0);
+  }
+  if (lVar6 == 0) {
+    (**(code **)(*(longlong *)param_1[0x1e] + 0x60))
+              ((longlong *)param_1[0x1e],local_res10,(int)param_1[0x132],"qbattle_edit");
+    (**(code **)(*(longlong *)param_1[0x1e] + 0x70))((longlong *)param_1[0x1e],local_res10[0],0);
+  }
+  local_460 = (longlong *)param_1[0x20];
+  local_468 = FUN_1800383d0;
+  local_458 = (char *)0x0;
+  (**(code **)(*(longlong *)param_1[0x1e] + 0x100))
+            ((longlong *)param_1[0x1e],*(undefined4 *)((longlong)param_1 + 0x9c4),"do_main_return",
+             &local_468,0);
+  local_460 = (longlong *)param_1[0x20];
+  local_468 = FUN_1800627f0;
+  local_458 = (char *)0x0;
+  (**(code **)(*(longlong *)param_1[0x1e] + 0x100))
+            ((longlong *)param_1[0x1e],(int)param_1[0x13b],"do_close_combat",&local_468,0);
+  local_460 = (longlong *)param_1[0x20];
+  local_468 = FUN_18006e7c0;
+  local_458 = (char *)0x0;
+  (**(code **)(*(longlong *)param_1[0x1e] + 0x100))
+            ((longlong *)param_1[0x1e],*(undefined4 *)((longlong)param_1 + 0x9dc),"do_load_sg",
+             &local_468,0);
+  local_460 = (longlong *)param_1[0x20];
+  local_468 = (code *)&LAB_18006e830;
+  local_458 = (char *)0x0;
+  (**(code **)(*(longlong *)param_1[0x1e] + 0x100))
+            ((longlong *)param_1[0x1e],(int)param_1[0x13c],"do_sort_dlc",&local_468,0);
+  plVar8 = (longlong *)param_1[0x1e];
+  bVar1 = *(byte *)((longlong)param_1 + 0x6bdc);
+  (**(code **)(*plVar8 + 0x60))(plVar8,local_res10,(int)param_1[0x13c],"sort_dlc");
+  (**(code **)(*plVar8 + 0xe0))(plVar8,local_res10[0],bVar1 & 1);
+  plVar8 = (longlong *)param_1[0x27];
+  if (plVar8 != (longlong *)0x0) {
+    (**(code **)(*plVar8 + 0x78))(plVar8,FUN_18006e4e0,param_1,1);
+  }
+  uVar4 = (undefined4)param_1[0x136];
+  local_460 = (longlong *)param_1[0x20];
+  local_468 = FUN_1800353e0;
+  local_458 = (char *)0x0;
+  (**(code **)(*(longlong *)param_1[0x1e] + 0x100))
+            ((longlong *)param_1[0x1e],uVar4,"do_og_menu",&local_468,0);
+  local_460 = (longlong *)param_1[0x20];
+  local_468 = (code *)&LAB_18002b280;
+  local_458 = (char *)0x0;
+  (**(code **)(*(longlong *)param_1[0x1e] + 0x100))
+            ((longlong *)param_1[0x1e],uVar4,"do_og_stat",&local_468,0);
+  local_460 = (longlong *)param_1[0x20];
+  local_468 = FUN_180036b40;
+  local_458 = (char *)0x0;
+  (**(code **)(*(longlong *)param_1[0x1e] + 0x100))
+            ((longlong *)param_1[0x1e],uVar4,"do_og_next_turn",&local_468,0);
+  local_460 = (longlong *)param_1[0x20];
+  local_468 = (code *)&LAB_18002b2a0;
+  local_458 = (char *)0x0;
+  (**(code **)(*(longlong *)param_1[0x1e] + 0x100))
+            ((longlong *)param_1[0x1e],uVar4,"do_og_brief",&local_468,0);
+  local_460 = (longlong *)param_1[0x20];
+  local_468 = FUN_180036cb0;
+  local_458 = (char *)0x0;
+  (**(code **)(*(longlong *)param_1[0x1e] + 0x100))
+            ((longlong *)param_1[0x1e],uVar4,"do_og_revert",&local_468,0);
+  local_460 = (longlong *)param_1[0x20];
+  local_468 = (code *)&LAB_18002b290;
+  local_458 = (char *)0x0;
+  (**(code **)(*(longlong *)param_1[0x1e] + 0x100))
+            ((longlong *)param_1[0x1e],uVar4,"do_og_gstat",&local_468,0);
+  local_460 = (longlong *)param_1[0x20];
+  local_468 = (code *)&LAB_18002b440;
+  local_458 = (char *)0x0;
+  (**(code **)(*(longlong *)param_1[0x1e] + 0x100))
+            ((longlong *)param_1[0x1e],uVar4,"do_og_view_only_map",&local_468,0);
+  local_460 = (longlong *)param_1[0x20];
+  local_468 = (code *)&LAB_18002b450;
+  local_458 = (char *)0x0;
+  (**(code **)(*(longlong *)param_1[0x1e] + 0x100))
+            ((longlong *)param_1[0x1e],uVar4,"do_og_view_bn_coy",&local_468,0);
+  uVar4 = *(undefined4 *)((longlong)param_1 + 0x9b4);
+  local_460 = (longlong *)param_1[0x20];
+  local_468 = FUN_180036c20;
+  local_458 = (char *)0x0;
+  (**(code **)(*(longlong *)param_1[0x1e] + 0x100))
+            ((longlong *)param_1[0x1e],uVar4,"do_st_return",&local_468,0);
+  local_460 = (longlong *)param_1[0x20];
+  local_468 = FUN_180036c20;
+  local_458 = (char *)0x0;
+  (**(code **)(*(longlong *)param_1[0x1e] + 0x100))
+            ((longlong *)param_1[0x1e],uVar4,"do_st_return_",&local_468,0);
+  local_460 = (longlong *)param_1[0x20];
+  local_468 = (code *)&LAB_18002b300;
+  local_458 = (char *)0x0;
+  (**(code **)(*(longlong *)param_1[0x1e] + 0x100))
+            ((longlong *)param_1[0x1e],uVar4,"do_st_levels",&local_468,0);
+  local_460 = (longlong *)param_1[0x20];
+  local_468 = (code *)&LAB_18002b320;
+  local_458 = (char *)0x0;
+  (**(code **)(*(longlong *)param_1[0x1e] + 0x100))
+            ((longlong *)param_1[0x1e],uVar4,"do_st_roster",&local_468,0);
+  local_460 = (longlong *)param_1[0x20];
+  local_468 = (code *)&LAB_18002b340;
+  local_458 = (char *)0x0;
+  (**(code **)(*(longlong *)param_1[0x1e] + 0x100))
+            ((longlong *)param_1[0x1e],uVar4,"do_st_bgs",&local_468,0);
+  local_460 = (longlong *)param_1[0x20];
+  local_468 = (code *)&LAB_18002b360;
+  local_458 = (char *)0x0;
+  (**(code **)(*(longlong *)param_1[0x1e] + 0x100))
+            ((longlong *)param_1[0x1e],uVar4,"do_st_oob",&local_468,0);
+  local_460 = (longlong *)param_1[0x20];
+  local_468 = (code *)&LAB_18002b380;
+  local_458 = (char *)0x0;
+  (**(code **)(*(longlong *)param_1[0x1e] + 0x100))
+            ((longlong *)param_1[0x1e],uVar4,"do_st_user",&local_468,0);
+  local_460 = (longlong *)param_1[0x20];
+  local_468 = (code *)&LAB_18002b3a0;
+  local_458 = (char *)0x0;
+  (**(code **)(*(longlong *)param_1[0x1e] + 0x100))
+            ((longlong *)param_1[0x1e],uVar4,"do_st_alieds",&local_468,0);
+  local_460 = (longlong *)param_1[0x20];
+  local_468 = (code *)&LAB_18002b390;
+  local_458 = (char *)0x0;
+  (**(code **)(*(longlong *)param_1[0x1e] + 0x100))
+            ((longlong *)param_1[0x1e],uVar4,"do_st_enemy",&local_468,0);
+  local_460 = (longlong *)param_1[0x20];
+  local_468 = (code *)&LAB_18002b2c0;
+  local_458 = (char *)0x0;
+  (**(code **)(*(longlong *)param_1[0x1e] + 0x100))
+            ((longlong *)param_1[0x1e],(int)param_1[0x139],"do_hide_brieft",&local_468,0);
+  local_460 = (longlong *)param_1[0x20];
+  local_468 = (code *)&LAB_18002b2e0;
+  local_458 = (char *)0x0;
+  (**(code **)(*(longlong *)param_1[0x1e] + 0x100))
+            ((longlong *)param_1[0x1e],(int)param_1[0x139],"do_show_brieft",&local_468,0);
+  local_460 = (longlong *)param_1[0x20];
+  local_468 = (code *)&LAB_1800eeb20;
+  local_458 = (char *)0x0;
+  (**(code **)(*(longlong *)param_1[0x1e] + 0x100))
+            ((longlong *)param_1[0x1e],(int)param_1[0x13f],"do_pop_yes",&local_468,0);
+  local_460 = (longlong *)param_1[0x20];
+  local_468 = FUN_1800eeb40;
+  local_458 = (char *)0x0;
+  (**(code **)(*(longlong *)param_1[0x1e] + 0x100))
+            ((longlong *)param_1[0x1e],(int)param_1[0x13f],"do_pop_no",&local_468,0);
+  (**(code **)(*(longlong *)param_1[0x31] + 0x18))
+            ((longlong *)param_1[0x31],*(undefined4 *)((longlong)param_1 + 0xa04),
+             (int)param_1[0x141],0);
+  local_460 = (longlong *)param_1[0x20];
+  local_468 = (code *)&LAB_18002b2a0;
+  local_458 = (char *)0x0;
+  (**(code **)(*(longlong *)param_1[0x1f] + 0x20))
+            ((longlong *)param_1[0x1f],"pad_og_brief",&local_468);
+  local_460 = (longlong *)param_1[0x20];
+  local_468 = (code *)&LAB_18002b450;
+  local_458 = (char *)0x0;
+  (**(code **)(*(longlong *)param_1[0x1f] + 0x20))
+            ((longlong *)param_1[0x1f],"pad_og_view_bn_coy",&local_468);
+  local_460 = (longlong *)param_1[0x20];
+  local_468 = FUN_1800aac90;
+  local_458 = (char *)0x0;
+  (**(code **)(*(longlong *)param_1[0x1f] + 0x20))
+            ((longlong *)param_1[0x1f],"do_og_select",&local_468);
+  local_460 = (longlong *)param_1[0x20];
+  local_468 = FUN_1800aab60;
+  local_458 = (char *)0x0;
+  (**(code **)(*(longlong *)param_1[0x1f] + 0x20))
+            ((longlong *)param_1[0x1f],"do_og_order",&local_468);
+  local_460 = (longlong *)param_1[0x20];
+  local_468 = FUN_1800aac20;
+  local_458 = (char *)0x0;
+  (**(code **)(*(longlong *)param_1[0x1f] + 0x20))
+            ((longlong *)param_1[0x1f],"do_og_info",&local_468);
+  local_460 = (longlong *)param_1[0x20];
+  local_468 = FUN_18002b3c0;
+  local_458 = (char *)0x0;
+  (**(code **)(*(longlong *)param_1[0x1f] + 0x20))
+            ((longlong *)param_1[0x1f],"do_og_info_",&local_468);
+  local_460 = (longlong *)param_1[0x20];
+  local_468 = FUN_1800aac90;
+  local_458 = (char *)0x0;
+  (**(code **)(*(longlong *)param_1[0x1f] + 0x20))
+            ((longlong *)param_1[0x1f],"pad_og_select",&local_468);
+  local_460 = (longlong *)param_1[0x20];
+  local_468 = FUN_1800aab60;
+  local_458 = (char *)0x0;
+  (**(code **)(*(longlong *)param_1[0x1f] + 0x20))
+            ((longlong *)param_1[0x1f],"pad_og_order",&local_468);
+  local_460 = (longlong *)param_1[0x20];
+  local_468 = FUN_1800aac20;
+  local_458 = (char *)0x0;
+  (**(code **)(*(longlong *)param_1[0x1f] + 0x20))
+            ((longlong *)param_1[0x1f],"pad_og_info",&local_468);
+  local_460 = (longlong *)param_1[0x20];
+  local_468 = (code *)&LAB_18002adc0;
+  local_458 = (char *)0x0;
+  (**(code **)(*(longlong *)param_1[0x1f] + 0x20))
+            ((longlong *)param_1[0x1f],"do_scrshot",&local_468);
+  local_460 = (longlong *)param_1[0x20];
+  local_468 = (code *)&LAB_18002adc0;
+  local_458 = (char *)0x0;
+  (**(code **)(*(longlong *)param_1[0x1f] + 0x20))
+            ((longlong *)param_1[0x1f],"pad_scrshot",&local_468);
+  local_460 = (longlong *)param_1[0x20];
+  local_468 = (code *)&LAB_18002b3b0;
+  local_458 = (char *)0x0;
+  (**(code **)(*(longlong *)param_1[0x1f] + 0x20))
+            ((longlong *)param_1[0x1f],"do_st_popup",&local_468);
+  local_460 = (longlong *)param_1[0x20];
+  local_468 = (code *)&LAB_18002b3b0;
+  local_458 = (char *)0x0;
+  (**(code **)(*(longlong *)param_1[0x1f] + 0x20))
+            ((longlong *)param_1[0x1f],"pad_st_popup",&local_468);
+  local_460 = (longlong *)param_1[0x20];
+  local_468 = FUN_180051210;
+  local_458 = (char *)0x0;
+  (**(code **)(*(longlong *)param_1[0x1f] + 0x20))
+            ((longlong *)param_1[0x1f],"pad_st_add",&local_468);
+  local_460 = (longlong *)param_1[0x20];
+  local_468 = (code *)&LAB_18002b340;
+  local_458 = (char *)0x0;
+  (**(code **)(*(longlong *)param_1[0x1f] + 0x20))
+            ((longlong *)param_1[0x1f],"pad_st_bgs",&local_468);
+  local_460 = (longlong *)param_1[0x20];
+  local_468 = (code *)&LAB_18002b360;
+  local_458 = (char *)0x0;
+  (**(code **)(*(longlong *)param_1[0x1f] + 0x20))
+            ((longlong *)param_1[0x1f],"pad_st_oob",&local_468);
+  local_460 = (longlong *)param_1[0x20];
+  local_468 = _guard_check_icall;
+  local_458 = (char *)0x0;
+  (**(code **)(*(longlong *)param_1[0x1f] + 0x20))
+            ((longlong *)param_1[0x1f],"do_data_copy",&local_468);
+  local_460 = (longlong *)param_1[0x20];
+  local_468 = _guard_check_icall;
+  local_458 = (char *)0x0;
+  (**(code **)(*(longlong *)param_1[0x1f] + 0x20))
+            ((longlong *)param_1[0x1f],"do_info_copy",&local_468);
+  local_460 = (longlong *)param_1[0x20];
+  local_468 = _guard_check_icall;
+  local_458 = (char *)0x0;
+  (**(code **)(*(longlong *)param_1[0x1f] + 0x20))
+            ((longlong *)param_1[0x1f],"do_data_paste",&local_468);
+  local_460 = (longlong *)param_1[0x20];
+  local_468 = FUN_1800aabd0;
+  local_458 = (char *)0x0;
+  (**(code **)(*(longlong *)param_1[0x1f] + 0x20))
+            ((longlong *)param_1[0x1f],"do_save_battle",&local_468);
+  local_460 = (longlong *)param_1[0x20];
+  local_468 = FUN_1800668d0;
+  local_458 = (char *)0x0;
+  (**(code **)(*(longlong *)param_1[0x1f] + 0x20))
+            ((longlong *)param_1[0x1f],"pad_cc_exp",&local_468);
+  local_460 = (longlong *)param_1[0x20];
+  local_468 = FUN_180066930;
+  local_458 = (char *)0x0;
+  (**(code **)(*(longlong *)param_1[0x1f] + 0x20))
+            ((longlong *)param_1[0x1f],"pad_cc_utype",&local_468);
+  local_460 = (longlong *)param_1[0x20];
+  local_468 = FUN_18002add0;
+  local_458 = (char *)0x0;
+  (**(code **)(*(longlong *)param_1[0x1f] + 0x20))
+            ((longlong *)param_1[0x1f],"do_tr_cancel",&local_468);
+  local_460 = (longlong *)param_1[0x20];
+  local_468 = FUN_18002ae30;
+  local_458 = (char *)0x0;
+  (**(code **)(*(longlong *)param_1[0x1f] + 0x20))
+            ((longlong *)param_1[0x1f],"do_tr_next",&local_468);
+  local_460 = (longlong *)param_1[0x20];
+  local_468 = FUN_18002aea0;
+  local_458 = (char *)0x0;
+  (**(code **)(*(longlong *)param_1[0x1f] + 0x20))
+            ((longlong *)param_1[0x1f],"do_tr_repeat",&local_468);
+  uVar4 = *(undefined4 *)((longlong)param_1 + 0x9e4);
+  local_460 = (longlong *)param_1[0x20];
+  local_468 = (code *)&LAB_18002af10;
+  local_458 = (char *)0x0;
+  (**(code **)(*(longlong *)param_1[0x1e] + 0x100))
+            ((longlong *)param_1[0x1e],uVar4,"do_so_pre_01",&local_468,0);
+  local_460 = (longlong *)param_1[0x20];
+  local_468 = (code *)&LAB_18002af30;
+  local_458 = (char *)0x0;
+  (**(code **)(*(longlong *)param_1[0x1e] + 0x100))
+            ((longlong *)param_1[0x1e],uVar4,"do_so_pre_02",&local_468,0);
+  local_460 = (longlong *)param_1[0x20];
+  local_468 = (code *)&LAB_18002af50;
+  local_458 = (char *)0x0;
+  (**(code **)(*(longlong *)param_1[0x1e] + 0x100))
+            ((longlong *)param_1[0x1e],uVar4,"do_so_pre_03",&local_468,0);
+  local_460 = (longlong *)param_1[0x20];
+  local_468 = (code *)&LAB_18002af70;
+  local_458 = (char *)0x0;
+  (**(code **)(*(longlong *)param_1[0x1e] + 0x100))
+            ((longlong *)param_1[0x1e],uVar4,"do_so_pre_04",&local_468,0);
+  local_460 = (longlong *)param_1[0x20];
+  local_468 = (code *)&LAB_18002af90;
+  local_458 = (char *)0x0;
+  (**(code **)(*(longlong *)param_1[0x1e] + 0x100))
+            ((longlong *)param_1[0x1e],uVar4,"do_so_pre_05",&local_468,0);
+  local_460 = (longlong *)param_1[0x20];
+  local_468 = (code *)&LAB_18002afb0;
+  local_458 = (char *)0x0;
+  (**(code **)(*(longlong *)param_1[0x1e] + 0x100))
+            ((longlong *)param_1[0x1e],uVar4,"do_so_pre_06",&local_468,0);
+  local_460 = (longlong *)param_1[0x20];
+  local_468 = (code *)&LAB_18002afd0;
+  local_458 = (char *)0x0;
+  (**(code **)(*(longlong *)param_1[0x1e] + 0x100))
+            ((longlong *)param_1[0x1e],uVar4,"do_so_pre_07",&local_468,0);
+  local_460 = (longlong *)param_1[0x20];
+  local_468 = (code *)&LAB_18002aff0;
+  local_458 = (char *)0x0;
+  (**(code **)(*(longlong *)param_1[0x1e] + 0x100))
+            ((longlong *)param_1[0x1e],uVar4,"do_so_pre_08",&local_468,0);
+  local_460 = (longlong *)param_1[0x20];
+  local_468 = (code *)&LAB_18002b010;
+  local_458 = (char *)0x0;
+  (**(code **)(*(longlong *)param_1[0x1e] + 0x100))
+            ((longlong *)param_1[0x1e],uVar4,"do_so_pre_09",&local_468,0);
+  local_460 = (longlong *)param_1[0x20];
+  local_468 = (code *)&LAB_18002b030;
+  local_458 = (char *)0x0;
+  (**(code **)(*(longlong *)param_1[0x1e] + 0x100))
+            ((longlong *)param_1[0x1e],uVar4,"do_so_cancel",&local_468,0);
+  ppuVar14 = &PTR_s_do_dmap_zoom_180133680;
+  pcVar11 = pcVar20;
+  do {
+    puVar5 = *ppuVar14;
+    pcVar16 = pcVar11;
+    (**(code **)(*(longlong *)param_1[0x2a] + 0xf0))();
+    uVar10 = (int)pcVar11 + 1;
+    pcVar11 = (char *)(ulonglong)uVar10;
+    ppuVar14 = ppuVar14 + 1;
+  } while (uVar10 < 2);
+  FUN_180075ca0(param_1,0,puVar5);
+  FUN_1800762e0((ulonglong)param_1,0,0,pcVar16);
+  FUN_180033c30((longlong)param_1);
+  FUN_180038f90(param_1 + 0x89d,0);
+  plVar8 = (longlong *)(**(code **)(*(longlong *)param_1[0xc] + 0x100))();
+  plVar8 = (longlong *)(**(code **)(*plVar8 + 0x128))(plVar8,"tabs\\ai_plans.cfgpack",1,0);
+  cVar2 = (**(code **)(*plVar8 + 0x10))(plVar8,"op_movement",0,local_res10,0);
+  if (cVar2 != '\0') {
+    uVar10 = (**(code **)(*plVar8 + 0x48))(plVar8,local_res10[0]);
+    FUN_180038f90(param_1 + 0x89d,uVar10);
+    pcVar11 = pcVar20;
+    pcVar16 = pcVar20;
+    if (uVar10 != 0) {
+      do {
+        pcVar19 = pcVar11 + param_1[0x89d];
+        (**(code **)(*plVar8 + 0x20))
+                  (plVar8,local_res10[0],pcVar16,"uv4$f",pcVar19 + 0x4c,pcVar19,pcVar19 + 0x10,
+                   pcVar19 + 0x20,pcVar19 + 0x30,pcVar19 + 0x40,pcVar19 + 0x48);
+        uVar15 = (int)pcVar16 + 1;
+        pcVar11 = pcVar11 + 0x50;
+        pcVar16 = (char *)(ulonglong)uVar15;
+      } while (uVar15 < uVar10);
+    }
+  }
+  FUN_1800339b0((ulonglong)param_1);
+  FUN_18004cde0((undefined8 *)&local_448);
+  (**(code **)(*(longlong *)param_1[0x1e] + 0x60))
+            ((longlong *)param_1[0x1e],local_res10,(int)param_1[0x133],"table");
+  local_440 = local_res10[0];
+  local_42c = (**(code **)(*(longlong *)param_1[0x2c] + 0x40))
+                        ((longlong *)param_1[0x2c],&DAT_180133df4);
+  local_430 = (**(code **)(*(longlong *)param_1[0x1e] + 0x1f8))
+                        ((longlong *)param_1[0x1e],(int)param_1[0x133],0);
+  puVar9 = (undefined4 *)
+           (**(code **)(*(longlong *)param_1[0x1e] + 0x148))
+                     ((longlong *)param_1[0x1e],local_res10,(int)param_1[0x133]);
+  local_43c = *puVar9;
+  local_444 = 1;
+  local_448 = 7;
+  local_438 = 4;
+  local_434 = 3;
+  local_2eb = 1;
+  local_340 = 1;
+  local_2e5 = 0x101;
+  local_2e3 = 1;
+  local_424 = _DAT_1801387e8;
+  uStack_41c = _UNK_1801387f0;
+  local_414 = DAT_1801387f8;
+  local_40c = DAT_180138800;
+  local_468 = FUN_1800cf3d0;
+  local_458 = (char *)0x0;
+  local_460 = param_1;
+  uVar4 = (**(code **)(*(longlong *)param_1[0x33] + 0x18))
+                    ((longlong *)param_1[0x33],&local_448,&local_468);
+  *(undefined4 *)((longlong)param_1 + 0x3bf4) = uVar4;
+  FUN_1800cf250((longlong)param_1);
+  (**(code **)(*(longlong *)param_1[0x33] + 0x70))
+            ((longlong *)param_1[0x33],*(undefined4 *)((longlong)param_1 + 0x3bf4),1);
+  FUN_180017d60(local_3a0);
+  FUN_18004cde0((undefined8 *)&local_448);
+  (**(code **)(*(longlong *)param_1[0x1e] + 0x60))
+            ((longlong *)param_1[0x1e],local_res10,*(undefined4 *)((longlong)param_1 + 0x99c),
+             "table");
+  local_440 = local_res10[0];
+  local_42c = (**(code **)(*(longlong *)param_1[0x2c] + 0x40))
+                        ((longlong *)param_1[0x2c],&DAT_180133df4);
+  local_430 = (**(code **)(*(longlong *)param_1[0x1e] + 0x1f8))
+                        ((longlong *)param_1[0x1e],*(undefined4 *)((longlong)param_1 + 0x99c),0);
+  puVar9 = (undefined4 *)
+           (**(code **)(*(longlong *)param_1[0x1e] + 0x148))
+                     ((longlong *)param_1[0x1e],local_res10,
+                      *(undefined4 *)((longlong)param_1 + 0x99c));
+  local_43c = *puVar9;
+  local_444 = 1;
+  local_448 = 7;
+  local_438 = 4;
+  local_434 = 3;
+  local_2e5 = 0x101;
+  local_2eb = 1;
+  local_33c = 0x3f59999a;
+  local_340 = 1;
+  local_424 = _DAT_180134f70;
+  uStack_41c = _UNK_180134f78;
+  local_414 = DAT_180134f80;
+  local_40c = DAT_180134f88;
+  local_468 = FUN_180074660;
+  local_458 = (char *)0x0;
+  ppcVar17 = &local_468;
+  local_460 = param_1;
+  uVar10 = (**(code **)(*(longlong *)param_1[0x33] + 0x18))
+                     ((longlong *)param_1[0x33],&local_448,ppcVar17);
+  *(uint *)(param_1 + 0x77f) = uVar10;
+  pppcVar18 = *(char ****)param_1[0x33];
+  pcVar11 = (char *)CONCAT71((int7)((ulonglong)ppcVar17 >> 8),1);
+  uVar12 = (ulonglong)uVar10;
+  (*(code *)pppcVar18[0xe])();
+  FUN_180091870((longlong)param_1,uVar12,pcVar11,pppcVar18);
+  FUN_180071f30((longlong)param_1,'\0',0,0);
+  FUN_180017d60(local_3a0);
+  FUN_18009a530((longlong)param_1);
+  FUN_18004cde0((undefined8 *)&local_448);
+  (**(code **)(*(longlong *)param_1[0x1e] + 0x60))
+            ((longlong *)param_1[0x1e],local_res10,*(undefined4 *)((longlong)param_1 + 0x9bc),
+             "table");
+  local_440 = local_res10[0];
+  local_42c = (**(code **)(*(longlong *)param_1[0x2c] + 0x40))
+                        ((longlong *)param_1[0x2c],&DAT_180133df4);
+  local_430 = (**(code **)(*(longlong *)param_1[0x1e] + 0x1f8))
+                        ((longlong *)param_1[0x1e],*(undefined4 *)((longlong)param_1 + 0x9bc),0);
+  puVar9 = (undefined4 *)
+           (**(code **)(*(longlong *)param_1[0x1e] + 0x148))
+                     ((longlong *)param_1[0x1e],local_res10,
+                      *(undefined4 *)((longlong)param_1 + 0x9bc));
+  local_43c = *puVar9;
+  local_444 = 1;
+  local_res10[0] = 5;
+  local_448 = 5;
+  local_438 = 6;
+  local_434 = 3;
+  local_2eb = 1;
+  local_2e5 = 0x101;
+  local_340 = 1;
+  local_33c = 0x3f59999a;
+  local_424 = CONCAT44(_UNK_180134974,_DAT_180134970);
+  uStack_41c = CONCAT44(_UNK_18013497c,_UNK_180134978);
+  local_414 = CONCAT44(local_414._4_4_,DAT_180134980);
+  local_468 = FUN_18006b110;
+  local_458 = (char *)0x0;
+  local_460 = param_1;
+  uVar4 = (**(code **)(*(longlong *)param_1[0x33] + 0x18))
+                    ((longlong *)param_1[0x33],&local_448,&local_468);
+  *(undefined4 *)((longlong)param_1 + 0x3c2c) = uVar4;
+  FUN_180017d60(local_3a0);
+  FUN_1800c9690((longlong)param_1);
+  FUN_1800a3730((longlong)param_1);
+  plVar8 = (longlong *)(**(code **)(*(longlong *)param_1[0xc] + 0x100))();
+  plVar8 = (longlong *)(**(code **)(*plVar8 + 0x128))(plVar8,"tabs\\ai_plans.cfgpack",1,0);
+  cVar2 = (**(code **)(*plVar8 + 0x10))(plVar8,"op_sup_strat",0,local_res18,0);
+  if ((cVar2 != '\0') &&
+     ((uVar10 = (**(code **)(*plVar8 + 0x48))(plVar8), 4 < uVar10 ||
+      (local_res10[0] = uVar10, uVar10 != 0)))) {
+    uVar10 = local_res10[0];
+    lVar6 = (longlong)param_1 + 0x42cc;
+    do {
+      (**(code **)(*plVar8 + 0x20))
+                (plVar8,local_res18[0],pcVar20,&DAT_180133768,lVar6 + 8,lVar6 + -0x1c,lVar6 + -0x18,
+                 lVar6 + -0x14,lVar6 + -0x10,lVar6 + -0xc,lVar6 + -8,lVar6 + -4,lVar6,lVar6 + 4);
+      uVar15 = (int)pcVar20 + 1;
+      pcVar20 = (char *)(ulonglong)uVar15;
+      lVar6 = lVar6 + 0x48;
+      param_1 = local_res8;
+    } while (uVar15 < uVar10);
+  }
+  iVar3 = 0;
+  FUN_180087c40((longlong)param_1);
+  FUN_1800c7e10(param_1 + 0x78d,0);
+  plVar8 = (longlong *)(**(code **)(*(longlong *)param_1[0xc] + 0x100))();
+  plVar8 = (longlong *)(**(code **)(*plVar8 + 0x128))(plVar8,"tabs\\achievments.cfgpack",1,0);
+  cVar2 = (**(code **)(*plVar8 + 0x10))(plVar8,"stats",0,&local_res8,0);
+  if (cVar2 != '\0') {
+    uVar10 = (**(code **)(*plVar8 + 0x48))(plVar8,(ulonglong)local_res8 & 0xffffffff);
+    FUN_1800c7e10(param_1 + 0x78d,uVar10);
+    lVar6 = param_1[0x78d];
+    lVar21 = (ulonglong)*(uint *)((longlong)param_1 + 0x3c74) * 0x40 + lVar6;
+    for (; lVar6 != lVar21; lVar6 = lVar6 + 0x40) {
+      (**(code **)(*plVar8 + 0x20))
+                (plVar8,(ulonglong)local_res8 & 0xffffffff,iVar3,"$u$vb2$2",lVar6 + 0x18,
+                 lVar6 + 0x10,lVar6 + 0x20,lVar6,lVar6 + 0x38,lVar6 + 0x39,lVar6 + 0x28,lVar6 + 0x30
+                );
+      iVar3 = iVar3 + 1;
+    }
+  }
+  (**(code **)(*(longlong *)param_1[0x2c] + 0x80))((longlong *)param_1[0x2c],param_1[0x37]);
+  (**(code **)(*(longlong *)param_1[0x2b] + 0x90))((longlong *)param_1[0x2b],param_1[0x37]);
+  FUN_1800ba700(param_1,(longlong *)param_1[0x37]);
+  return;
+}
+
+
+
+// STRING 'do_mm_skirmish' @ 180132c08
+//   ref from 18002f1da in FUN_18002eca0
+
+// STRING 'do_mm_qbattle' @ 180132c48
+//   ref from 18002f2d6 in FUN_18002eca0
+
+// STRING 'do_mm_qbattle_edit' @ 180132c68
+//   ref from 18002f354 in FUN_18002eca0

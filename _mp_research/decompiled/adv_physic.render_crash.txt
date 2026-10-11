@@ -1,0 +1,292 @@
+// RTTI class names
+//   .?AVh_except_sync@errors@@
+//   .?AVbad_alloc@std@@
+//   .?AVh_except@errors@@
+//   .?AVexception@std@@
+//   .?AVbad_array_new_length@std@@
+//   .?AVh_except_unit@physic@@
+//   .?AVtype_info@@
+//   .?AViObject@base@@
+//   .?AVi_object@base@@
+//   .?AVh_factory@base@@
+//   .?AVh_message@base@@
+//   .?AVh_mes_objdesc@base@@
+//   .?AVi_physobj@@
+//   .?AVh_colobj@iPCS@gameobj@@
+//   .?AVi_human@@
+//   .?AVi_physobj2@@
+//   .?AUh_colobj@i_human@@
+//   .?AVi_manam@@
+//   .?AVi_manhu@@
+//   .?AVi_metahum@@
+//   .?AVi_techn@@
+//   .?AUh_colobj@i_techn@@
+
+//==== GetFactory3 @ 18000a5e0  (export)
+
+undefined ** GetFactory3(void)
+
+{
+                    /* 0xa5e0  1  GetFactory3 */
+  if (*(int *)(*(longlong *)((longlong)ThreadLocalStoragePointer + (ulonglong)_tls_index * 8) + 4) <
+      DAT_1800e3130) {
+    FUN_1800b21f4(&DAT_1800e3130);
+    if (DAT_1800e3130 == -1) {
+      DAT_1800d6098 = FUN_1800b1d6c(0x30);
+      *(longlong *)DAT_1800d6098 = DAT_1800d6098;
+      *(longlong *)(DAT_1800d6098 + 8) = DAT_1800d6098;
+      *(longlong *)(DAT_1800d6098 + 0x10) = DAT_1800d6098;
+      *(undefined2 *)(DAT_1800d6098 + 0x18) = 0x101;
+      atexit(FUN_1800b4ce0);
+      _Init_thread_footer(&DAT_1800e3130);
+      return &PTR_vftable_1800d6090;
+    }
+  }
+  return &PTR_vftable_1800d6090;
+}
+
+
+
+//==== atexit @ 1800b2100  (called by GetFactory3)
+
+/* Library Function - Single Match
+    atexit
+   
+   Library: Visual Studio 2019 Release */
+
+int __cdecl atexit(_func_5014 *param_1)
+
+{
+  _onexit_t p_Var1;
+  
+  p_Var1 = _onexit((_onexit_t)param_1);
+  return (p_Var1 != (_onexit_t)0x0) - 1;
+}
+
+
+
+//==== FUN_1800b21f4 @ 1800b21f4  (called by GetFactory3)
+
+void FUN_1800b21f4(int *param_1)
+
+{
+  AcquireSRWLockExclusive((PSRWLOCK)&DAT_1800d9ad0);
+  do {
+    if (*param_1 == 0) {
+      *param_1 = -1;
+LAB_1800b2259:
+                    /* WARNING: Could not recover jumptable at 0x0001800b2265. Too many branches */
+                    /* WARNING: Treating indirect jump as call */
+      ReleaseSRWLockExclusive((PSRWLOCK)&DAT_1800d9ad0);
+      return;
+    }
+    if (*param_1 != -1) {
+      *(undefined4 *)
+       (*(longlong *)((longlong)ThreadLocalStoragePointer + (ulonglong)_tls_index * 8) + 4) =
+           DAT_1800d6004;
+      goto LAB_1800b2259;
+    }
+    SleepConditionVariableSRW
+              ((PCONDITION_VARIABLE)&DAT_1800d9ac8,(PSRWLOCK)&DAT_1800d9ad0,0xffffffff,0);
+  } while( true );
+}
+
+
+
+//==== FUN_1800b1d6c @ 1800b1d6c  (called by GetFactory3)
+
+void FUN_1800b1d6c(size_t param_1)
+
+{
+  int iVar1;
+  void *pvVar2;
+  
+  do {
+    pvVar2 = malloc(param_1);
+    if (pvVar2 != (void *)0x0) {
+      return;
+    }
+    iVar1 = _callnewh(param_1);
+  } while (iVar1 != 0);
+  if (param_1 == 0xffffffffffffffff) {
+                    /* WARNING: Subroutine does not return */
+    FUN_180008e20();
+  }
+                    /* WARNING: Subroutine does not return */
+  FUN_1800b27ac();
+}
+
+
+
+//==== _Init_thread_footer @ 1800b2188  (called by GetFactory3)
+
+/* Library Function - Single Match
+    _Init_thread_footer
+   
+   Library: Visual Studio 2019 Release */
+
+void _Init_thread_footer(int *param_1)
+
+{
+  ulonglong uVar1;
+  
+  AcquireSRWLockExclusive((PSRWLOCK)&DAT_1800d9ad0);
+  uVar1 = (ulonglong)_tls_index;
+  DAT_1800d6004 = DAT_1800d6004 + 1;
+  *param_1 = DAT_1800d6004;
+  *(int *)(*(longlong *)((longlong)ThreadLocalStoragePointer + uVar1 * 8) + 4) = DAT_1800d6004;
+  ReleaseSRWLockExclusive((PSRWLOCK)&DAT_1800d9ad0);
+                    /* WARNING: Could not recover jumptable at 0x0001800b21ea. Too many branches */
+                    /* WARNING: Treating indirect jump as call */
+  WakeAllConditionVariable(&DAT_1800d9ac8);
+  return;
+}
+
+
+
+//==== FUN_1800a0770 @ 1800a0770  (requested)
+
+void FUN_1800a0770(longlong param_1)
+
+{
+  char cVar1;
+  char cVar2;
+  char cVar3;
+  int iVar4;
+  uint uVar5;
+  float fVar6;
+  float fVar7;
+  float fVar8;
+  float fVar9;
+  float fVar10;
+  float fVar11;
+  float fVar12;
+  float fVar13;
+  float fVar14;
+  float fVar15;
+  float fVar16;
+  float fVar17;
+  float fVar18;
+  float fVar19;
+  float fVar20;
+  float fVar21;
+  uint uVar22;
+  float *pfVar23;
+  float *pfVar24;
+  char local_res10;
+  float local_f8;
+  float fStack_f4;
+  float fStack_f0;
+  float fStack_ec;
+  float local_e8;
+  float fStack_e4;
+  float fStack_e0;
+  float fStack_dc;
+  float local_d8;
+  float fStack_d4;
+  float fStack_d0;
+  float fStack_cc;
+  float local_c8;
+  float fStack_c4;
+  float fStack_c0;
+  float fStack_bc;
+  float local_b8;
+  float fStack_b4;
+  float fStack_b0;
+  float fStack_ac;
+  float local_a8;
+  float fStack_a4;
+  float fStack_a0;
+  float fStack_9c;
+  float local_98;
+  float fStack_94;
+  float fStack_90;
+  float fStack_8c;
+  float local_88;
+  float fStack_84;
+  float fStack_80;
+  float fStack_7c;
+  
+  if (*(int *)(param_1 + 0x85c) != 0) {
+    cVar1 = *(char *)(param_1 + 0x1e66);
+    if ((*(char *)(param_1 + 0x1e3d) != '\0') || (local_res10 = '\x01', cVar1 == '\0')) {
+      local_res10 = '\0';
+    }
+    pfVar23 = *(float **)(param_1 + 0x850);
+    iVar4 = *(int *)(param_1 + 0x14c0);
+    uVar5 = *(uint *)(param_1 + 0x14c4);
+    cVar2 = *(char *)(param_1 + 0x1e5f);
+    pfVar24 = pfVar23 + (ulonglong)*(uint *)(param_1 + 0x85c) * 0x18;
+    uVar22 = 0;
+    for (; pfVar23 != pfVar24; pfVar23 = pfVar23 + 0x18) {
+      if (pfVar23[0x12] != -NAN) {
+        if (((uint)pfVar23[0x14] >> 0x10 & 1) == 0) {
+          if ((uVar22 < uVar5) || (iVar4 + uVar5 <= uVar22)) {
+            (**(code **)(*DAT_1800d9c70 + 0x100))(DAT_1800d9c70,pfVar23[0x12],&local_f8,0);
+            fVar6 = *pfVar23;
+            fVar7 = pfVar23[1];
+            fVar8 = pfVar23[2];
+            fVar9 = pfVar23[3];
+            fVar10 = pfVar23[4];
+            fVar11 = pfVar23[5];
+            fVar12 = pfVar23[6];
+            fVar13 = pfVar23[7];
+            fVar14 = pfVar23[8];
+            fVar15 = pfVar23[9];
+            fVar16 = pfVar23[10];
+            fVar17 = pfVar23[0xb];
+            fVar18 = pfVar23[0xc];
+            fVar19 = pfVar23[0xd];
+            fVar20 = pfVar23[0xe];
+            fVar21 = pfVar23[0xf];
+            local_b8 = fVar7 * local_e8 + fVar6 * local_f8 + fVar8 * local_d8 + fVar9 * local_c8;
+            fStack_b4 = fVar7 * fStack_e4 + fVar6 * fStack_f4 + fVar8 * fStack_d4 +
+                        fVar9 * fStack_c4;
+            fStack_b0 = fVar7 * fStack_e0 + fVar6 * fStack_f0 + fVar8 * fStack_d0 +
+                        fVar9 * fStack_c0;
+            fStack_ac = fVar7 * fStack_dc + fVar6 * fStack_ec + fVar8 * fStack_cc +
+                        fVar9 * fStack_bc;
+            local_a8 = fVar11 * local_e8 + fVar10 * local_f8 + fVar12 * local_d8 + fVar13 * local_c8
+            ;
+            fStack_a4 = fVar11 * fStack_e4 + fVar10 * fStack_f4 + fVar12 * fStack_d4 +
+                        fVar13 * fStack_c4;
+            fStack_a0 = fVar11 * fStack_e0 + fVar10 * fStack_f0 + fVar12 * fStack_d0 +
+                        fVar13 * fStack_c0;
+            fStack_9c = fVar11 * fStack_dc + fVar10 * fStack_ec + fVar12 * fStack_cc +
+                        fVar13 * fStack_bc;
+            local_98 = fVar15 * local_e8 + fVar14 * local_f8 + fVar16 * local_d8 + fVar17 * local_c8
+            ;
+            fStack_94 = fVar15 * fStack_e4 + fVar14 * fStack_f4 + fVar16 * fStack_d4 +
+                        fVar17 * fStack_c4;
+            fStack_90 = fVar15 * fStack_e0 + fVar14 * fStack_f0 + fVar16 * fStack_d0 +
+                        fVar17 * fStack_c0;
+            fStack_8c = fVar15 * fStack_dc + fVar14 * fStack_ec + fVar16 * fStack_cc +
+                        fVar17 * fStack_bc;
+            local_88 = fVar19 * local_e8 + fVar18 * local_f8 + fVar20 * local_d8 + fVar21 * local_c8
+            ;
+            fStack_84 = fVar19 * fStack_e4 + fVar18 * fStack_f4 + fVar20 * fStack_d4 +
+                        fVar21 * fStack_c4;
+            fStack_80 = fVar19 * fStack_e0 + fVar18 * fStack_f0 + fVar20 * fStack_d0 +
+                        fVar21 * fStack_c0;
+            fStack_7c = fVar19 * fStack_dc + fVar18 * fStack_ec + fVar20 * fStack_cc +
+                        fVar21 * fStack_bc;
+            (**(code **)(*DAT_1800d9d08 + 0x58))
+                      (DAT_1800d9d08,pfVar23[0x13],&local_b8,param_1 + 0xaa0);
+            cVar3 = local_res10;
+            if (((uint)pfVar23[0x14] >> 0x11 & 1) != 0) {
+              cVar3 = cVar1;
+            }
+            (**(code **)(*DAT_1800d9d08 + 0x28))(DAT_1800d9d08,pfVar23[0x13],cVar3);
+          }
+        }
+        else if ((cVar2 != '\0') && (SUB41(pfVar23[0x14],0) == '\x02')) {
+          (**(code **)(*DAT_1800d9d08 + 0x28))(DAT_1800d9d08,pfVar23[0x13],0);
+        }
+      }
+      uVar22 = uVar22 + 1;
+    }
+  }
+  return;
+}
+
+

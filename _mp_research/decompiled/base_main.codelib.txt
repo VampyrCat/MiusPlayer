@@ -1,0 +1,477 @@
+// RTTI class names
+//   .?AVbad_alloc@std@@
+//   .?AVexception@std@@
+//   .?AVbad_array_new_length@std@@
+//   .?AVh_except@errors@@
+//   .?AVbad_cast@std@@
+//   .?AVh_except_sync@errors@@
+//   .?AVtype_info@@
+//   .?AVh_mes_ctrl_tick@iCtrlTimer@main@@
+//   .?AViObject@base@@
+//   .?AVh_message@base@@
+//   .?AVi_ctrltimer@@
+//   .?AVi_object@base@@
+//   .?AVh_mes_addobject@base@@
+//   .?AVi_env@@
+//   .?AVi_pipeline@@
+//   .?AVh_mes_tick@iTimer@main@@
+//   .?AVi_timer@@
+//   .?AVh_mes_activate@iWindow@main@@
+//   .?AVh_mes_winmes@iWindow@main@@
+//   .?AVi_window@@
+//   .?AVh_sync@@
+//   .?AVi_loader@@
+//   .?AV?$basic_filebuf@DU?$char_traits@D@std@@@std@@
+//   .?AV?$basic_fstream@DU?$char_traits@D@std@@@std@@
+//   .?AVios_base@std@@
+//   .?AV?$basic_iostream@DU?$char_traits@D@std@@@std@@
+//   .?AV?$_Iosb@H@std@@
+//   .?AV?$basic_streambuf@DU?$char_traits@D@std@@@std@@
+//   .?AVi_script_proc@@
+//   .?AV?$basic_istream@DU?$char_traits@D@std@@@std@@
+//   .?AV?$basic_ios@DU?$char_traits@D@std@@@std@@
+//   .?AV?$basic_ostream@DU?$char_traits@D@std@@@std@@
+//   .?AVh_image@adv_image@@
+//   .?AVh_tga_image@adv_image@@
+//   .?AVh_factory@base@@
+
+//==== GetFactory3 @ 18001b330  (export)
+
+undefined ** GetFactory3(void)
+
+{
+                    /* 0x1b330  1  GetFactory3 */
+  if (*(int *)(*(longlong *)((longlong)ThreadLocalStoragePointer + (ulonglong)_tls_index * 8) + 4) <
+      DAT_18002ea30) {
+    FUN_18001b830(&DAT_18002ea30);
+    if (DAT_18002ea30 == -1) {
+      DAT_18002b248 = FUN_18001bc4c(0x30);
+      *(longlong *)DAT_18002b248 = DAT_18002b248;
+      *(longlong *)(DAT_18002b248 + 8) = DAT_18002b248;
+      *(longlong *)(DAT_18002b248 + 0x10) = DAT_18002b248;
+      *(undefined2 *)(DAT_18002b248 + 0x18) = 0x101;
+      atexit(FUN_18001e830);
+      _Init_thread_footer(&DAT_18002ea30);
+      return &PTR_vftable_18002b240;
+    }
+  }
+  return &PTR_vftable_18002b240;
+}
+
+
+
+//==== FUN_18001bc4c @ 18001bc4c  (called by GetFactory3)
+
+void FUN_18001bc4c(size_t param_1)
+
+{
+  int iVar1;
+  void *pvVar2;
+  
+  do {
+    pvVar2 = malloc(param_1);
+    if (pvVar2 != (void *)0x0) {
+      return;
+    }
+    iVar1 = _callnewh(param_1);
+  } while (iVar1 != 0);
+  if (param_1 == 0xffffffffffffffff) {
+                    /* WARNING: Subroutine does not return */
+    FUN_180005090();
+  }
+                    /* WARNING: Subroutine does not return */
+  FUN_18001c430();
+}
+
+
+
+//==== atexit @ 18001bc00  (called by GetFactory3)
+
+/* Library Function - Single Match
+    atexit
+   
+   Library: Visual Studio 2019 Release */
+
+int __cdecl atexit(_func_5014 *param_1)
+
+{
+  _onexit_t p_Var1;
+  
+  p_Var1 = _onexit((_onexit_t)param_1);
+  return (p_Var1 != (_onexit_t)0x0) - 1;
+}
+
+
+
+//==== FUN_18001b830 @ 18001b830  (called by GetFactory3)
+
+void FUN_18001b830(int *param_1)
+
+{
+  AcquireSRWLockExclusive((PSRWLOCK)&DAT_18002b918);
+  do {
+    if (*param_1 == 0) {
+      *param_1 = -1;
+LAB_18001b895:
+                    /* WARNING: Could not recover jumptable at 0x00018001b8a1. Too many branches */
+                    /* WARNING: Treating indirect jump as call */
+      ReleaseSRWLockExclusive((PSRWLOCK)&DAT_18002b918);
+      return;
+    }
+    if (*param_1 != -1) {
+      *(undefined4 *)
+       (*(longlong *)((longlong)ThreadLocalStoragePointer + (ulonglong)_tls_index * 8) + 4) =
+           DAT_18002b000;
+      goto LAB_18001b895;
+    }
+    SleepConditionVariableSRW
+              ((PCONDITION_VARIABLE)&DAT_18002b910,(PSRWLOCK)&DAT_18002b918,0xffffffff,0);
+  } while( true );
+}
+
+
+
+//==== _Init_thread_footer @ 18001b7c4  (called by GetFactory3)
+
+/* Library Function - Single Match
+    _Init_thread_footer
+   
+   Library: Visual Studio 2019 Release */
+
+void _Init_thread_footer(int *param_1)
+
+{
+  ulonglong uVar1;
+  
+  AcquireSRWLockExclusive((PSRWLOCK)&DAT_18002b918);
+  uVar1 = (ulonglong)_tls_index;
+  DAT_18002b000 = DAT_18002b000 + 1;
+  *param_1 = DAT_18002b000;
+  *(int *)(*(longlong *)((longlong)ThreadLocalStoragePointer + uVar1 * 8) + 4) = DAT_18002b000;
+  ReleaseSRWLockExclusive((PSRWLOCK)&DAT_18002b918);
+                    /* WARNING: Could not recover jumptable at 0x00018001b826. Too many branches */
+                    /* WARNING: Treating indirect jump as call */
+  WakeAllConditionVariable(&DAT_18002b910);
+  return;
+}
+
+
+
+//==== FUN_18000c710 @ 18000c710  (requested)
+
+void FUN_18000c710(longlong param_1,undefined1 param_2)
+
+{
+  *(undefined1 *)(param_1 + 0x2a7) = param_2;
+  return;
+}
+
+
+
+//==== FUN_18000d880 @ 18000d880  (requested)
+
+void FUN_18000d880(longlong param_1)
+
+{
+  char cVar1;
+  bool bVar2;
+  undefined8 uVar3;
+  PBYTE lpKeyState;
+  byte bVar4;
+  char *pcVar5;
+  undefined **local_158;
+  undefined **local_150;
+  char local_148;
+  BYTE local_108 [20];
+  byte local_f4;
+  
+  pcVar5 = (char *)(param_1 + 0x2a2);
+  if (*(char *)(param_1 + 0x2ab) != '\0') {
+    lpKeyState = local_108;
+    if (*pcVar5 == '\0') {
+      GetKeyboardState(lpKeyState);
+      *(byte *)(param_1 + 0x2aa) = local_f4 & 1;
+      bVar4 = *(byte *)(param_1 + 0x2a9);
+    }
+    else {
+      GetKeyboardState(lpKeyState);
+      *(byte *)(param_1 + 0x2a9) = local_f4 & 1;
+      bVar4 = *(byte *)(param_1 + 0x2aa);
+    }
+    FUN_18000dd40(lpKeyState,bVar4);
+    *(undefined1 *)(param_1 + 0x2ab) = 0;
+  }
+  if (*pcVar5 == '\0') {
+    FUN_18000c4a0(0x14);
+  }
+  cVar1 = *pcVar5;
+  if (DAT_18002b9b0 != cVar1) {
+    local_150 = (undefined **)0x1800205a0;
+    local_158 = main::iWindow::h_mes_activate::vftable;
+    local_148 = cVar1;
+    uVar3 = FUN_180003bd0(*(longlong *)(param_1 + 0x60),(undefined **)"activate",'\0');
+    if ((char)uVar3 == '\0') {
+      (**(code **)(**(longlong **)(param_1 + 0x60) + 0x30))
+                (*(longlong **)(param_1 + 0x60),"activate","activate",0);
+    }
+    (**(code **)(**(longlong **)(param_1 + 0x60) + 0x60))
+              (*(longlong **)(param_1 + 0x60),&local_158,"activate");
+    if (cVar1 != '\0') {
+      *(undefined1 *)(param_1 + 0x2ab) = 1;
+    }
+    memset((void *)(param_1 + 0x1a0),0,0x100);
+    DAT_18002b9b0 = cVar1;
+  }
+  if ((*(char *)(param_1 + 0x2a2) == '\0') && (*(char *)(param_1 + 0x2a7) == '\0')) {
+    bVar2 = true;
+  }
+  else {
+    bVar2 = false;
+  }
+  pcVar5 = &DAT_180024548;
+  if (bVar2) {
+    pcVar5 = "napump";
+  }
+  local_158 = base::h_message::vftable;
+  local_150 = (undefined **)pcVar5;
+  uVar3 = FUN_180003bd0(*(longlong *)(param_1 + 0x60),(undefined **)pcVar5,'\x01');
+  if ((char)uVar3 == '\0') {
+    (**(code **)(**(longlong **)(param_1 + 0x60) + 0x30))
+              (*(longlong **)(param_1 + 0x60),pcVar5,pcVar5,0);
+  }
+  (**(code **)(**(longlong **)(param_1 + 0x60) + 0x60))
+            (*(longlong **)(param_1 + 0x60),&local_158,pcVar5);
+  return;
+}
+
+
+
+//==== FUN_18000fb30 @ 18000fb30  (requested)
+
+void FUN_18000fb30(longlong param_1)
+
+{
+  uint uVar1;
+  longlong lVar2;
+  char cVar3;
+  DWORD idAttach;
+  DWORD idAttachTo;
+  longlong *plVar4;
+  HWND hWnd;
+  HANDLE hHeap;
+  HBRUSH hbr;
+  HDC hDC;
+  HWND pHVar5;
+  longlong local_res8;
+  float local_res10 [2];
+  undefined1 local_38 [16];
+  
+  plVar4 = *(longlong **)(param_1 + 0x130);
+  if (plVar4 != (longlong *)0x0) {
+    local_res8._0_1_ = '\0';
+    local_38._0_8_ = "b:lf_work";
+    local_38._8_8_ = &local_res8;
+    (**(code **)(*plVar4 + 0x58))(plVar4,param_1 + 8,local_38,1);
+    if ((char)local_res8 != '\0') {
+      *(undefined1 *)(param_1 + 0x2ac) = 1;
+    }
+  }
+  if (*(char *)(param_1 + 0x2aa) != '\0') {
+    *(undefined1 *)(param_1 + 0x2ac) = 0;
+  }
+  (**(code **)(**(longlong **)(param_1 + 0x60) + 0x120))();
+  lVar2 = *(longlong *)(param_1 + 0x140);
+  plVar4 = FUN_18000b5f0(&local_res8);
+  local_res10[0] = (float)(*plVar4 / 1000000 - lVar2) * DAT_180024f44;
+  FUN_18001ac90(param_1,0x90001,"Load time %f seconds",local_res10);
+  hWnd = (HWND)(**(code **)(**(longlong **)(param_1 + 0x128) + 0x18))();
+  plVar4 = *(longlong **)(param_1 + 0x128);
+  (**(code **)(*plVar4 + 0x40))(plVar4,*(undefined1 *)(param_1 + 0x2ac));
+  cVar3 = (**(code **)(**(longlong **)(param_1 + 0x60) + 0xd8))();
+  pHVar5 = (HWND)0x0;
+  if ((cVar3 != '\0') || (*(char *)(param_1 + 0x2a9) == '\0')) goto LAB_18000fd2d;
+  hHeap = GetProcessHeap();
+  HeapCompact(hHeap,0);
+  plVar4 = *(longlong **)(param_1 + 0x118);
+  if (plVar4 == (longlong *)0x0) {
+LAB_18000fc8d:
+    pHVar5 = (HWND)0xfffffffffffffffe;
+  }
+  else {
+    cVar3 = (**(code **)(*plVar4 + 0x28))(plVar4,0x20);
+    if (cVar3 == '\0') goto LAB_18000fc8d;
+  }
+  SetWindowPos(hWnd,pHVar5,0,0,0,0,0x43);
+  pHVar5 = GetForegroundWindow();
+  if (hWnd != pHVar5) {
+    pHVar5 = GetForegroundWindow();
+    idAttach = GetCurrentThreadId();
+    idAttachTo = GetWindowThreadProcessId(pHVar5,(LPDWORD)0x0);
+    AttachThreadInput(idAttach,idAttachTo,1);
+    SetForegroundWindow(hWnd);
+    AttachThreadInput(idAttach,idAttachTo,0);
+  }
+  pHVar5 = GetFocus();
+  if (pHVar5 != hWnd) {
+    SetFocus(hWnd);
+  }
+  ShowWindow(hWnd,1);
+LAB_18000fd2d:
+  FUN_18000fea0(param_1);
+  uVar1 = *(uint *)(param_1 + 400);
+  pHVar5 = (HWND)(**(code **)(**(longlong **)(param_1 + 0x128) + 0x18))();
+  hbr = CreateSolidBrush(uVar1 & 0xffffff);
+  GetWindowRect(pHVar5,(LPRECT)local_38);
+  hDC = GetDC(pHVar5);
+  FillRect(hDC,(RECT *)local_38,hbr);
+  ReleaseDC(pHVar5,hDC);
+  DeleteObject(hbr);
+  InvalidateRect(hWnd,(RECT *)0x0,0);
+  if (*(longlong **)(param_1 + 0x280) != (longlong *)0x0) {
+    (**(code **)(**(longlong **)(param_1 + 0x280) + 0x10))();
+    *(undefined8 *)(param_1 + 0x280) = 0;
+  }
+  if (*(HDC *)(param_1 + 0x198) != (HDC)0x0) {
+    DeleteDC(*(HDC *)(param_1 + 0x198));
+    *(undefined8 *)(param_1 + 0x198) = 0;
+  }
+  if (*(HGDIOBJ *)(param_1 + 0x1a0) != (HGDIOBJ)0x0) {
+    DeleteObject(*(HGDIOBJ *)(param_1 + 0x1a0));
+    *(undefined8 *)(param_1 + 0x1a0) = 0;
+  }
+  if (*(HGDIOBJ *)(param_1 + 0x150) != (HGDIOBJ)0x0) {
+    DeleteObject(*(HGDIOBJ *)(param_1 + 0x150));
+    *(undefined8 *)(param_1 + 0x150) = 0;
+  }
+  FUN_18000e900((undefined8 *)(param_1 + 0x1e8));
+  FUN_18000e900((undefined8 *)(param_1 + 0x210));
+  if (*(longlong *)(param_1 + 0x1a8) != *(longlong *)(param_1 + 0x1b0)) {
+    *(longlong *)(param_1 + 0x1b0) = *(longlong *)(param_1 + 0x1a8);
+  }
+  if (*(longlong *)(param_1 + 0x1c0) != *(longlong *)(param_1 + 0x1c8)) {
+    *(longlong *)(param_1 + 0x1c8) = *(longlong *)(param_1 + 0x1c0);
+  }
+  FUN_18000e900((undefined8 *)(param_1 + 0x238));
+  (**(code **)(**(longlong **)(param_1 + 0x60) + 0x150))
+            (*(longlong **)(param_1 + 0x60),"deb_endload",1,0);
+  *(uint *)(param_1 + 0x15c) = *(uint *)(param_1 + 0x15c) | 2;
+  *(undefined4 *)(param_1 + 0x68) = 0;
+  return;
+}
+
+
+
+//==== FUN_18000d4b0 @ 18000d4b0  (requested)
+
+undefined8 FUN_18000d4b0(LPVOID param_1)
+
+{
+  DWORD DVar1;
+  int iVar2;
+  BOOL BVar3;
+  ulonglong uVar4;
+  HMONITOR hMonitor;
+  HWND hWnd;
+  undefined8 uVar5;
+  int iVar6;
+  uint uVar7;
+  uint uVar8;
+  tagPOINT local_res10 [3];
+  undefined8 in_stack_fffffffffffffe98;
+  int local_148;
+  int iStack_144;
+  int iStack_140;
+  int iStack_13c;
+  tagMONITORINFO local_138;
+  BYTE local_108 [20];
+  byte local_f4;
+  
+  uVar4 = FUN_18000cf40((longlong)param_1);
+  if ((char)uVar4 != '\0') {
+    GetKeyboardState(local_108);
+    iVar2 = *(int *)((longlong)param_1 + 0x144);
+    *(byte *)((longlong)param_1 + 0x2aa) = local_f4 & 1;
+    if (iVar2 == 0) {
+      iVar2 = GetSystemMetrics(1);
+    }
+    iVar6 = *(int *)((longlong)param_1 + 0x140);
+    iStack_140 = iVar6;
+    if (iVar6 == 0) {
+      iStack_140 = GetSystemMetrics(0);
+      iVar6 = *(int *)((longlong)param_1 + 0x140);
+    }
+    iStack_144 = 0;
+    local_148 = 0;
+    if (*(int *)((longlong)param_1 + 0x144) != 0) {
+      iStack_144 = *(int *)((longlong)param_1 + 0x14c);
+    }
+    if (iVar6 != 0) {
+      local_148 = *(int *)((longlong)param_1 + 0x148);
+    }
+    local_138.rcMonitor.top = 0;
+    local_138.rcMonitor.right = 0;
+    local_138.rcMonitor.bottom = 0;
+    local_138.rcWork.left = 0;
+    local_138.rcWork.top = 0;
+    local_138.rcWork.right = 0;
+    local_138.rcWork.bottom = 0;
+    local_138.dwFlags = 0;
+    local_res10[0].x = 0;
+    local_res10[0].y = 0;
+    local_138.cbSize = 0x28;
+    local_138.rcMonitor.left = 0;
+    iStack_13c = iVar2;
+    GetCursorPos(local_res10);
+    hMonitor = MonitorFromPoint(local_res10[0],2);
+    BVar3 = GetMonitorInfoA(hMonitor,&local_138);
+    if (BVar3 == 0) {
+      SystemParametersInfoA(0x30,0,&local_148,0);
+    }
+    else {
+      local_148 = local_138.rcMonitor.left;
+      iStack_144 = local_138.rcMonitor.top;
+      iStack_140 = local_138.rcMonitor.right;
+      iStack_13c = local_138.rcMonitor.bottom;
+    }
+    uVar8 = 0x90ca0000;
+    if (*(char *)((longlong)param_1 + 0x2a1) != '\0') {
+      uVar8 = 0x90000000;
+    }
+    if ((*(char *)((longlong)param_1 + 0x2a4) != '\0') &&
+       (uVar8 = 0x80ca0000, *(char *)((longlong)param_1 + 0x2a1) != '\0')) {
+      uVar8 = 0x80000000;
+    }
+    *(int *)((longlong)param_1 + 400) = local_148;
+    *(int *)((longlong)param_1 + 0x194) = iStack_144;
+    *(int *)((longlong)param_1 + 0x198) = iStack_140;
+    *(int *)((longlong)param_1 + 0x19c) = iStack_13c;
+    iVar2 = -(iStack_13c - iStack_144);
+    if (iVar2 < 0) {
+      iVar2 = iStack_13c - iStack_144;
+    }
+    uVar7 = -(iStack_140 - local_148);
+    if ((int)uVar7 < 0) {
+      uVar7 = iStack_140 - local_148;
+    }
+    DVar1 = uVar8 | 0x50000;
+    if (*(char *)((longlong)param_1 + 0x2a6) == '\0') {
+      DVar1 = uVar8;
+    }
+    hWnd = FUN_18000c2e0((ulonglong)uVar7,*(LPCSTR *)((longlong)param_1 + 0x130),
+                         *(LPCSTR *)((longlong)param_1 + 0x128),DVar1,local_148,iStack_144,uVar7,
+                         iVar2,in_stack_fffffffffffffe98,*(HMENU *)((longlong)param_1 + 0x150),
+                         *(HINSTANCE *)((longlong)param_1 + 0x78),param_1);
+    *(HWND *)((longlong)param_1 + 0x138) = hWnd;
+    uVar4 = 0;
+    if (hWnd != (HWND)0x0) {
+      if (*(char *)((longlong)param_1 + 0x2a1) == '\0') {
+        GetClientRect(hWnd,(LPRECT)((longlong)param_1 + 400));
+      }
+      uVar5 = FUN_18000db20((longlong)param_1,'\x01');
+      return CONCAT71((int7)((ulonglong)uVar5 >> 8),1);
+    }
+  }
+  return uVar4 & 0xffffffffffffff00;
+}
+
+

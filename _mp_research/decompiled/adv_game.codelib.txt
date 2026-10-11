@@ -1,0 +1,267 @@
+// RTTI class names
+//   .?AVbad_alloc@std@@
+//   .?AVexception@std@@
+//   .?AVbad_array_new_length@std@@
+//   .?AVbad_cast@std@@
+//   .?AVh_except@errors@@
+//   .?AVh_except_sync@errors@@
+//   .?AVtype_info@@
+
+//==== GetFactory3 @ 180100d00  (export)
+
+/* WARNING: Globals starting with '_' overlap smaller symbols at the same address */
+
+undefined ** GetFactory3(void)
+
+{
+                    /* 0x100d00  1  GetFactory3 */
+  if (*(int *)(*(longlong *)((longlong)ThreadLocalStoragePointer + (ulonglong)_tls_index * 8) + 4) <
+      DAT_180164bf0) {
+    FUN_1801082f8(&DAT_180164bf0);
+    if (DAT_180164bf0 == -1) {
+      _DAT_18014ad68 = FUN_180108370(0x30);
+      *(longlong *)_DAT_18014ad68 = _DAT_18014ad68;
+      *(longlong *)(_DAT_18014ad68 + 8) = _DAT_18014ad68;
+      *(longlong *)(_DAT_18014ad68 + 0x10) = _DAT_18014ad68;
+      *(undefined2 *)(_DAT_18014ad68 + 0x18) = 0x101;
+      atexit((_func_5014 *)&LAB_1801104d0);
+      _Init_thread_footer(&DAT_180164bf0);
+      return &PTR_PTR_18014ad60;
+    }
+  }
+  return &PTR_PTR_18014ad60;
+}
+
+
+
+//==== FUN_180108370 @ 180108370  (called by GetFactory3)
+
+void FUN_180108370(size_t param_1)
+
+{
+  int iVar1;
+  void *pvVar2;
+  
+  do {
+    pvVar2 = malloc(param_1);
+    if (pvVar2 != (void *)0x0) {
+      return;
+    }
+    iVar1 = _callnewh(param_1);
+  } while (iVar1 != 0);
+  if (param_1 == 0xffffffffffffffff) {
+                    /* WARNING: Subroutine does not return */
+    FUN_18000ff70();
+  }
+                    /* WARNING: Subroutine does not return */
+  FUN_180108f8c();
+}
+
+
+
+//==== atexit @ 180108704  (called by GetFactory3)
+
+/* Library Function - Single Match
+    atexit
+   
+   Library: Visual Studio 2019 Release */
+
+int __cdecl atexit(_func_5014 *param_1)
+
+{
+  _onexit_t p_Var1;
+  
+  p_Var1 = _onexit((_onexit_t)param_1);
+  return (p_Var1 != (_onexit_t)0x0) - 1;
+}
+
+
+
+//==== FUN_1801082f8 @ 1801082f8  (called by GetFactory3)
+
+void FUN_1801082f8(int *param_1)
+
+{
+  AcquireSRWLockExclusive((PSRWLOCK)&DAT_18014aed8);
+  do {
+    if (*param_1 == 0) {
+      *param_1 = -1;
+LAB_18010835d:
+                    /* WARNING: Could not recover jumptable at 0x000180108369. Too many branches */
+                    /* WARNING: Treating indirect jump as call */
+      ReleaseSRWLockExclusive((PSRWLOCK)&DAT_18014aed8);
+      return;
+    }
+    if (*param_1 != -1) {
+      *(undefined4 *)
+       (*(longlong *)((longlong)ThreadLocalStoragePointer + (ulonglong)_tls_index * 8) + 4) =
+           DAT_180148000;
+      goto LAB_18010835d;
+    }
+    SleepConditionVariableSRW
+              ((PCONDITION_VARIABLE)&DAT_18014aed0,(PSRWLOCK)&DAT_18014aed8,0xffffffff,0);
+  } while( true );
+}
+
+
+
+//==== _Init_thread_footer @ 18010828c  (called by GetFactory3)
+
+/* Library Function - Single Match
+    _Init_thread_footer
+   
+   Library: Visual Studio 2019 Release */
+
+void _Init_thread_footer(int *param_1)
+
+{
+  ulonglong uVar1;
+  
+  AcquireSRWLockExclusive((PSRWLOCK)&DAT_18014aed8);
+  uVar1 = (ulonglong)_tls_index;
+  DAT_180148000 = DAT_180148000 + 1;
+  *param_1 = DAT_180148000;
+  *(int *)(*(longlong *)((longlong)ThreadLocalStoragePointer + uVar1 * 8) + 4) = DAT_180148000;
+  ReleaseSRWLockExclusive((PSRWLOCK)&DAT_18014aed8);
+                    /* WARNING: Could not recover jumptable at 0x0001801082ee. Too many branches */
+                    /* WARNING: Treating indirect jump as call */
+  WakeAllConditionVariable(&DAT_18014aed0);
+  return;
+}
+
+
+
+// VTABLE @ 180131258
+//   [0] +0x0 -> 1800fde00 FUN_1800fde00
+
+//==== FUN_1800fde00 @ 1800fde00  (vtable 180131258 slot 0)
+
+undefined8 * FUN_1800fde00(undefined8 *param_1,ulonglong param_2)
+
+{
+  undefined8 *puVar1;
+  longlong *plVar2;
+  
+  *param_1 = &PTR_FUN_180131258;
+  if (*(int *)(param_1 + 0x60) != -1) {
+    plVar2 = (longlong *)(**(code **)(*(longlong *)param_1[0xc] + 0x110))();
+    (**(code **)(*plVar2 + 0x40))(plVar2,*(undefined4 *)(param_1 + 0x60));
+  }
+  puVar1 = (undefined8 *)param_1[0x29];
+  if (puVar1 != (undefined8 *)0x0) {
+    (**(code **)*puVar1)(puVar1,1);
+    param_1[0x29] = 0;
+  }
+  FUN_180014880(param_1 + 0x5c);
+  FUN_180014880(param_1 + 0x58);
+  FUN_180014880(param_1 + 0x54);
+  FUN_180014880(param_1 + 0x50);
+  *param_1 = &PTR_FUN_1801313f8;
+  if ((void *)param_1[0x16] != (void *)0x0) {
+    _aligned_free((void *)param_1[0x16]);
+  }
+  if ((void *)param_1[0x13] != (void *)0x0) {
+    _aligned_free((void *)param_1[0x13]);
+  }
+  if ((void *)param_1[0x10] != (void *)0x0) {
+    _aligned_free((void *)param_1[0x10]);
+  }
+  *param_1 = &PTR_FUN_180131410;
+  if ((param_2 & 1) != 0) {
+    if ((param_2 & 4) == 0) {
+      _aligned_free(param_1);
+      return param_1;
+    }
+    _guard_check_icall();
+  }
+  return param_1;
+}
+
+
+//   [1] +0x8 -> 1800ffae0 FUN_1800ffae0
+
+//==== FUN_1800ffae0 @ 1800ffae0  (vtable 180131258 slot 1)
+
+undefined * FUN_1800ffae0(undefined8 param_1,undefined4 *param_2)
+
+{
+  *param_2 = 0x14;
+  return &DAT_18014acc0;
+}
+
+
+//   [2] +0x10 -> 180100870 FUN_180100870
+
+//==== FUN_180100870 @ 180100870  (vtable 180131258 slot 2)
+
+void FUN_180100870(longlong param_1,longlong param_2)
+
+{
+  undefined8 *puVar1;
+  
+  puVar1 = (undefined8 *)FUN_180100b80(param_1 + 0x80,param_2 + 8);
+  if (puVar1 != (undefined8 *)
+                (*(longlong *)(param_1 + 0x80) + (ulonglong)*(uint *)(param_1 + 0x8c) * 8)) {
+    (*(code *)*puVar1)(param_1,param_2);
+  }
+  return;
+}
+
+
+//   [3] +0x18 -> 1800fd4a0 FUN_1800fd4a0
+
+//==== FUN_1800fd4a0 @ 1800fd4a0  (vtable 180131258 slot 3)
+
+void FUN_1800fd4a0(longlong param_1)
+
+{
+  longlong *plVar1;
+  longlong *plVar2;
+  
+  plVar1 = (longlong *)(**(code **)(**(longlong **)(param_1 + 0x60) + 0x100))();
+  plVar2 = (longlong *)(param_1 + 0x2a0);
+  if (0xf < *(ulonglong *)(param_1 + 0x2b8)) {
+    plVar2 = (longlong *)*plVar2;
+  }
+  (**(code **)(*plVar1 + 0xe8))(plVar1,plVar2,1,0,0);
+  return;
+}
+
+
+//   [4] +0x20 -> 1800fd4f0 FUN_1800fd4f0
+
+//==== FUN_1800fd4f0 @ 1800fd4f0  (vtable 180131258 slot 4)
+
+undefined8 FUN_1800fd4f0(longlong param_1)
+
+{
+  longlong *plVar1;
+  undefined8 uVar2;
+  longlong *plVar3;
+  
+  if (*(longlong *)(param_1 + 0x2d0) == 0) {
+    return 0;
+  }
+  plVar1 = (longlong *)(**(code **)(**(longlong **)(param_1 + 0x60) + 0x100))();
+  plVar3 = (longlong *)(param_1 + 0x2c0);
+  if (0xf < *(ulonglong *)(param_1 + 0x2d8)) {
+    plVar3 = (longlong *)*plVar3;
+  }
+  uVar2 = (**(code **)(*plVar1 + 0xe8))(plVar1,plVar3,1,0,0);
+  return uVar2;
+}
+
+
+//   [5] +0x28 -> 180010aa0 FUN_180010aa0
+
+//==== FUN_180010aa0 @ 180010aa0  (vtable 180131258 slot 5)
+
+longlong FUN_180010aa0(longlong param_1)
+
+{
+  return param_1 + 0x1d0;
+}
+
+
+
+// STRING 'USER32.dll' @ 180146bec
