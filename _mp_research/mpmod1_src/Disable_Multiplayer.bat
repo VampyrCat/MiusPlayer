@@ -27,6 +27,7 @@ call :gone "root\programs\tacgame.progpack" || goto :failed
 call :gone "root\programs\opgame.progpack" || goto :failed
 call :gone "bin\rel\x64\basic_network.codelib" || goto :failed
 call :gone "mp_join.exe" || goto :failed
+call :gone "mp_launcher.exe" || goto :failed
 call :gone "users\mp_last_host.txt" || goto :failed
 rem (loose files of the older "drop-in" packaging)
 call :gone "Remove_Multiplayer.bat" || goto :failed

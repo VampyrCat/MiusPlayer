@@ -1,7 +1,7 @@
 # Packs the multiplayer for players: a folder "mpmod1" that is put into a game folder and switched on and
 # off with its own Enable_Multiplayer.bat / Disable_Multiplayer.bat.
 #   pack_mpmod1.ps1 [-Out <folder>]          default: mpmod1 next to this copy of the game
-# The five mod files come from Multiplayer_DropIn (what every test installs), the two .bat files and the
+# The six mod files come from Multiplayer_DropIn (what every test installs), the two .bat files and the
 # head of the README from mpmod1_src, the rest of the README from the drop-in's Multiplayer_README.txt,
 # and the list of stock file hashes (the build check of Enable_Multiplayer.bat) from vanilla_hashes.sha256.
 param([string]$Out = "")
@@ -11,7 +11,7 @@ $game = (Resolve-Path "$mp\..").Path
 if (-not $Out) { $Out = Join-Path (Split-Path $game -Parent) "mpmod1" }
 $drop = "$mp\Multiplayer_DropIn"
 $src = "$mp\mpmod1_src"
-$files = "bin\rel\x64\basic_network.codelib", "root\programs\opgame.progpack", "root\programs\tacgame.progpack", "steam_appid.txt", "mp_join.exe"
+$files = "bin\rel\x64\basic_network.codelib", "root\programs\opgame.progpack", "root\programs\tacgame.progpack", "steam_appid.txt", "mp_join.exe", "mp_launcher.exe"
 
 if ((Split-Path $Out -Leaf) -ne "mpmod1") { throw "the folder has to be called mpmod1: $Out" }
 if (Test-Path $Out) {

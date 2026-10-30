@@ -1,15 +1,18 @@
 @echo off
 rem Graviteam Tactics: Mius-Front multiplayer (mpmod1).
-rem Switches multiplayer on in the game this mpmod1 folder was put into: five new files are copied into
+rem Switches multiplayer on in the game this mpmod1 folder was put into: six new files are copied into
 rem the game. No file of the game itself is changed or replaced, and Disable_Multiplayer.bat takes the
-rem five out again.
-rem     Enable_Multiplayer.bat [/quiet]        /quiet: no questions, no "press a key"
+rem six out again.
+rem     Enable_Multiplayer.bat [/quiet [/force]]        /quiet: no questions, no "press a key"
+rem                                                     /force: enable it in another build of the game as well
 setlocal EnableExtensions DisableDelayedExpansion
 set "MOD=%~dp0"
 set "MOD=%MOD:~0,-1%"
 for %%I in ("%MOD%\..") do set "GAME=%%~fI"
 set "QUIET="
 if /i "%~1"=="/quiet" set "QUIET=1"
+set "FORCE="
+if /i "%~2"=="/force" set "FORCE=1"
 set "RC=0"
 echo.
 echo  Graviteam Tactics: Mius-Front - multiplayer
@@ -24,9 +27,11 @@ set "ODD=0"
 for /f "usebackq tokens=1,*" %%A in ("%MOD%\game_build_3598.sha256") do call :check %%A "%%B"
 if "%ODD%"=="0" goto :install
 echo.
-echo  The files listed above are not those of game version 6.00, build 3598 (the final
-echo  Steam version). This multiplayer was made for that build only and will most
-echo  likely not work with this game.
+echo  The files listed above are not those of the Steam branch public_beta (game version
+echo  6.00, build 3598). This multiplayer was made for that build only and will most
+echo  likely not work with this game. To switch: in Steam, right-click the game,
+echo  Properties, Betas, public_beta.
+if defined FORCE goto :install
 if defined QUIET goto :cancelled
 set "ANS="
 set /p "ANS=  Enable it anyway? (y/n) "
@@ -45,6 +50,8 @@ call :keep tacgame.progpack || goto :failed
 rem (the module first, the programs that ask for it last: a copy that stops half-way leaves a working game)
 copy /y "%MOD%\files\bin\rel\x64\basic_network.codelib" "%GAME%\bin\rel\x64\basic_network.codelib" >nul || goto :failed
 copy /y "%MOD%\files\mp_join.exe" "%GAME%\mp_join.exe" >nul || goto :failed
+rem (mp_launcher.exe may be what runs this file: then it is already in place)
+fc /b "%MOD%\files\mp_launcher.exe" "%GAME%\mp_launcher.exe" >nul 2>nul || copy /y "%MOD%\files\mp_launcher.exe" "%GAME%\mp_launcher.exe" >nul || goto :failed
 if exist "%GAME%\steam_appid.txt" goto :programs
 copy /y "%MOD%\files\steam_appid.txt" "%GAME%\steam_appid.txt" >nul || goto :failed
 >"%MOD%\state\steam_appid_added.txt" echo mpmod1 put steam_appid.txt into the game folder; Disable_Multiplayer.bat removes it.
@@ -58,6 +65,7 @@ echo  Multiplayer is ENABLED in
 echo    "%GAME%"
 echo.
 echo  Start the game as usual: the main menu has a new entry at the top, MULTIPLAYER.
+echo  Or start mp_launcher.exe in the game folder to host a mission or join straight away.
 echo  Whoever you play with needs this same mpmod1 folder, enabled the same way.
 echo  How to host and join, and what does not work yet: README.txt in this folder.
 echo  Back to the original game: Disable_Multiplayer.bat in this folder.
