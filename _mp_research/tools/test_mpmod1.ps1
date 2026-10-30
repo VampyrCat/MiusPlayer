@@ -54,7 +54,7 @@ $r = Run $g "Enable_Multiplayer.bat"
 Check "A: enable succeeds in a clean game (path with spaces and brackets)" ($r.Code -eq 0 -and $r.Text -match 'Multiplayer is ENABLED') ($r.Text.Trim() -split "`r?`n" | Select-Object -Last 1)
 $after = Snapshot $g
 $added = @($after.Keys | Where-Object { -not $before.ContainsKey($_) } | Sort-Object)
-Check "A: exactly the five mod files were added" (-not (Compare-Object $added ($payload | Sort-Object))) ($added -join ', ')
+Check "A: exactly the six mod files were added" (-not (Compare-Object $added ($payload | Sort-Object))) ($added -join ', ')
 Check "A: the added files are the package's" (Installed $g)
 Check "A: no file of the game was changed" (-not @($before.Keys | Where-Object { $after[$_] -ne $before[$_] }))
 $r = Run $g "Enable_Multiplayer.bat"
@@ -155,7 +155,7 @@ if ($Real) {
     $r = & cmd.exe /c "`"$game\mpmod1\Enable_Multiplayer.bat`" /quiet" 2>&1 | Out-String
     Check "R: enable: build check passes, multiplayer enabled" ($LASTEXITCODE -eq 0 -and $r -notmatch 'not as expected')
     $added = @(Compare-Object $before (Game-Files) | Where-Object SideIndicator -eq '=>' | ForEach-Object InputObject | Sort-Object)
-    Check "R: exactly the five mod files were added" (-not (Compare-Object $added ($payload | Sort-Object))) ($added -join ', ')
+    Check "R: exactly the six mod files were added" (-not (Compare-Object $added ($payload | Sort-Object))) ($added -join ', ')
     Check "R: no stock file was changed" ((Stock-Changed) -eq 0)
     $p = Start-Game
     $log = Get-MpLog $p "opgame"

@@ -1,5 +1,5 @@
 GRAVITEAM TACTICS: MIUS-FRONT - MULTIPLAYER  (mpmod1, test version)
-For game version 6.00, build 3598 (the final Steam version). Two players: one hosts, one joins.
+For game version 6.00, build 3598, on Steam's public_beta branch (Steam: Properties, Betas). Two players: one hosts, one joins.
 Both players need the same mpmod1: @VERSION@.
 
 QUICK START
@@ -10,10 +10,11 @@ QUICK START
   4. One player hosts:   MULTIPLAYER -> HOST A SKIRMISH (or A CUSTOM MISSION, or AN OPERATION).
      The other joins:    MULTIPLAYER -> JOIN A GAME, type the host's address, CONNECT, then READY.
      Which address to type, and the port the host needs open: see NETWORK below.
+     Or without the menus: mp_launcher.exe in the game folder hosts a mission or joins a game directly.
   Back to the original game at any time:   mpmod1\Disable_Multiplayer.bat
 
 WHAT ENABLE AND DISABLE DO
-  Enable_Multiplayer.bat copies five new files from mpmod1\files into the game. No file of the game is
+  Enable_Multiplayer.bat copies six new files from mpmod1\files into the game. No file of the game is
   changed or replaced:
 
       bin\rel\x64\basic_network.codelib   the multiplayer module
@@ -21,6 +22,7 @@ WHAT ENABLE AND DISABLE DO
       root\programs\tacgame.progpack      battle program, with the multiplayer module added
       steam_appid.txt                     lets the game start a second copy of itself (joining a battle)
       mp_join.exe                         optional: join from a command prompt
+      mp_launcher.exe                     optional: a small window to host a mission or join without the menus
 
   Before it copies anything it checks that the game is version 6.00, build 3598, and says so if it is
   not. If the game already has a steam_appid.txt it is left as it is. An earlier version of this

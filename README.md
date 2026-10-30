@@ -2,8 +2,10 @@
 An attempt to mod multiplayer into Graviteam Mius Front.
 
 GRAVITEAM TACTICS: MIUS-FRONT - MULTIPLAYER  (mpmod1, test version)
-For game version 6.00, build 3598 (the final Steam version). Two players: one hosts, one joins.
+For game version 6.00, build 3598, on Steam's public_beta branch (Steam: Properties, Betas). Two players: one hosts, one joins.
 Both players need the same mpmod1: network version 12, module built 2026-10-11 22:54.
+
+![mp_launcher: host a mission or join a game without the game's menus](_mp_research/shots/mp_launcher.png)
 
 QUICK START
   1. Put the whole "mpmod1" folder into the game folder - the one that contains starter_x64.exe.
@@ -13,10 +15,11 @@ QUICK START
   4. One player hosts:   MULTIPLAYER -> HOST A SKIRMISH (or A CUSTOM MISSION, or AN OPERATION).
      The other joins:    MULTIPLAYER -> JOIN A GAME, type the host's address, CONNECT, then READY.
      Which address to type, and the port the host needs open: see NETWORK below.
+     Or without the menus: mp_launcher.exe in the game folder hosts a mission or joins a game directly.
   Back to the original game at any time:   mpmod1\Disable_Multiplayer.bat
 
 WHAT ENABLE AND DISABLE DO
-  Enable_Multiplayer.bat copies five new files from mpmod1\files into the game. No file of the game is
+  Enable_Multiplayer.bat copies six new files from mpmod1\files into the game. No file of the game is
   changed or replaced:
 
       bin\rel\x64\basic_network.codelib   the multiplayer module
@@ -24,6 +27,7 @@ WHAT ENABLE AND DISABLE DO
       root\programs\tacgame.progpack      battle program, with the multiplayer module added
       steam_appid.txt                     lets the game start a second copy of itself (joining a battle)
       mp_join.exe                         optional: join from a command prompt
+      mp_launcher.exe                     optional: a small window to host a mission or join without the menus
 
   it checks that the game is version 6.00, build 3598, and says so if it is
   not. If the game already has a steam_appid.txt it is left as it is. An earlier version of this
@@ -49,6 +53,15 @@ PLAY
                                             made in the battle editor
                   -> HOST AN OPERATION      opens the lobby as host of an operation
                   -> JOIN A GAME            type the host's address (Ctrl+V pastes), CONNECT: the host's lobby
+
+  Without the menus: start mp_launcher.exe (Steam has to be running). It can be started from anywhere: it finds
+  the game, and if the game does not have this multiplayer yet it offers to install it. That does the same as
+  putting mpmod1 into the game folder and enabling it; mpmod1\Disable_Multiplayer.bat takes it out again.
+      Host a mission:  pick the mission, SWAP SIDES if you want its enemy force, Host. The game starts straight
+                       in the mission's deployment, waiting for the other player. Do not end the deployment
+                       before that player has joined. Skirmishes and operations are hosted from the game's menu.
+      Join a game:     type the host's address, Join. The game starts, connects by itself and is ready; it
+                       enters the battle or the operation as soon as the host has started one.
 
   The lobby shows both players by their profile names, which force each commands, and whether the joined
   player is ready.

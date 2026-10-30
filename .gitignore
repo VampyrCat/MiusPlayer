@@ -1,0 +1,5 @@
+# build output (basic_network\build.bat); what was tracked here before stays tracked
+_mp_research/basic_network/build/
+
+# Go test binaries
+*.test

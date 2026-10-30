@@ -1,5 +1,5 @@
 GRAVITEAM TACTICS: MIUS-FRONT - MULTIPLAYER (test version)
-For game version 6.00, build 3598 (the final Steam version). Two players: one hosts, one joins.
+For game version 6.00, build 3598, on Steam's public_beta branch (Steam: Properties, Betas). Two players: one hosts, one joins.
 Both players need the same version of these files.
 
 INSTALL
@@ -11,6 +11,7 @@ INSTALL
       root\programs\tacgame.progpack      battle program, with the multiplayer module added
       steam_appid.txt                     lets a second copy of the game start on the same PC
       mp_join.exe                         optional: join from a command prompt
+      mp_launcher.exe                     optional: a small window to host a mission or join without the menus
       Remove_Multiplayer.bat              uninstaller
       Multiplayer_README.txt              this file
 
@@ -28,6 +29,15 @@ PLAY
                                             made in the battle editor
                   -> HOST AN OPERATION      opens the lobby as host of an operation
                   -> JOIN A GAME            type the host's address (Ctrl+V pastes), CONNECT: the host's lobby
+
+  Without the menus: start mp_launcher.exe (Steam has to be running). It can be started from anywhere: it finds
+  the game, and if the game does not have this multiplayer yet it offers to install it. That does the same as
+  putting mpmod1 into the game folder and enabling it; mpmod1\Disable_Multiplayer.bat takes it out again.
+      Host a mission:  pick the mission, SWAP SIDES if you want its enemy force, Host. The game starts straight
+                       in the mission's deployment, waiting for the other player. Do not end the deployment
+                       before that player has joined. Skirmishes and operations are hosted from the game's menu.
+      Join a game:     type the host's address, Join. The game starts, connects by itself and is ready; it
+                       enters the battle or the operation as soon as the host has started one.
 
   The lobby shows both players by their profile names, which force each commands, and whether the joined
   player is ready.
