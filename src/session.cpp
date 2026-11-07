@@ -522,14 +522,15 @@ u32 session_phase(void) { return g_phase; }
 
 // A squad is its units: a unit's id is its squad's id plus its place in it (the low five bits).
 // Commands: the squads this game's player gives orders to (his selection, his orders).
+// (On the same side both players command the side's squads: those of this game's player's side.)
 bool session_commands_squad(u32 id)
 {
-    if (!g_versus) return g_role == ROLE_HOST;
     static std::unordered_set<u32> squads;
     static const void *built_from;
     static size_t built_size;
-    const std::unordered_set<u64> &his = joined_players_units();
+    const std::unordered_set<u64> &his = !g_versus ? g_user_side_units : joined_players_units();
     const std::unordered_set<u64> &from = his.empty() ? g_my_units : his;
+    if (!g_versus && his.empty() && g_my_units.empty()) return g_role == ROLE_HOST;
     if (built_from != &from || built_size != from.size()) {
         squads.clear();
         for (u64 key : from) squads.insert((u32)key & 0x7fffffe0);
@@ -537,7 +538,8 @@ bool session_commands_squad(u32 id)
         built_size = from.size();
     }
     bool listed = squads.count(id & 0x7fffffe0) != 0;
-    return his.empty() ? listed : listed == (g_role != ROLE_HOST);
+    if (!g_versus || his.empty()) return listed;
+    return listed == (g_role != ROLE_HOST);
 }
 
 // Ownership of a squad: the game whose simulation decides what it does (its digs, ...).
@@ -547,10 +549,15 @@ bool session_owns_squad(u32 id)
     return session_commands_squad(id);
 }
 
-// Host: a unit the joining player commands - an order of his may name it.
+// Host: a unit the joining player commands - an order of his may name it. On the same side both players command
+// the side's units (the newest order stands, as between the host's own orders); the enemy's are nobody's.
 bool session_peer_commands(u64 key)
 {
-    if (g_role != ROLE_HOST || !g_versus) return false;
+    if (g_role != ROLE_HOST) return false;
+    if (!g_versus) {
+        if (!g_user_side_units.empty()) return g_user_side_units.count(key) != 0;
+        return g_enemy_side_units.empty() ? true : g_enemy_side_units.count(key) == 0;
+    }
     const std::unordered_set<u64> &his = joined_players_units();
     return his.empty() ? g_my_units.count(key) == 0 : his.count(key) != 0;
 }
@@ -939,7 +946,9 @@ static void update_ai_commander(ObjMan *om)
 
 static void set_versus(bool versus)
 {
-    if (versus == g_versus) return;
+    static bool said;
+    if (versus == g_versus && said) return;
+    said = true;
     g_versus = versus;
     mp_log("net: %s", !versus ? "same side: the host owns every unit" : host_auth() ? "versus: the host's game owns every unit, each player commands his own (his orders go to the host)" :
            "versus: each game owns its own player's units");
