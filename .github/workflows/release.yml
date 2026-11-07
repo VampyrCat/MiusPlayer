@@ -35,12 +35,14 @@ jobs:
           path: dist/
 
       - name: Publish the release (a new version only)
-        shell: powershell
+        shell: pwsh
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
+          # (gh's "release not found" goes to stderr: it is the answer, not an error)
+          $ErrorActionPreference = "Continue"
           $v = (Get-Content release.json -Raw | ConvertFrom-Json).version
-          gh release view "v$v" *> $null
+          gh release view "v$v" 2>&1 | Out-Null
           if ($LASTEXITCODE -eq 0) { "v$v is released already - nothing to publish"; exit 0 }
           $builds = ((Get-Content release.json -Raw | ConvertFrom-Json).builds) -join ", "
           gh release create "v$v" "dist\MiusPlayer-$v.zip" "dist\MiusPlayerLauncher.exe" --title "MiusPlayer $v" --notes "Game builds: $builds. Download MiusPlayerLauncher.exe and run it: it installs the mod into your game and keeps it up to date."
