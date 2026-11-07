@@ -1,0 +1,5 @@
+{
+  "version": "2.0.0",
+  "network": 23,
+  "builds": ["public_beta-16070931", "public-15814271", "public_beta-26494568"]
+}

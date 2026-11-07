@@ -1,0 +1,7 @@
+src/build/
+launcher/build/
+dist/
+*.obj
+*.exp
+*.lib
+*.pdb

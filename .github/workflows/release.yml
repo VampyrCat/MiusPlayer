@@ -1,0 +1,47 @@
+# Builds the mod and the launcher on every push to main and publishes a GitHub Release when release.json names
+# a version that has no release yet. The launcher installs and updates the mod from the latest release.
+name: release
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Build the module and mp_join
+        shell: cmd
+        run: call src\build.bat
+
+      - name: Build the launcher
+        shell: cmd
+        run: call launcher\build_launcher.bat
+
+      - name: Package
+        shell: powershell
+        run: .\tools\pack_release.ps1 -Out dist
+
+      - name: Keep the build
+        uses: actions/upload-artifact@v4
+        with:
+          name: MiusPlayer
+          path: dist/
+
+      - name: Publish the release (a new version only)
+        shell: powershell
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          $v = (Get-Content release.json -Raw | ConvertFrom-Json).version
+          gh release view "v$v" *> $null
+          if ($LASTEXITCODE -eq 0) { "v$v is released already - nothing to publish"; exit 0 }
+          $builds = ((Get-Content release.json -Raw | ConvertFrom-Json).builds) -join ", "
+          gh release create "v$v" "dist\MiusPlayer-$v.zip" "dist\MiusPlayerLauncher.exe" --title "MiusPlayer $v" --notes "Game builds: $builds. Download MiusPlayerLauncher.exe and run it: it installs the mod into your game and keeps it up to date."
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
