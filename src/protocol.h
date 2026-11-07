@@ -14,7 +14,8 @@ static const unsigned k_magic = 0x504d5447;          // "GTMP"
 // 24: the joining player's sector / turn / fire-at-ground orders (ShotRec kind 15), seats (16), the ground (17)
 // 25: the map's objects (ShotRec kind 18; the joining game makes no object damage of its own)
 // 26: the host's spotting for the other player's side (PKT_SIGHT)
-static const unsigned k_version = 26;
+// 27: tracks breaking (ShotRec kind 19) and their repair are the host's
+static const unsigned k_version = 27;
 static const char k_protocol[12] = "GTMF_TA_A1";     // the engine's own protocol id for this game
 static const unsigned k_chunk = 1000;
 static const unsigned short k_default_port = 1943;   // the port the engine's own network settings name
@@ -114,6 +115,7 @@ struct ShotAck { Head h; unsigned epoch, seq; };
 // kind 16: who rides which vehicle in the deciding game (seats.cpp; arg6 seats of 20 bytes in launch);
 // kind 17: who holds which of the map's control cells in the host's game (cells.cpp; arg6 the first, ammo how many);
 // kind 18: map objects the host's game has damaged (mapobj.cpp; arg6 of them, 60 bytes each in launch);
+// kind 19: a track the host's game broke (vdamage.cpp; shooter the vehicle, ammo the track, arg6 the wheel);
 // kind 7: a hit on a unit of the sending game (hits.cpp); kind 10: a soldier's condition (hits.cpp, launch = float); kind 8: a side leaving the battle, a ceasefire
 // proposed or taken back, the battle over (endgame.cpp; flags says which). launch: the engine's launch record with its pointers blanked - they travel as ammo / weapon /
 // desc3 (the engine's savegame ids of the descriptions, 0xffffffff: none) and shooter / obj2 / obj5 (unit

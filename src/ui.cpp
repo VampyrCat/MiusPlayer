@@ -1462,6 +1462,9 @@ static bool test_shot_request(char *name, size_t n)
     if (!strncmp(line, "cells", 5)) { cells_test_list(); return false; }
     if (!strncmp(line, "capture ", 8)) { cells_test_capture(atoi(line + 8)); return false; }
     if (!strncmp(line, "sight", 5)) { sight_test_list(); return false; }
+    if (!strncmp(line, "tracks", 6)) { vdamage_test_tracks(); return false; }
+    if (!strncmp(line, "breaktrack ", 11)) { vdamage_test_break(atoi(line + 11)); return false; }
+    if (!strncmp(line, "repairtrack", 11)) { vdamage_test_repair(); return false; }
     if (!strncmp(line, "objects all", 11)) { mapobj_test_list_all(); return false; }
     if (!strncmp(line, "objects", 7)) { mapobj_test_list(); return false; }
     if (!strncmp(line, "demolish ", 9)) { mapobj_test_demolish(atoi(line + 9)); return false; }

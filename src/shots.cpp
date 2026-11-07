@@ -599,6 +599,7 @@ void shots_sim_step(ObjMan *om)
         else if (s.kind == 16) seats_received(s);
         else if (s.kind == 17) cells_received(s);
         else if (s.kind == 18) mapobj_received(s);
+        else if (s.kind == 19) vdamage_track_received(s);
     }
     if (!g_launch || !g_enabled) { g_in.clear(); return; }
     if (!g_shellphys) g_shellphys = (char *)engine_find(om, "i_shellphys", "shellphys");

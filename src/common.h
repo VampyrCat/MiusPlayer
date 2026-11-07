@@ -227,6 +227,13 @@ void vdamage_on_packet(const unsigned char *data, int size);
 void vdamage_sim_step(ObjMan *om);
 void vdamage_reset(void);
 void vdamage_report(void);
+#ifdef __cplusplus
+void vdamage_track_received(const ShotRec &s);     // ShotRec.kind 19: a track the host's game broke
+#endif
+void vdamage_test_step(ObjMan *om);
+void vdamage_test_tracks(void);           // tests: which tracks are broken here (and a hash)
+void vdamage_test_break(int n);           // tests: the n-th vehicle's first track broken by the game's own function
+void vdamage_test_repair(void);           // tests: the first broken track's repair made complete (the game's step repairs it)
 void guns_frame(ObjMan *om, void (*send)(const void *, int));     // guns.cpp: where vehicles' guns point
 void guns_on_packet(const unsigned char *data, int size);
 void guns_sim_step(ObjMan *om);
