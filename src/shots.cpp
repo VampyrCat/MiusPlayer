@@ -446,6 +446,7 @@ void shots_reset(void)
     guns_reset();
     seats_reset();
     cells_reset();
+    mapobj_reset();
 }
 
 static void carry_out_explosion(const ShotRec &s)
@@ -597,6 +598,7 @@ void shots_sim_step(ObjMan *om)
         else if (s.kind == 14) fires_received(s, om);
         else if (s.kind == 16) seats_received(s);
         else if (s.kind == 17) cells_received(s);
+        else if (s.kind == 18) mapobj_received(s);
     }
     if (!g_launch || !g_enabled) { g_in.clear(); return; }
     if (!g_shellphys) g_shellphys = (char *)engine_find(om, "i_shellphys", "shellphys");

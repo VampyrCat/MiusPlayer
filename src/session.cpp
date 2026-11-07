@@ -2670,6 +2670,7 @@ void session_sim_step(ObjMan *om)
     vdamage_sim_step(om);
     seats_sim_step(om, GetTickCount() - first_step >= (DWORD)delay);     // (seated here only once the battle is set up, as states)
     cells_sim_step(om);
+    mapobj_sim_step(om);
 
     // Followed units are not predicted and not left to this game's own physics: they are shown where their
     // owner had them, a tenth of a second ago, moving smoothly from one received transform to the next
@@ -4090,6 +4091,7 @@ void session_frame(ObjMan *om)
             orders_report();
             seats_report();
             cells_report();
+            mapobj_report();
             vdamage_report();
             guns_report();
             fires_report();

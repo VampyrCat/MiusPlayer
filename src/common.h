@@ -268,6 +268,16 @@ void cells_report(void);
 void cells_test_step(void);
 void cells_test_list(void);               // tests: how many cells each side holds here, and a hash of the owners
 void cells_test_capture(int index);       // tests: the n-th held cell to the other side, by the game's own capture
+
+// ---- the map's objects (buildings, fences, trees): what happens to them is the host's (mapobj.cpp)
+void mapobj_sim_step(ObjMan *om);
+void mapobj_received(const ShotRec &s);  // ShotRec.kind 18
+void mapobj_reset(void);                 // a new connection: every damaged object is sent again
+void mapobj_report(void);
+void mapobj_test_step(void);
+void mapobj_test_list(void);              // tests: how many map objects are damaged / destroyed here, and a hash
+void mapobj_test_list_all(void);          // tests: the same, and each damaged object (at most 120)
+void mapobj_test_demolish(int index);     // tests: the n-th destructible building collapses (the game's own hit)
 #endif
 
 // ---- in-game multiplayer menu (ui.cpp)
