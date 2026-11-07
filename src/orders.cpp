@@ -80,6 +80,29 @@ static const char *kind_name(u32 k) { return k < sizeof k_kinds / sizeof *k_kind
 
 // an order being put together from its records (host)
 struct Incoming { ShotRec head; std::vector<u64> keys; u32 want; };
+
+// Sector, turn and fire-at-ground orders. The interface does not give these through slot 16 but through
+// i_formation slots 21-24 (the Mius Framework research, kb/engine/aim-orders; checked in IDA in all three builds):
+//   21 (formation, vec4 *drag, float angle, units): a sector - or a turn when the angle is below 10 degrees or the
+//      drag shorter than 50 m (adv_interf's drag handler, on release)
+//   22 (formation, units): clear the sectors
+//   23 (formation, vec4 *point, vec4 *line, units, int tag): a ground target (adv_interf's mouse order)
+//   24 (formation, units): clear the ground targets (i_select vt[3], code 5)
+// The joining game's calls that come from adv_interf (its player's) go to the host as ShotRec kind 15: flags = the
+// slot, pos = the point, launch +0 the vector, +16 the angle, +20 the tag, +72 the first unit numbers as in kind 11
+// (more in kind 12 records); the host makes the same call for those of the units that are the joining player's.
+enum { AIM_ORDER = 15, AIM_FIRST = 21, AIM_SLOTS = 4 };
+#define FORMATION_VT BV(0x12f930, 0x12f930, 0x1c13a0)          // i_formation's vtable (adv_game)
+typedef u64 (*AimSector)(char *, const float *, float, EngList *);
+typedef u64 (*AimClear)(char *, EngList *);
+typedef void (*AimGround)(char *, const float *, const float *, EngList *, int);
+static void *g_aim_orig[AIM_SLOTS];
+static bool g_aim_test;            // tests: the next call is taken as the player's
+}
+static u64 g_stat_aim_sent, g_stat_aim_done;
+static const char *aim_name(int slot)
+{
+    return slot == 21 ? "sector or turn" : slot == 22 ? "clear sectors" : slot == 23 ? "ground target" : slot == 24 ? "clear ground targets" : "?";
 }
 static std::unordered_map<u64, Incoming> g_incoming;
 static u64 g_stat_sent, g_stat_done, g_stat_refused, g_stat_units_missing, g_stat_units_not_his;
@@ -177,6 +200,103 @@ static u32 issue_hook(char *formation, char *record, EngList *units, char *setti
     return id;
 }
 
+// The joining game: one of its player's slot 21-24 calls, to the host.
+static void forward_aim(int slot, const float *point, const float *vec, float angle, EngList *units, int tag)
+{
+    if (!units || !readable(units, sizeof(EngList)) || !units->count || units->count > 4096 || !readable(units->data, units->count * 8ull)) return;
+    std::vector<u64> keys;
+    for (u32 i = 0; i < units->count; i++) {
+        u64 key;
+        if (unit_of(units->data[i], &key)) keys.push_back(key);
+    }
+    if (keys.empty()) return;
+    ShotRec h = {};
+    h.kind = AIM_ORDER;
+    h.flags = (unsigned char)slot;
+    h.obj2 = ++g_serial;
+    h.arg6 = (u32)keys.size();
+    if (point && readable(point, 16)) { memcpy(h.pos, point, 16); h.has_pos = 1; }
+    if (vec && readable(vec, 16)) memcpy(h.launch, vec, 16);
+    memcpy(h.launch + 16, &angle, 4);
+    memcpy(h.launch + 20, &tag, 4);
+    size_t in_head = keys.size() < KEYS_IN_HEAD ? keys.size() : KEYS_IN_HEAD;
+    memcpy(h.launch + 72, keys.data(), in_head * 8);
+    shots_queue(h);
+    for (size_t at = in_head; at < keys.size(); at += KEYS_IN_MORE) {
+        ShotRec m = {};
+        m.kind = ORDER_UNITS;
+        m.obj2 = h.obj2;
+        m.arg6 = (u32)at;
+        m.ammo = (u32)(keys.size() - at < KEYS_IN_MORE ? keys.size() - at : KEYS_IN_MORE);
+        memcpy(m.launch, keys.data() + at, m.ammo * 8ull);
+        shots_queue(m);
+    }
+    g_stat_aim_sent++;
+    mp_log("order: %s for %zu units sent to the host (serial %llu)", aim_name(slot), keys.size(), h.obj2);
+}
+
+// The hooks: the call runs here as always (the interface shows it at once; these units are followed from the
+// host anyway) and, when it is the joining player's, it goes to the host as well.
+static void aim_given(int slot, void *ret, const float *point, const float *vec, float angle, EngList *units, int tag)
+{
+    bool test = g_aim_test;
+    g_aim_test = false;
+    if (g_applying || !forwarding()) return;
+    size_t a = (size_t)ret;
+    bool player = test || (g_interf_base && a >= g_interf_base && a < g_interf_base + g_interf_size);
+    if (g_log) mp_log("order: %s (slot %d) for %u units from %s", aim_name(slot), slot, units && readable(units, 16) ? units->count : 0,
+                      player ? "this player" : "this game's AI (not sent: the host's AI gives its own)");
+    if (player) forward_aim(slot, point, vec, angle, units, tag);
+}
+
+static u64 aim21_hook(char *f, const float *vec, float angle, EngList *units)
+{
+    g_formation = f;
+    u64 r = ((AimSector)g_aim_orig[0])(f, vec, angle, units);
+    aim_given(21, _ReturnAddress(), 0, vec, angle, units, -1);
+    return r;
+}
+static u64 aim22_hook(char *f, EngList *units)
+{
+    g_formation = f;
+    u64 r = ((AimClear)g_aim_orig[1])(f, units);
+    aim_given(22, _ReturnAddress(), 0, 0, 0, units, -1);
+    return r;
+}
+static void aim23_hook(char *f, const float *point, const float *vec, EngList *units, int tag)
+{
+    g_formation = f;
+    ((AimGround)g_aim_orig[2])(f, point, vec, units, tag);
+    aim_given(23, _ReturnAddress(), point, vec, 0, units, tag);
+}
+static u64 aim24_hook(char *f, EngList *units)
+{
+    g_formation = f;
+    u64 r = ((AimClear)g_aim_orig[3])(f, units);
+    aim_given(24, _ReturnAddress(), 0, 0, 0, units, -1);
+    return r;
+}
+
+// i_formation's vtable entries 21-24 are replaced in place (there is one formation manager), once each holds
+// the function of this build (checked).
+static void install_aim_hooks(char *ag)
+{
+    static const size_t old[AIM_SLOTS] = { 0xcd6a0, 0xcd850, 0xcd920, 0xcdaf0 };
+    static const size_t b26[AIM_SLOTS] = { 0x139860, 0x139a20, 0x139b00, 0x139ce0 };
+    void *hooks[AIM_SLOTS] = { (void *)aim21_hook, (void *)aim22_hook, (void *)aim23_hook, (void *)aim24_hook };
+    void **vt = (void **)(ag + FORMATION_VT);
+    for (int i = 0; i < AIM_SLOTS; i++)
+        if (!readable(vt + AIM_FIRST + i, 8) || vt[AIM_FIRST + i] != ag + BV(old[i], old[i], b26[i])) {
+            mp_log("orders: unknown game build - sector, turn and fire-at-ground orders stay in the joining player's game");
+            return;
+        }
+    DWORD prot;
+    if (!VirtualProtect(vt + AIM_FIRST, AIM_SLOTS * 8, PAGE_READWRITE, &prot)) return;
+    for (int i = 0; i < AIM_SLOTS; i++) { g_aim_orig[i] = vt[AIM_FIRST + i]; vt[AIM_FIRST + i] = hooks[i]; }
+    VirtualProtect(vt + AIM_FIRST, AIM_SLOTS * 8, prot, &prot);
+    mp_log("orders: sector, turn and fire-at-ground orders (i_formation slots 21-24) are hooked too");
+}
+
 void orders_install(ObjMan *om)
 {
     static const unsigned char sig[] = { 0x4c, 0x89, 0x4c, 0x24, 0x20, 0x4c, 0x89, 0x44, 0x24, 0x18,
@@ -197,6 +317,45 @@ void orders_install(ObjMan *om)
     g_issue = (Issue)install_detour(fn, sizeof sig, issue_hook);
     mp_log("orders: %s%s", g_issue ? "the order call is hooked - a joining player's orders are carried out by the host's game" : "could not be hooked",
            g_log ? "; every order is logged" : "");
+    install_aim_hooks(ag);
+}
+
+// The host carries out a complete slot 21-24 order.
+static void carry_out_aim(const Incoming &in)
+{
+    const ShotRec &h = in.head;
+    int slot = h.flags;
+    if (slot < AIM_FIRST || slot >= AIM_FIRST + AIM_SLOTS || !g_aim_orig[slot - AIM_FIRST]) { g_stat_refused++; return; }
+    if (!g_formation && g_om) g_formation = (char *)engine_find(g_om, "i_formation", "formation");
+    if (!g_formation) { g_stat_refused++; return; }
+    std::vector<Object *> units;
+    for (u64 key : in.keys) {
+        Object *o = session_unit(key);
+        if (!o) { g_stat_units_missing++; continue; }
+        if (!session_peer_commands(key)) { g_stat_units_not_his++; continue; }
+        units.push_back(o);
+    }
+    if (units.empty()) {
+        g_stat_refused++;
+        mp_log("order: %s from the other player refused - none of its %zu units is his here", aim_name(slot), in.keys.size());
+        return;
+    }
+    alignas(16) float point[4], vec[4];
+    float angle;
+    int tag;
+    memcpy(point, h.pos, 16);
+    memcpy(vec, h.launch, 16);
+    memcpy(&angle, h.launch + 16, 4);
+    memcpy(&tag, h.launch + 20, 4);
+    EngList list = { units.data(), 0, (u32)units.size(), (u32)units.size(), 0 };
+    void *fn = g_aim_orig[slot - AIM_FIRST];
+    g_applying = true;
+    if (slot == 21) ((AimSector)fn)(g_formation, vec, angle, &list);
+    else if (slot == 23) ((AimGround)fn)(g_formation, point, vec, &list, tag);
+    else ((AimClear)fn)(g_formation, &list);
+    g_applying = false;
+    g_stat_aim_done++;
+    mp_log("order: %s from the other player carried out for %zu units (serial %llu)", aim_name(slot), units.size(), h.obj2);
 }
 
 // The host carries out a complete order.
@@ -244,7 +403,7 @@ static void carry_out(const Incoming &in)
 void orders_received(const ShotRec &s)
 {
     if (session_role() != ROLE_HOST || !session_host_auth()) return;
-    if (s.kind == ORDER_HEAD) {
+    if (s.kind == ORDER_HEAD || s.kind == AIM_ORDER) {
         Incoming &in = g_incoming[s.obj2];
         in.head = s;
         in.want = s.arg6 > 4096 ? 4096 : s.arg6;
@@ -263,7 +422,8 @@ void orders_received(const ShotRec &s)
     } else return;
     auto it = g_incoming.find(s.obj2);
     if (it != g_incoming.end() && !it->second.want) {
-        carry_out(it->second);
+        if (it->second.head.kind == AIM_ORDER) carry_out_aim(it->second);
+        else carry_out(it->second);
         g_incoming.erase(it);
     }
 }
@@ -424,10 +584,36 @@ void orders_test_where(u32 squad)
     else mp_log("test: squad %08x is not in this game", squad);
 }
 
+// Tests: "aim <slot> <n> <dx> <dz> <degrees>" - an i_formation slot 21-24 order for this player's n-th squad, given
+// as the interface gives it (taken as the player's): 21 a sector (or a turn) along dx, dz from the squad's middle,
+// <degrees> wide; 22 clear its sectors; 23 a ground target dx, dz from its middle; 24 clear its ground targets.
+void orders_test_aim(int slot, int index, float dx, float dz, float deg)
+{
+    std::vector<u32> squads = session_own_squads();
+    if (slot < AIM_FIRST || slot >= AIM_FIRST + AIM_SLOTS || index < 0 || index >= (int)squads.size() || !g_formation && !g_om) {
+        mp_log("test: aim - slot %d / squad %d not possible (%zu squads)", slot, index, squads.size());
+        return;
+    }
+    if (!g_formation) g_formation = (char *)engine_find(g_om, "i_formation", "formation");
+    std::vector<Object *> units = squad_units(squads[index]);
+    float c[3];
+    if (!g_formation || units.empty() || !squad_centre(squads[index], c)) { mp_log("test: aim - squad %d cannot be given it", index); return; }
+    alignas(16) float point[4] = { c[0] + dx, c[1], c[2] + dz, 1 }, vec[4] = { dx, 0, dz, 0 };
+    EngList list = { units.data(), 0, (u32)units.size(), (u32)units.size(), 0 };
+    void **vt = *(void ***)g_formation;          // through the vtable: the hooks, as the interface's calls go
+    g_aim_test = true;
+    if (slot == 21) ((AimSector)vt[21])(g_formation, vec, deg * 0.01745329f, &list);
+    else if (slot == 23) ((AimGround)vt[23])(g_formation, point, vec, &list, -1);
+    else ((AimClear)vt[slot])(g_formation, &list);
+    g_aim_test = false;
+    mp_log("test: aim - %s given to squad %08x (%zu units)", aim_name(slot), squads[index], units.size());
+}
+
 void orders_report(void)
 {
-    if (g_stat_sent || g_stat_done || g_stat_refused || g_stat_units_missing || g_stat_units_not_his)
-        mp_log("orders: 5 s: %llu sent to the host, %llu of the other player's carried out here, %llu refused; units left out: %llu not here, %llu not his",
-               g_stat_sent, g_stat_done, g_stat_refused, g_stat_units_missing, g_stat_units_not_his);
-    g_stat_sent = g_stat_done = g_stat_refused = g_stat_units_missing = g_stat_units_not_his = 0;
+    if (g_stat_sent || g_stat_done || g_stat_refused || g_stat_units_missing || g_stat_units_not_his || g_stat_aim_sent || g_stat_aim_done)
+        mp_log("orders: 5 s: %llu sent to the host (%llu sector/turn/ground target), %llu of the other player's carried out here (%llu sector/turn/ground target), "
+               "%llu refused; units left out: %llu not here, %llu not his",
+               g_stat_sent + g_stat_aim_sent, g_stat_aim_sent, g_stat_done + g_stat_aim_done, g_stat_aim_done, g_stat_refused, g_stat_units_missing, g_stat_units_not_his);
+    g_stat_sent = g_stat_done = g_stat_refused = g_stat_units_missing = g_stat_units_not_his = g_stat_aim_sent = g_stat_aim_done = 0;
 }

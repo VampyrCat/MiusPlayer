@@ -2519,16 +2519,34 @@ static void send_transforms(ObjMan *om, DWORD now)
 // the wheel, (lin + w x (wheel - hull)) along the wheel's rolling direction; a track runs at the mean ground
 // speed of its wheels that bear on the ground, and its wheels turn with it.
 //   vehicle +0x11e8: wheels (0x2a0 bytes each, count +0x11f4): +0x30 position, +0x100 rolling direction,
-//     +0x130 / +0x138 contact and the body it belongs to, +0x17c radius, +0x1b0 angle (what is drawn),
-//     +0x1b4 spin, +0x289 / +0x292 bearing flags;
-//   vehicle +0x1200: tracks (0x2c0 bytes, count +0x120c): +0x16c and +0x1a4 how far the track has run,
-//     +0x200 its wheels (16-byte entries, the wheel first), count +0x20c.
+//     +0x130 / +0x138 the wheel's track (none for a free wheel) and the body it belongs to, +0x17c radius,
+//     +0x1b0 angle (what is drawn), +0x1b4 spin, +0x289 the track's links lie on it, +0x292 a ground wheel;
+//   vehicle +0x1200: tracks (0x2c0 bytes, count +0x120c): +0x16c how far the track has run (what its drawn links
+//     follow; the engine wraps it), +0x1a4 the same as a total, +0x1c7 thrown, +0x200 its wheels (16-byte
+//     entries, the wheel first), count +0x20c.
+// public_beta-26494568 (IDA, the drive +0xf8d60, track step +0x4d880, wheel loader +0x127a0, track drawing
+// +0x1e1da0): wheels 0x2e0 bytes at +0x1708 (count +0x1714), links-on flag +0x2c1, ground flag +0x2dd, torn off
+// +0x2da (new: radius 0.1, not drawn rolling); tracks 0x3f0 bytes at +0x1720 (count +0x172c), wheels +0x350 (count
+// +0x35c), thrown +0x1cd, total +0x198 (+0x1a4 is something else there); the other fields as before, and the
+// body's block 0x10 further on (UNIT_*). A thrown track's links follow another counter, the engine's own.
+#define TECHN_WHEELS BF(0x11e8, 0x1708)         // (count at +0xc, as for the tracks)
+#define TECHN_TRACKS BF(0x1200, 0x1720)
+#define WHEEL_SIZE   BF(0x2a0, 0x2e0)
+#define TRACK_SIZE   BF(0x2c0, 0x3f0)
+#define WHEEL_LINKS  BF(0x289, 0x2c1)
+#define WHEEL_GROUND BF(0x292, 0x2dd)
+#define WHEEL_GONE   BF(0, 0x2da)
+#define TRACK_WHEELS BF(0x200, 0x350)
+#define TRACK_THROWN BF(0x1c7, 0x1cd)
+#define TRACK_TOTAL  BF(0x1a4, 0x198)
+static u64 g_gear_tracks, g_gear_wheels;           // for the 5 s report: tracks run and wheels turned here
+static double g_gear_track_m, g_gear_wheel_m;
 static float wheel_ground_speed(const char *w)
 {
     const char *b = *(const char *const *)(w + 0x138);
-    if (!readable(b, 0x1f0)) return 0;
-    const float *bp = (const float *)(b + 0x1b0), *lin = (const float *)(b + 0x1d0), *ang = (const float *)(b + 0x1e0);
-    const float *r0 = (const float *)(b + 0xf0), *r1 = (const float *)(b + 0x100), *r2 = (const float *)(b + 0x110);
+    if (!readable(b, UNIT_ANG + 12)) return 0;
+    const float *bp = (const float *)(b + UNIT_POS), *lin = (const float *)(b + UNIT_LIN), *ang = (const float *)(b + UNIT_ANG);
+    const float *r0 = (const float *)(b + UNIT_ROT), *r1 = (const float *)(b + UNIT_ROT + 0x10), *r2 = (const float *)(b + UNIT_ROT + 0x20);
     float wx = ang[0] * r0[0] + ang[1] * r1[0] + ang[2] * r2[0];
     float wy = ang[0] * r0[1] + ang[1] * r1[1] + ang[2] * r2[1];
     float wz = ang[0] * r0[2] + ang[1] * r1[2] + ang[2] * r2[2];
@@ -2539,53 +2557,54 @@ static float wheel_ground_speed(const char *w)
 
 static bool wheel_bears(const char *w)
 {
-    return w[0x292] && w[0x289] && *(const void *const *)(w + 0x130) && *(const void *const *)(w + 0x138);
+    return w[WHEEL_GROUND] && w[WHEEL_LINKS] && !(WHEEL_GONE && w[WHEEL_GONE]) && *(const void *const *)(w + 0x130) && *(const void *const *)(w + 0x138);
 }
 
 static void turn_wheel(char *w, float speed, float dt)
 {
     float r = *(float *)(w + 0x17c);
-    if (!(r > 0.05f) || !(speed == speed)) return;
+    if (!(r > 0.05f) || !(speed == speed) || (WHEEL_GONE && w[WHEEL_GONE])) return;
     float *angle = (float *)(w + 0x1b0);
     *angle += speed / r * dt;
-    if (*angle > 1000.0f || *angle < -1000.0f) *angle = fmodf(*angle, 6.2831853f);
+    if (fabsf(speed) > 0.1f) { g_gear_wheels++; g_gear_wheel_m += fabsf(speed * dt); }
+    // (the 2026 beta keeps the angle within one turn, the older builds let it grow)
+    if (g_bi == BUILD_BETA26 ? (*angle < 0 || *angle >= 6.2831853f) : (*angle > 1000.0f || *angle < -1000.0f)) {
+        *angle = fmodf(*angle, 6.2831853f);
+        if (g_bi == BUILD_BETA26 && *angle < 0) *angle += 6.2831853f;
+    }
 }
 
-// 2026 beta: not ported. Its wheels are 0x2e0-byte records at +0x1708 (count +0x1714; adv_physic+0x127a0 reads
-// them), part of their fields moved (the bearing flag +0x289 is +0x2c1) and the tracks are laid from links
-// (+0x50990) - the fields this needs are not all mapped there, so the other player's running gear stands still.
-#define TECHN_WHEELS BF(0x11e8, NP)
 static void turn_running_gear(char *u, float dt)
 {
-    if (!TECHN_WHEELS) {
-        static bool said;
-        if (!said) { said = true; mp_log("net: running gear: not ported to this build, the other player's wheels and tracks are not turned"); }
-        return;
-    }
-    char *wheels = *(char **)(u + 0x11e8), *tracks = *(char **)(u + 0x1200);
-    u32 nw = *(u32 *)(u + 0x11f4), nt = *(u32 *)(u + 0x120c);
-    if (nw > 64 || nt > 8 || (nw && !readable(wheels, (size_t)nw * 0x2a0)) || (nt && !readable(tracks, (size_t)nt * 0x2c0))) return;
+    char *wheels = *(char **)(u + TECHN_WHEELS), *tracks = *(char **)(u + TECHN_TRACKS);
+    u32 nw = *(u32 *)(u + TECHN_WHEELS + 0xc), nt = *(u32 *)(u + TECHN_TRACKS + 0xc);
+    if (nw > 64 || nt > 8 || (nw && !readable(wheels, (size_t)nw * WHEEL_SIZE)) || (nt && !readable(tracks, (size_t)nt * TRACK_SIZE))) return;
     char *on_track[64];
     u32 n_on = 0;
     for (u32 t = 0; t < nt; t++) {
-        char *tr = tracks + (size_t)t * 0x2c0;
-        char *list = *(char **)(tr + 0x200);
-        u32 n = *(u32 *)(tr + 0x20c);
+        char *tr = tracks + (size_t)t * TRACK_SIZE;
+        char *list = *(char **)(tr + TRACK_WHEELS);
+        u32 n = *(u32 *)(tr + TRACK_WHEELS + 0xc);
         if (!n || n > 64 || !readable(list, (size_t)n * 16)) continue;
+        // a thrown track's links follow the engine's own counter: its wheels are still this track's, not free
+        bool thrown = tr[TRACK_THROWN] != 0;
         float sum = 0;
         int bearing = 0;
         for (u32 k = 0; k < n; k++) {
             char *w = *(char **)(list + (size_t)k * 16);
-            if (readable(w, 0x2a0) && wheel_bears(w)) { sum += wheel_ground_speed(w); bearing++; }
+            if (readable(w, WHEEL_SIZE) && wheel_bears(w)) { sum += wheel_ground_speed(w); bearing++; }
+            if (thrown && n_on < 64) on_track[n_on++] = w;
         }
-        if (!bearing) continue;
+        if (!bearing || thrown) continue;
         float speed = sum / bearing;
         if (!(speed == speed)) continue;
         *(float *)(tr + 0x16c) += speed * dt;
-        *(float *)(tr + 0x1a4) += speed * dt;
+        *(float *)(tr + TRACK_TOTAL) += fabsf(speed * dt);
+        g_gear_tracks++;
+        g_gear_track_m += fabsf(speed * dt);
         for (u32 k = 0; k < n; k++) {
             char *w = *(char **)(list + (size_t)k * 16);
-            if (!readable(w, 0x2a0)) continue;
+            if (!readable(w, WHEEL_SIZE)) continue;
             turn_wheel(w, speed, dt);
             if (n_on < 64) on_track[n_on++] = w;
         }
@@ -2595,10 +2614,10 @@ static void turn_running_gear(char *u, float dt)
     // them by their spin (+0x1b4), which here only came with a loaded state and died away within half a
     // second - the wheels stopped and started. The spin is taken out and the wheel turned like the others.
     for (u32 i = 0; i < nw; i++) {
-        char *w = wheels + (size_t)i * 0x2a0;
+        char *w = wheels + (size_t)i * WHEEL_SIZE;
         bool done = false;
         for (u32 k = 0; k < n_on && !done; k++) done = on_track[k] == w;
-        if (done || !w[0x292] || !w[0x289] || !*(const void *const *)(w + 0x138)) continue;
+        if (done || !w[WHEEL_GROUND] || !w[WHEEL_LINKS] || (WHEEL_GONE && w[WHEEL_GONE]) || !*(const void *const *)(w + 0x138)) continue;
         turn_wheel(w, wheel_ground_speed(w), dt);
         *(float *)(w + 0x1b4) = 0;
     }
@@ -2649,6 +2668,8 @@ void session_sim_step(ObjMan *om)
     trench_sim_step(om);
     anim_sim_step(om);
     vdamage_sim_step(om);
+    seats_sim_step(om, GetTickCount() - first_step >= (DWORD)delay);     // (seated here only once the battle is set up, as states)
+    cells_sim_step(om);
 
     // Followed units are not predicted and not left to this game's own physics: they are shown where their
     // owner had them, a tenth of a second ago, moving smoothly from one received transform to the next
@@ -4056,12 +4077,19 @@ void session_frame(ObjMan *om)
                 mp_log("net: the other game's units shown by its battle clock: transforms %.0f ms apart, its clock %+.0f ms from this game's and running x%.3f, arrivals wandering %.0f ms, shown %.0f ms behind",
                        g_play.interval * 1000, (play_clock(seconds_now()) - g_sim_ms / 1000.0) * 1000, g_play.rate, g_play.dev * 1000, play_delay() * 1000);
             statesync_report();
+            if (g_gear_tracks || g_gear_wheels)
+                mp_log("net: 5 s: running gear of the other game's vehicles - tracks run %.1f m in all, %llu wheel turns by %.1f m of ground",
+                       g_gear_track_m, g_gear_wheels, g_gear_wheel_m);
+            g_gear_tracks = g_gear_wheels = 0;
+            g_gear_track_m = g_gear_wheel_m = 0;
             if (g_stat_unselected) { mp_log("select: 5 s: %llu of the other player's units kept out of this player's selection", g_stat_unselected); g_stat_unselected = 0; }
             shots_report();
             trench_report();
             anim_report();
             hits_report();
             orders_report();
+            seats_report();
+            cells_report();
             vdamage_report();
             guns_report();
             fires_report();

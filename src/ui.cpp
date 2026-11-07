@@ -1453,8 +1453,14 @@ static bool test_shot_request(char *name, size_t n)
     if (!strncmp(line, "order ", 6)) { int n = 0; float dx = 0, dz = 0; if (sscanf_s(line + 6, "%d %f %f", &n, &dx, &dz) >= 2) orders_test_move(n, dx, dz); return false; }
     if (!strncmp(line, "attack", 6)) { orders_test_attack(); return false; }
     if (!strncmp(line, "selectable", 10)) { orders_test_selectable(); return false; }
+    if (!strncmp(line, "aim ", 4)) { int s = 0, n = 0; float dx = 0, dz = 0, deg = 40; if (sscanf_s(line + 4, "%d %d %f %f %f", &s, &n, &dx, &dz, &deg) >= 2) orders_test_aim(s, n, dx, dz, deg); return false; }
     if (!strncmp(line, "place ", 6)) { int n = 0; float dx = 0, dz = 0; if (sscanf_s(line + 6, "%d %f %f", &n, &dx, &dz) == 3) orders_test_place(n, dx, dz); return false; }
     if (!strncmp(line, "squadpos ", 9)) { orders_test_where(strtoul(line + 9, 0, 16)); return false; }
+    if (!strncmp(line, "seats", 5)) { seats_test_list(); return false; }
+    if (!strncmp(line, "unseat ", 7)) { seats_test_move(atoi(line + 7)); return false; }
+    if (!strncmp(line, "reseat", 6)) { seats_test_move(-1); return false; }
+    if (!strncmp(line, "cells", 5)) { cells_test_list(); return false; }
+    if (!strncmp(line, "capture ", 8)) { cells_test_capture(atoi(line + 8)); return false; }
     if (!strncmp(line, "blowup", 6)) { shots_test_blowup(atoi(line + 6)); return false; }
     if (!strncmp(line, "artillery", 9)) { int r = 0, k = 0; sscanf_s(line + 9, "%d %d", &r, &k); shots_test_artillery(r, k); return false; }
     if (!strncmp(line, "dig ", 4)) { int n = 0; float m = 0; if (sscanf_s(line + 4, "%d %f", &n, &m) == 2) trench_test_move(n, m); return false; }

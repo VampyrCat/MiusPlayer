@@ -312,6 +312,7 @@ static void end_battle_hook(Object *tm, u64 a, u64 b)
     u32 bits = (fled(tm, 0) ? 1 : 0) | (fled(tm, 1) ? 2 : 0) | (session_versus() ? 4 : 0) | (*((char *)tm + TM_TRIG_FLAG) ? 8 : 0);
     mp_log("end: the battle is over here (result %u%s%s) - the other game is told to end its battle now", result,
            bits & 1 ? ", this side left" : "", bits & 2 ? ", the other side left" : "");
+    cells_flush();              // (the ground as it stands at the end goes first)
     send_end(tm);
 }
 
@@ -389,6 +390,7 @@ static void apply(ObjMan *om, const ShotRec &s)
         *(t + TM_TRUCE_COUNTDOWN) = 0;
         mp_log("end: the host's battle is over (result %u there) - ending this one", s.weapon);
         session_game_menu(om, false);           // the statistics come up over the battle, not over the ESC menu
+        cells_flush();                          // the ground the host's result was made from
         g_end_battle(tm, 0, 0);
     }
 }

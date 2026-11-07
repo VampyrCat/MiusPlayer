@@ -245,8 +245,29 @@ void orders_report(void);
 void orders_test_move(int index, float dx, float dz);   // tests: this player's n-th squad moves by dx, dz
 void orders_test_where(u32 squad);        // tests: where a squad stands here
 void orders_test_place(int index, float dx, float dz);  // tests: this player's n-th squad put elsewhere at once (deployment)
+void orders_test_aim(int slot, int index, float dx, float dz, float deg);   // tests: an i_formation slot 21-24 order for this player's n-th squad
 void orders_test_attack(void);            // tests: all of this player's squads move against the other side
 void orders_test_selectable(void);        // tests: how many of this player's units can be selected
+#endif
+
+// ---- who rides which vehicle, the deciding game's (seats.cpp)
+#ifdef __cplusplus
+void seats_sim_step(ObjMan *om, bool apply);    // apply: the other game's seats may be taken here now
+void seats_received(const ShotRec &s);   // ShotRec.kind 16
+void seats_reset(void);                  // a new connection: every seat is sent again
+void seats_report(void);
+void seats_test_list(void);               // tests: how many soldiers ride here, and a hash of who rides where
+void seats_test_move(int index);          // tests: the n-th seated soldier out of his seat; below 0: the last one back in
+
+// ---- who holds the ground: the map's control cells, the host's (cells.cpp)
+void cells_sim_step(ObjMan *om);
+void cells_received(const ShotRec &s);   // ShotRec.kind 17
+void cells_flush(void);                  // host: the changes not sent yet, now; joining game: the host's cells, now
+void cells_reset(void);                  // a new connection: every cell is sent again
+void cells_report(void);
+void cells_test_step(void);
+void cells_test_list(void);               // tests: how many cells each side holds here, and a hash of the owners
+void cells_test_capture(int index);       // tests: the n-th held cell to the other side, by the game's own capture
 #endif
 
 // ---- in-game multiplayer menu (ui.cpp)

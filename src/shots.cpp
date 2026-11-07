@@ -422,8 +422,9 @@ void shots_idle(void)
     for (const ShotRec &s : g_in) {
         if (s.kind == 8) endgame_received(s);
         else if (s.kind == 10) conditions_received(s);
-        else if (s.kind == 11 || s.kind == 12) orders_received(s);      // (orders are given in a paused battle too)
+        else if (s.kind == 11 || s.kind == 12 || s.kind == 15) orders_received(s);      // (orders are given in a paused battle too)
         else if (s.kind == 13) stats_received(s, g_om);
+        else if (s.kind == 17) cells_received(s);       // (the ground as the host holds it, before its end)
         else rest.push_back(s);
     }
     g_in.swap(rest);
@@ -443,6 +444,8 @@ void shots_reset(void)
     orders_reset();
     vdamage_reset();
     guns_reset();
+    seats_reset();
+    cells_reset();
 }
 
 static void carry_out_explosion(const ShotRec &s)
@@ -589,9 +592,11 @@ void shots_sim_step(ObjMan *om)
         else if (s.kind == 7) hits_received(s);
         else if (s.kind == 8) endgame_received(s);
         else if (s.kind == 10) conditions_received(s);
-        else if (s.kind == 11 || s.kind == 12) orders_received(s);
+        else if (s.kind == 11 || s.kind == 12 || s.kind == 15) orders_received(s);
         else if (s.kind == 13) stats_received(s, om);
         else if (s.kind == 14) fires_received(s, om);
+        else if (s.kind == 16) seats_received(s);
+        else if (s.kind == 17) cells_received(s);
     }
     if (!g_launch || !g_enabled) { g_in.clear(); return; }
     if (!g_shellphys) g_shellphys = (char *)engine_find(om, "i_shellphys", "shellphys");
