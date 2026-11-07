@@ -278,6 +278,13 @@ void mapobj_test_step(void);
 void mapobj_test_list(void);              // tests: how many map objects are damaged / destroyed here, and a hash
 void mapobj_test_list_all(void);          // tests: the same, and each damaged object (at most 120)
 void mapobj_test_demolish(int index);     // tests: the n-th destructible building collapses (the game's own hit)
+
+// ---- what each player sees of the enemy: the host's spotting (sight.cpp)
+void sight_frame(ObjMan *om, void (*send)(const void *, int));
+void sight_on_packet(const unsigned char *data, int size);
+void sight_report(void);
+void sight_test_step(void);
+void sight_test_list(void);               // tests: the list sent (host) / the side list here (joining game), count and hash
 #endif
 
 // ---- in-game multiplayer menu (ui.cpp)

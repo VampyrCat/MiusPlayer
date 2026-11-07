@@ -3,7 +3,8 @@
 #pragma once
 
 enum { PKT_HELLO = 1, PKT_WELCOME, PKT_KEEPALIVE, PKT_IMAGE_REQUEST, PKT_IMAGE_DATA, PKT_STATE, PKT_BYE, PKT_OBJECT, PKT_OBJECT_ACK, PKT_SHOT, PKT_SHOT_ACK, PKT_ANIM, PKT_SIDE,
-       PKT_FORCE_REQUEST, PKT_FORCE_DATA, PKT_VDMG, PKT_GUNS };     // PKT_VDMG: a vehicle's damage from the host (vdamage.cpp); PKT_GUNS: where its guns point (guns.cpp)
+       PKT_FORCE_REQUEST, PKT_FORCE_DATA, PKT_VDMG, PKT_GUNS, PKT_SIGHT };     // PKT_VDMG: a vehicle's damage from the host (vdamage.cpp); PKT_GUNS: where its guns point (guns.cpp)
+                                                                            // PKT_SIGHT: the host's contact list for the other player's side (sight.cpp)
 enum { HOST_MODE_SKIRMISH = 1, HOST_MODE_OPERATION = 2, HOST_MODE_MISSION = 3 };       // mission: made in the battle editor
 static const unsigned k_magic = 0x504d5447;          // "GTMP"
 // 21: mpmod2 - the host's game decides everything in a battle (orders travel to it)
@@ -12,7 +13,8 @@ static const unsigned k_magic = 0x504d5447;          // "GTMP"
 //     while battles are being fought (Welcome.map_flags bit 3)
 // 24: the joining player's sector / turn / fire-at-ground orders (ShotRec kind 15), seats (16), the ground (17)
 // 25: the map's objects (ShotRec kind 18; the joining game makes no object damage of its own)
-static const unsigned k_version = 25;
+// 26: the host's spotting for the other player's side (PKT_SIGHT)
+static const unsigned k_version = 26;
 static const char k_protocol[12] = "GTMF_TA_A1";     // the engine's own protocol id for this game
 static const unsigned k_chunk = 1000;
 static const unsigned short k_default_port = 1943;   // the port the engine's own network settings name

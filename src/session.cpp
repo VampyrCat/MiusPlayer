@@ -3939,6 +3939,9 @@ static void on_packet(const sockaddr_in &from, const unsigned char *data, int si
     case PKT_GUNS:
         if (from_peer) guns_on_packet(data, size);
         break;
+    case PKT_SIGHT:
+        if (from_peer) sight_on_packet(data, size);
+        break;
     case PKT_SIDE:
         if (from_peer) endgame_on_packet(data, size);
         break;
@@ -4066,6 +4069,7 @@ void session_frame(ObjMan *om)
         stats_frame();
         shots_frame(send_peer);
         vdamage_frame(om, send_peer);
+        sight_frame(om, send_peer);
     }
 
     if (g_connected && now - g_last_rx > 8000) {
@@ -4101,6 +4105,7 @@ void session_frame(ObjMan *om)
             seats_report();
             cells_report();
             mapobj_report();
+            sight_report();
             vdamage_report();
             guns_report();
             fires_report();
