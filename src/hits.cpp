@@ -262,11 +262,40 @@ static void condition_apply(u64 key, float c)
     if (*p != c) { *p = c; g_stat_cond_set++; }
 }
 
+// Every step the owner's value is put back into each of the other player's soldiers. Through a flat list of where each
+// one keeps it, made again when the units or the values change: looked up by unit number every step, the 560
+// soldiers of an operation battle took the joining game ~9 ms a second.
+struct CondAt { float *life; float want; };
+static std::vector<CondAt> g_cond_at;
+static bool g_cond_dirty = true;
+static u32 g_cond_gen;
+static void conditions_apply_all(void)
+{
+    static DWORD made_at;
+    DWORD now = GetTickCount();
+    // (also every 2 s: whose a soldier is changes at the end of deployment, with the same units)
+    if (g_cond_dirty || g_cond_gen != session_units_generation() || now - made_at >= 2000) {
+        g_cond_dirty = false;
+        made_at = now;
+        g_cond_gen = session_units_generation();
+        g_cond_at.clear();
+        for (auto &kv : g_cond_want) {
+            Object *u = session_unit(kv.first);
+            if (!u || session_owns(u) || strcmp(u->iface, "i_human")) continue;
+            g_cond_at.push_back({ (float *)((char *)u + S_LIFE), kv.second });
+        }
+    }
+    for (const CondAt &c : g_cond_at)
+        if (readable(c.life, 4) && *c.life != c.want) { *c.life = c.want; g_stat_cond_set++; }
+}
+
 void conditions_received(const ShotRec &s)
 {
     float c;
     memcpy(&c, s.launch, 4);
     if (!(c == c) || c < -1 || c > 2) return;
+    auto it = g_cond_want.find(s.obj2);
+    if (it == g_cond_want.end() || it->second != c) g_cond_dirty = true;
     g_cond_want[s.obj2] = c;
     condition_apply(s.obj2, c);
 }
@@ -303,7 +332,10 @@ void hits_sim_step(ObjMan *om)
 {
     if (active()) {
         conditions_owner(om);
-        for (auto &kv : g_cond_want) condition_apply(kv.first, kv.second);
+        static int each = -1;
+        if (each < 0) { char v[8]; each = GetEnvironmentVariableA("MP_COND_LOOKUP", v, sizeof v) && atoi(v); }
+        if (each) for (auto &kv : g_cond_want) condition_apply(kv.first, kv.second);       // (MP_COND_LOOKUP=1: as before)
+        else conditions_apply_all();
     }
     if (!g_tried) install(om);
     if (!g_installed) { g_wait.clear(); return; }

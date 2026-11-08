@@ -116,10 +116,13 @@ static std::unordered_set<u64> g_user_side_units, g_enemy_side_units;   // every
 static std::unordered_set<u64> g_position_only;     // units whose saved state is not exchanged
 
 // unit transforms
-struct Sent { float pos[3], rot0[3]; DWORD when; };
+// pos/rot0/when: what went last and when; lin, rot6, sim_ms: its velocity as sent, its first two rows and the battle time
+// (dead reckoning); prev_*: the unit at the snapshot before (a soldier's ground speed); seen: the other player had
+// spotted it at the last snapshot.
+struct Sent { float pos[3], rot0[3]; DWORD when; float lin[3], rot6[6]; u64 sim_ms; float prev_pos[3], prev_lin[3], gv[3]; u64 prev_sim; bool seen; };
 static std::unordered_map<u64, Sent> g_sent;            // what was last sent per owned unit
 static std::unordered_map<u64, Object *> g_units;       // local unit per id
-static u32 g_units_count_seen;
+static u32 g_units_count_seen, g_units_gen;      // gen: counts the rebuilds of g_units (session_units_generation)
 // The last few transforms received per followed unit, oldest first, with the time each arrived and the
 // sender's battle time when it was taken (seconds, below zero outside the battle phase): the unit is shown
 // between the two around a moment a little in the past (see session_sim_step). That moment lies more than
@@ -708,6 +711,15 @@ static void find_position_only_units(void)
             if (kv.second.find(tok) != std::string::npos) { g_position_only.insert(kv.first); break; }
     }
     if (!g_position_only.empty()) mp_log("net: %zu units are followed by position only (%s)", g_position_only.size(), list);
+}
+
+// Host, versus, the battle phase, no more players: a unit of the host's side that the other player's side has not spotted
+// (sight.cpp's list) is not drawn in his game - its state and its transforms can go less often. True for everything else.
+bool session_other_sees(Object *o)
+{
+    u64 key;
+    if (g_role != ROLE_HOST || !g_versus || g_phase != 2 || extras_on() || !unit_key(o, &key, 0) || g_enemy_side_units.count(key)) return true;
+    return sight_other_sees(key) != 0;
 }
 
 bool session_state_wanted(Object *o)
@@ -2772,6 +2784,30 @@ static void steer_wheels(char *u, float steer)
     *(float *)(u + TECHN_STEER) = steer;
 }
 
+// Dead reckoning's counters for the 5 s report: units left out of a snapshot while moving / not spotted by the other
+// player, units sent because their place / their turning had gone off what the other game makes of the last one;
+// soldiers on the move: how often the snapshot before foretells this one within 3 cm by the body's velocity and by
+// the ground speed (MP_STATE_PROFILE=1).
+static u64 g_stat_reckoned, g_stat_unseen, g_stat_dr_pos, g_stat_dr_rot, g_dr_soldiers, g_dr_body_ok, g_dr_ground_ok;
+static void dr_note_soldier(const float *prev, const float *body, const float *ground, const float *now, float dt)
+{
+    static int on = -1;
+    if (on < 0) { char v[8]; on = GetEnvironmentVariableA("MP_STATE_PROFILE", v, sizeof v) && atoi(v) > 0; }
+    if (!on) return;
+    float m2 = 0, eb = 0, eg = 0;
+    for (int k = 0; k < 3; k++) {
+        float d = now[k] - prev[k];
+        m2 += d * d;
+        float b = now[k] - (prev[k] + body[k] * dt), g = now[k] - (prev[k] + ground[k] * dt);
+        eb += b * b;
+        eg += g * g;
+    }
+    if (m2 < 0.0001f) return;           // (standing: 1 cm or less)
+    g_dr_soldiers++;
+    if (eb < 0.0009f) g_dr_body_ok++;
+    if (eg < 0.0009f) g_dr_ground_ok++;
+}
+
 static void send_transforms(ObjMan *om, DWORD now)
 {
     static Object *timer;
@@ -2811,6 +2847,28 @@ static void send_transforms(ObjMan *om, DWORD now)
     // infantry "animated at a low framerate" in the Stepanovka run).
     static int soldier_ms = -1;
     if (soldier_ms < 0) { char v[16]; soldier_ms = GetEnvironmentVariableA("MP_SOLDIER_MS", v, sizeof v) ? atoi(v) : 0; }
+    // Dead reckoning (MP_DR=0 off): in the battle a moving unit is left out of a snapshot while the other game, running
+    // it on from the last one sent with that one's velocity, has it within MP_DR_CM (3 cm) of where it is and turned
+    // within about half a degree - and sent at least every third snapshot all the same (MP_DR_GAP, 200 ms; two
+    // transforms further apart than four snapshots are not blended there). The records carry flag bit 1, and the other
+    // game runs such a unit on for that long before it stands (see session_sim_step). A soldier moves by his animation,
+    // not by his body's velocity: his own ground speed, worked out from where he was at the snapshot before, goes in its
+    // place (MP_DR_GROUND=0: the body's; Stepanovka: it foretells the next snapshot within 3 cm 90 % of the time, the
+    // body's velocity 36 %). A unit of the host's side that the other player has not spotted (versus, sight.cpp's list;
+    // not with more players) is not drawn there: it goes within MP_DR_UNSEEN_CM (50 cm) and about three degrees.
+    static int dr = -1, dr_ground;
+    static float dr_m, unseen_m;
+    static DWORD dr_gap;
+    if (dr < 0) {
+        char v[16];
+        dr = !GetEnvironmentVariableA("MP_DR", v, sizeof v) || atoi(v) != 0;
+        dr_ground = !GetEnvironmentVariableA("MP_DR_GROUND", v, sizeof v) || atoi(v) != 0;
+        dr_m = (GetEnvironmentVariableA("MP_DR_CM", v, sizeof v) ? (float)atof(v) : 3.0f) / 100.0f;
+        unseen_m = (GetEnvironmentVariableA("MP_DR_UNSEEN_CM", v, sizeof v) ? (float)atof(v) : 50.0f) / 100.0f;
+        dr_gap = GetEnvironmentVariableA("MP_DR_GAP", v, sizeof v) ? (DWORD)atoi(v) : 200;
+    }
+    bool reckon = dr && g_phase == 2;
+    bool sight_rate = reckon && g_role == ROLE_HOST && g_versus && !extras_on();
     for (u32 i = 0; i < count; i++) {
         u64 key;
         UnitRec r = {};
@@ -2818,24 +2876,72 @@ static void send_transforms(ObjMan *om, DWORD now)
         const char *u = (const char *)all[i];
         const float *pos = (const float *)(u + UNIT_POS), *rot = (const float *)(u + UNIT_ROT);
         Sent &s = g_sent[key];
+        // the velocity that goes with this unit: a soldier's ground speed since the snapshot before
+        float lin[3];
+        memcpy(lin, u + UNIT_LIN, 12);
+        if (r.kind == 2) {
+            float gv[3] = { 0, 0, 0 };
+            bool have_gv = s.prev_sim && g_sim_ms > s.prev_sim && g_sim_ms - s.prev_sim <= 1000;
+            if (have_gv) {
+                float dt = (g_sim_ms - s.prev_sim) / 1000.0f;
+                for (int k = 0; k < 3; k++) gv[k] = (pos[k] - s.prev_pos[k]) / dt;
+                // (tests, MP_STATE_PROFILE: how well each velocity foretells this snapshot from the one before)
+                dr_note_soldier(s.prev_pos, s.prev_lin, s.gv, pos, dt);
+            }
+            memcpy(s.prev_pos, pos, 12);
+            memcpy(s.prev_lin, lin, 12);
+            s.prev_sim = g_sim_ms;
+            memcpy(s.gv, gv, 12);
+            // (not when he was put somewhere - into or out of a seat: 12 m/s or more is no soldier's pace, and the other
+            //  game would run him on with it)
+            if (reckon && dr_ground && have_gv && gv[0] * gv[0] + gv[1] * gv[1] + gv[2] * gv[2] < 144.0f) memcpy(lin, gv, 12);
+        }
         bool moved = fabsf(pos[0] - s.pos[0]) + fabsf(pos[1] - s.pos[1]) + fabsf(pos[2] - s.pos[2]) > 0.002f ||
                      fabsf(rot[0] - s.rot0[0]) + fabsf(rot[1] - s.rot0[1]) + fabsf(rot[2] - s.rot0[2]) > 0.0005f;
-        // unchanged units are repeated every two seconds, spread out so they do not all go at once
-        if (!moved && now - s.when < 2000 + (r.id % 16) * 30) continue;
-        if (moved && r.kind == 2 && soldier_ms > 0 && now - s.when < (DWORD)soldier_ms) continue;
+        if (reckon && s.when) {
+            bool seen = true;
+            if (sight_rate && !g_enemy_side_units.count(key)) seen = sight_other_sees(key) != 0;
+            bool newly_seen = seen && !s.seen;
+            s.seen = seen;
+            float dt = g_sim_ms >= s.sim_ms ? (g_sim_ms - s.sim_ms) / 1000.0f : 0.0f, pe = 0, re = 0;
+            for (int k = 0; k < 3; k++) { float d = pos[k] - (s.pos[k] + s.lin[k] * dt); pe += d * d; }
+            for (int row = 0; row < 2; row++) for (int k = 0; k < 3; k++) re += fabsf(rot[row * 4 + k] - s.rot6[row * 3 + k]);
+            pe = sqrtf(pe);
+            bool pos_ok = pe < (seen ? dr_m : unseen_m), rot_ok = re < (seen ? 0.012f : 0.06f);
+            if (!pos_ok) g_stat_dr_pos++;
+            else if (!rot_ok) g_stat_dr_rot++;
+            if (pos_ok && rot_ok && !newly_seen) {
+                bool standing = s.lin[0] * s.lin[0] + s.lin[1] * s.lin[1] + s.lin[2] * s.lin[2] < 0.0025f && !moved;
+                // unchanged units are repeated every two seconds, spread out so they do not all go at once
+                if (now - s.when < (standing ? 2000 + (r.id % 16) * 30 : dr_gap)) {
+                    if (!standing) g_stat_reckoned++;
+                    if (!seen) g_stat_unseen++;
+                    continue;
+                }
+            }
+        } else {
+            // unchanged units are repeated every two seconds, spread out so they do not all go at once
+            if (!moved && now - s.when < 2000 + (r.id % 16) * 30) continue;
+            if (moved && r.kind == 2 && soldier_ms > 0 && now - s.when < (DWORD)soldier_ms) continue;
+            s.seen = true;
+        }
         memcpy(s.pos, pos, 12);
         memcpy(s.rot0, rot, 12);
+        for (int row = 0; row < 2; row++) memcpy(s.rot6 + row * 3, rot + row * 4, 12);
         s.when = now;
+        s.sim_ms = g_sim_ms;
         memcpy(r.pos, pos, 12);
         for (int row = 0; row < 3; row++) memcpy(r.rot + row * 3, rot + row * 4, 12);
-        memcpy(r.lin, u + UNIT_LIN, 12);
+        memcpy(r.lin, lin, 12);
         memcpy(r.ang, u + UNIT_ANG, 12);
         if (r.kind == 1) put_steer(r, vehicle_steer(u));
+        if (reckon) r.pad[1] |= 2;
         to_wire(r, recs[n]);
         {
             UnitRec back;
             from_wire(recs[n], back);
             for (int k = 0; k < 9; k++) { float d = fabsf(back.rot[k] - r.rot[k]); if (d > g_wire_err) g_wire_err = d; }
+            memcpy(s.lin, back.lin, 12);        // (what the other game runs it on with)
         }
         n++;
         g_stat_sent++;
@@ -2970,7 +3076,9 @@ static void rebuild_units(ObjMan *om)
         if (unit_key(all[i], &key, 0)) g_units[key] = all[i];
     }
     g_units_count_seen = count;
+    g_units_gen++;
 }
+u32 session_units_generation(void) { return g_units_gen; }
 
 Object *session_unit(u64 key)
 {
@@ -3140,9 +3248,12 @@ void session_sim_step(ObjMan *om)
             for (int i = 0; i < 9; i++) rot[i] = A.rot[i] + (B.rot[i] - A.rot[i]) * k;
         } else {
             branch = 2;
+            // (a record its owner sends by dead reckoning - flag bit 1, see send_transforms - is followed by the next
+            //  one at most three snapshots later: the unit runs on for that long)
+            double run_on = (B.pad[1] & 2) ? max(k_run_on, scaled ? 5.0 * g_play.interval + 2.0 * g_play.dev + 0.05 : 0.4) : k_run_on;
             double run = t - tb;
-            run = run < 0 ? 0 : run > k_run_on ? k_run_on : run;
-            moving = t - tb < k_run_on;
+            run = run < 0 ? 0 : run > run_on ? run_on : run;
+            moving = t - tb < run_on;
             for (int i = 0; i < 3; i++) pos[i] = B.pos[i] + B.lin[i] * (float)run;
             memcpy(rot, B.rot, sizeof rot);
         }
@@ -5025,6 +5136,13 @@ void session_frame(ObjMan *om)
             mp_log("net: 5 s: sent %u and applied %u unit transforms (%u times a standing vehicle left to this game's physics), mean correction %.2f m, largest %.2f m, %u jumps, %.1f KB/s in total; rotations packed within %.5f",
                    g_stat_sent, g_stat_applied, g_stat_rest, g_stat_applied ? g_stat_err_sum / g_stat_applied : 0.0, g_stat_err_max, g_stat_snaps, g_stat_bytes / 5120.0, g_wire_err);
             g_wire_err = 0;
+            if (g_stat_reckoned || g_stat_dr_pos || g_stat_dr_rot)
+                mp_log("net: 5 s: dead reckoning left out %llu transforms of moving units, and %llu (moving or not) of units the other player has not spotted; sent %llu as gone off in place, %llu in turning",
+                       g_stat_reckoned, g_stat_unseen, g_stat_dr_pos, g_stat_dr_rot);
+            if (g_dr_soldiers)
+                mp_log("net: 5 s: soldiers on the move foretold within 3 cm a snapshot ahead: %.0f %% by the body's velocity, %.0f %% by the ground speed (%llu)",
+                       100.0 * g_dr_body_ok / g_dr_soldiers, 100.0 * g_dr_ground_ok / g_dr_soldiers, g_dr_soldiers);
+            g_stat_reckoned = g_stat_unseen = g_stat_dr_pos = g_stat_dr_rot = g_dr_soldiers = g_dr_body_ok = g_dr_ground_ok = 0;
             if (g_play.have && g_phase == 2)
                 mp_log("net: the other game's units shown by its battle clock: transforms %.0f ms apart, its clock %+.0f ms from this game's and running x%.3f, arrivals wandering %.0f ms, shown %.0f ms behind",
                        g_play.interval * 1000, (play_clock(seconds_now()) - g_sim_ms / 1000.0) * 1000, g_play.rate, g_play.dev * 1000, play_delay() * 1000);

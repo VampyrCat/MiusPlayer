@@ -264,33 +264,52 @@ void seats_sim_step(ObjMan *om, bool apply)
     // leave pending, S_LEAVING: the in-vehicle update carries it out) stays: this game's AI dismounted riders the
     // owner kept on board, and the check below put them back a second later - soldiers seen popping out of their
     // vehicles and in again (Stepanovka, 2.6.0). The owner's own dismount comes as a new seat. MP_SEATS_HOLD=0: not held.
-    static int hold = -1;
+    static int hold = -1, every_step = -1;
     if (hold < 0) { char v[8]; hold = !GetEnvironmentVariableA("MP_SEATS_HOLD", v, sizeof v) || atoi(v) != 0; }
-    for (auto &w : g_wanted) {
-        Object *o = session_unit(w.first);
-        if (!is_soldier(o) || session_owns(o)) continue;
+    // Every step only the soldiers that need it - the seated ones (held, above) and the ones not yet as their owner has
+    // them -, the rest once a second (and at once when seats arrive, seats_received): looked at every step, the
+    // 700 soldiers of an operation battle took the joining game ~11 ms a second. MP_SEATS_EVERY_STEP=1: all, every step.
+    if (every_step < 0) { char v[8]; every_step = GetEnvironmentVariableA("MP_SEATS_EVERY_STEP", v, sizeof v) && atoi(v); }
+    auto visit = [&](u64 key, const Seat &want) -> bool {      // true: look at him again next step
+        Object *o = session_unit(key);
+        if (!is_soldier(o) || session_owns(o)) return false;
         Seat now_seat = { 0, -1 };
         bool known = seat_of(o, &now_seat);
-        if (hold && known && w.second.vehicle && !(now_seat != w.second)) {
+        if (hold && known && want.vehicle && !(now_seat != want)) {
             char *u = (char *)o;
             if (u[S_LEAVING] || u[S_LEAVING + 1]) { u[S_LEAVING] = 0; u[S_LEAVING + 1] = 0; g_stat_held++; }
         }
-        if (!all_now && known && !(now_seat != w.second)) continue;
-        if (known && !(now_seat != w.second)) { g_attempts.erase(w.first); continue; }
-        Attempt &a = g_attempts[w.first];
-        if (a.n && a.seat != w.second) a.n = 0;
-        if (a.n >= 3 || (a.n && now - a.at < 1000)) continue;
-        a.seat = w.second;
+        if (known && !(now_seat != want)) {
+            if (all_now) g_attempts.erase(key);
+            return want.vehicle != 0;
+        }
+        Attempt &a = g_attempts[key];
+        if (a.n && a.seat != want) a.n = 0;
+        if (a.n >= 3 || (a.n && now - a.at < 1000)) return a.n < 3;
+        a.seat = want;
         a.at = now;
         a.n++;
-        int r = seat_to(o, w.second);
+        int r = seat_to(o, want);
         if (r < 0) g_stat_failed++;
         static int logged;
         if (r != 0 && logged < 24) {
             logged++;
             mp_log("seats: %s from %s %08x seat %d to %08x seat %d as the other game has him%s", o->full, now_seat.vehicle ? "vehicle" : "foot",
-                   (u32)now_seat.vehicle, now_seat.station, (u32)w.second.vehicle, w.second.station, r < 0 ? " - COULD NOT" : "");
+                   (u32)now_seat.vehicle, now_seat.station, (u32)want.vehicle, want.station, r < 0 ? " - COULD NOT" : "");
         }
+        return true;
+    };
+    static std::vector<u64> watch;
+    if (all_now || every_step) {
+        watch.clear();
+        for (auto &w : g_wanted) if (visit(w.first, w.second)) watch.push_back(w.first);
+    } else {
+        size_t k = 0;
+        for (u64 key : watch) {
+            auto it = g_wanted.find(key);
+            if (it != g_wanted.end() && visit(key, it->second)) watch[k++] = key;
+        }
+        watch.resize(k);
     }
 }
 

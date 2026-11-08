@@ -76,6 +76,7 @@ static char *g_vm, *g_ag;
 static bool g_tried, g_ok, g_enabled = true;
 // host: the list last built for the other player's side, its number, when it went out
 static std::vector<SightEntry> g_list;
+static std::unordered_map<u64, bool> g_list_keys;      // (the same units, for sight_other_sees)
 static unsigned g_seq, g_list_side;
 // more players (session.cpp): extra players on the side opposite the other player's get that side's list
 static std::vector<SightEntry> g_list2;
@@ -330,6 +331,8 @@ void sight_frame(ObjMan *om, void (*send)(const void *, int), void (*send_opposi
             std::vector<SightEntry> list;
             build_list(side, list);
             g_list.swap(list);
+            g_list_keys.clear();
+            for (const SightEntry &e : g_list) g_list_keys[e.key] = true;
             g_list_side = side;
             g_seq++;
             g_stat_built++;
@@ -357,6 +360,14 @@ void sight_frame(ObjMan *om, void (*send)(const void *, int), void (*send_opposi
         send_list(send, g_list, g_list_side);
         if (send_opposite && g_list2_side) send_list(send_opposite, g_list2, g_list2_side);
     }
+}
+
+// Host: whether the other player's side has spotted this unit, by the list last sent to it (any level: what the
+// joining game may draw comes from that list). -1: not known (no list yet, not this game's place to say).
+int sight_other_sees(u64 key)
+{
+    if (!ready() || session_role() != ROLE_HOST || !g_seq) return -1;
+    return g_list_keys.count(key) ? 1 : 0;
 }
 
 void sight_on_packet(const unsigned char *data, int size)

@@ -25,6 +25,7 @@ HWND main_window(void);
 bool readable(const void *p, size_t n);
 void readable_new_step(void);        // a new frame or simulation step: what readable() found is looked at again after 0.5 s
 void readable_forget(void);          // the game's objects changed: everything is looked at again
+size_t readable_span(const void *p, size_t n);     // the bytes of n at p that can be read now (the system asked, no cache)
 unsigned readable_calls(void);       // the system calls readable() has made since the last time asked (the 5 s report)
 
 // Rigid-body state every unit (i_techn, i_human) carries, as offsets into the object:
@@ -84,6 +85,7 @@ float net_rtt_min_ms(void);
 void net_rtt_reset(void);
 bool session_versus(void);
 bool session_state_wanted(Object *o);      // false: this unit is followed by position only
+bool session_other_sees(Object *o);        // false: host, versus - a unit of the host's side the other player has not spotted
 void session_test_resign(void);     // tests: leave the battle the way the game's own "to the operation" box does
 void session_test_ready(void);      // tests: same as this player pressing Start
 const char *session_my_name(void);
@@ -113,6 +115,7 @@ float session_fps(void);                 // frames this game draws a second
 float session_latency_ms(void);          // round trip to the host / (host) to the first player; 0 not known
 int session_interface_hidden(void);      // the battle's interface hidden with Ctrl+Backspace: 1, 0, -1 not known here
 bool session_owns(Object *o);            // this game is the one that decides what the object does
+u32 session_units_generation(void);      // changes whenever the units session_unit finds may have changed
 Object *session_unit(u64 key);           // unit by number (kind << 32 | id), 0 when this game has none
 bool session_unit_key(Object *o, u64 *key);
 u64 session_battle_ms(void);             // battle time so far
@@ -356,6 +359,7 @@ void mapobj_test_demolish(int index);     // tests: the n-th destructible buildi
 void sight_frame(ObjMan *om, void (*send)(const void *, int), void (*send_opposite)(const void *, int));
 void sight_on_packet(const unsigned char *data, int size);
 void sight_report(void);
+int sight_other_sees(u64 key);            // host: the other player's side has spotted this unit (1), not (0), not known (-1)
 void sight_test_step(void);
 void sight_test_list(void);               // tests: the list sent (host) / the side list here (joining game), count and hash
 #endif

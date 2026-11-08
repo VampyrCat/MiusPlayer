@@ -61,10 +61,11 @@ struct Soldier { Object *o; u32 id, handle; };
 static std::unordered_map<u32, Object *> g_object_of;    // soldier number -> soldier, the other player's
 static std::vector<Soldier> g_mine;                      // this game's soldiers
 static std::unordered_map<u32, u32> g_handle_of;         // soldier number -> instance number, the other player's
-struct AnimSent { AnimRec rec; DWORD when; };
+struct AnimSent { AnimRec rec; DWORD when; bool unseen; };       // unseen: the other player had not spotted him (see anim_frame)
 static std::unordered_map<u32, AnimSent> g_sent;
 static std::unordered_map<u32, AnimRec> g_wanted;        // the owner's newest values per followed soldier
 static u32 g_units_seen;
+static u32 g_survey_gen, g_wanted_gen;      // count the rebuilds of the maps above / new soldiers in g_wanted (anim_sim_step's list)
 static u64 g_stat_dropped, g_stat_sent, g_stat_received, g_stat_groups;
 
 // The records (manager +0x140) and the soldier's fields: his instance number, the direction he lies in (0..7), his
@@ -217,6 +218,7 @@ static void survey(ObjMan *om)
     phase_seen = session_phase();
     g_units_seen = count;
     last = now;
+    g_survey_gen++;
     g_mine.clear();
     g_handle_of.clear();
     g_object_of.clear();
@@ -245,13 +247,26 @@ void anim_sim_step(ObjMan *om)
     if (!g_tried) install(om);
     if (!active()) return;
     survey(om);
-    for (auto &kv : g_wanted) {
-        auto it = g_handle_of.find(kv.first);
-        if (it == g_handle_of.end()) continue;
-        if (char *r = record(it->second)) write_record(r, it->second, kv.second);
-        auto ob = g_object_of.find(kv.first);
-        if (g_facing && ob != g_object_of.end() && readable(ob->second, S_END) && *(u32 *)((char *)ob->second + S_HANDLE) == it->second)
-            write_soldier(ob->second, kv.second);
+    // Through a flat list of the followed soldiers, made again when the maps change: two look-ups by soldier number for
+    // each of them every step took the joining game a few ms a second in an operation battle. (g_wanted's values stay
+    // where they are when it grows; a new soldier or anim_reset makes the list again.)
+    struct Want { const AnimRec *a; u32 handle; Object *o; };
+    static std::vector<Want> list;
+    static u32 made_survey = ~0u, made_wanted = ~0u;
+    if (made_survey != g_survey_gen || made_wanted != g_wanted_gen) {
+        made_survey = g_survey_gen;
+        made_wanted = g_wanted_gen;
+        list.clear();
+        for (auto &kv : g_wanted) {
+            auto it = g_handle_of.find(kv.first);
+            if (it == g_handle_of.end()) continue;
+            auto ob = g_object_of.find(kv.first);
+            list.push_back({ &kv.second, it->second, ob != g_object_of.end() ? ob->second : 0 });
+        }
+    }
+    for (const Want &w : list) {
+        if (char *r = record(w.handle)) write_record(r, w.handle, *w.a);
+        if (g_facing && w.o && readable(w.o, S_END) && *(u32 *)((char *)w.o + S_HANDLE) == w.handle) write_soldier(w.o, *w.a);
     }
 }
 
@@ -298,7 +313,17 @@ void anim_frame(void (*send)(const void *, int))
                        apart(a.d4, b.d4, 0.005f) || apart(a.a, b.a, 0.005f) || apart(a.b, b.b, 0.005f) || apart(a.c, b.c, 0.005f) ||
                        apart(a.p128, b.p128, 0.005f) || apart(a.p12c, b.p12c, 0.005f);
         bool exact = !memcmp(&was.rec, &a, sizeof a);
-        if (!asked && !drifted && !(!exact && now - was.when >= 1000) && now - was.when < 3000 + (s.id % 32) * 40) continue;
+        // A soldier of the host's side whom the other player has not spotted is not drawn in his game (versus,
+        // session_other_sees): only what he is asked to do goes at once, the drifting numbers with the three-second
+        // repeat - and everything at once when he is spotted. Stepanovka: animation values were ~250 KB/s of the host's
+        // traffic, sent for every soldier alike. MP_ANIM_UNSEEN=0: as for the others.
+        static int unseen_slow = -1;
+        if (unseen_slow < 0) { char v[8]; unseen_slow = !GetEnvironmentVariableA("MP_ANIM_UNSEEN", v, sizeof v) || atoi(v) != 0; }
+        bool unseen = unseen_slow && !session_other_sees(s.o);
+        bool spotted = was.unseen && !unseen;
+        was.unseen = unseen;
+        if (unseen) drifted = false;
+        if (!asked && !drifted && !spotted && !(!exact && !unseen && now - was.when >= 1000) && now - was.when < 3000 + (s.id % 32) * 40) continue;
         was.rec = a;
         was.when = now;
         recs[n++] = a;
@@ -317,7 +342,9 @@ void anim_on_packet(const unsigned char *data, int size)
     for (unsigned i = 0; i < h.count; i++) {
         AnimRec a;
         memcpy(&a, data + sizeof(Head) + i * sizeof(AnimRec), sizeof a);
-        g_wanted[a.id] = a;
+        auto put = g_wanted.emplace(a.id, a);
+        if (put.second) g_wanted_gen++;
+        else put.first->second = a;
         g_stat_received++;
     }
 }
@@ -327,6 +354,7 @@ void anim_reset(void)
 {
     g_sent.clear();
     g_wanted.clear();
+    g_wanted_gen++;
 }
 
 void anim_report(void)

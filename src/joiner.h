@@ -76,6 +76,8 @@ struct Joiner {
     std::vector<DWORD> asked;
     unsigned image_hash = 0, got = 0;
     DWORD last_hello = 0, started = 0;
+    DWORD last_piece = 0, ask_at = 0;  // receiving: when a new piece last arrived, when pieces were last asked for
+    double ask_budget = 0;
     unsigned roster_stamp = 0;         // the host's last player list (PKT_ROSTER): its stamp goes back in the next Hello -
     DWORD roster_at = 0;               // the host's measure of the round trip in the lobby
     // skirmish: the force this player picked on his own Skirmish screen (a whole battle description; empty: none)
@@ -215,14 +217,28 @@ struct Joiner {
             last_hello = now;
         }
         if (state == RECEIVING) {
-            unsigned sent = 0;
-            for (unsigned i = 0; i < have.size() && sent < 24; i++) {
+            // Pieces are asked for by time, not by frame: up to MP_MAP_PIECES (2000) a second. 24 a frame took an
+            // operation's 37 MB map 50 s at the 30 frames a second of a menu beside a big battle, and the host's map had
+            // gone into its battle by then - the host's battle stood at 97 % waiting, this game in its lobby for ever.
+            static int per_s = -1;
+            if (per_s < 0) { char v[16]; per_s = GetEnvironmentVariableA("MP_MAP_PIECES", v, sizeof v) ? max(atoi(v), 50) : 2000; }
+            double dt = ask_at ? (now - ask_at) / 1000.0 : 0.05;
+            ask_at = now;
+            ask_budget = min(ask_budget + dt * per_s, 400.0);
+            for (unsigned i = 0; i < have.size() && ask_budget >= 1; i++) {
                 if (have[i] || now - asked[i] < 300) continue;
                 ImageRequest r = { make_head(PKT_IMAGE_REQUEST), i };
                 r.h.flags = want_map ? 1 : want_extras ? 2 : 0;
                 xmit(&r, sizeof r);
                 asked[i] = now;
-                sent++;
+                ask_budget -= 1;
+            }
+            // nothing for 10 s: the host no longer sends it (its map has gone into a battle, or it has left)
+            if (got < have.size() && now - last_piece > 10000) {
+                close();
+                fail(want_map ? "The host stopped sending the map (did his map go into a battle?) - join again."
+                              : "The host stopped sending the battle - join again.");
+                return;
             }
         }
         if (sim.on) pump();
@@ -302,6 +318,9 @@ struct Joiner {
                 have.assign((size + k_chunk - 1) / k_chunk, 0);
                 asked.assign(have.size(), 0);
                 got = 0;
+                last_piece = now;
+                ask_at = 0;
+                ask_budget = 0;
                 state = RECEIVING;
             } else if (h->type == PKT_ROSTER && n >= (int)sizeof(Head) + 4) {
                 roster_stamp = ((const RosterPacket *)buf)->stamp;
@@ -321,6 +340,7 @@ struct Joiner {
                 memcpy(image.data() + (size_t)d->index * k_chunk, d->data, d->size);
                 have[d->index] = 1;
                 got++;
+                last_piece = now;
             }
         }
         // a host that stops answering is looked for again
@@ -336,6 +356,7 @@ struct Joiner {
                 have.assign((extras_size + k_chunk - 1) / k_chunk, 0);
                 asked.assign(have.size(), 0);
                 got = 0;
+                last_piece = now;
             } else {
                 if (want_extras) { extras.swap(image); image.swap(battle_image); want_extras = false; }
                 bye();

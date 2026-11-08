@@ -103,7 +103,18 @@ jobs:
           $shaExe = (Get-FileHash "dist\MiusPlayerLauncher.exe" -Algorithm SHA256).Hash
           $shaZip = (Get-FileHash "dist\MiusPlayer-$v.zip" -Algorithm SHA256).Hash
           $signed = (Get-AuthenticodeSignature "dist\MiusPlayerLauncher.exe").Status -eq 'Valid'
-          $notes = "Game builds: $builds. Download MiusPlayerLauncher.exe and run it: it installs the mod into your game and keeps it up to date."
+          # this version's section of CHANGELOG.md first (from its "## <version>" line to the next "## " line)
+          $changes = ""
+          if (Test-Path CHANGELOG.md) {
+            $on = $false
+            foreach ($l in Get-Content CHANGELOG.md) {
+              if ($l -match '^## ') { if ($on) { break }; $on = $l -match ('^## ' + [regex]::Escape($v) + ' '); continue }
+              if ($on) { $changes += $l + "`n" }
+            }
+          }
+          $notes = ""
+          if ($changes.Trim()) { $notes = "What's new:`n`n" + $changes.Trim() + "`n`n" }
+          $notes += "Game builds: $builds. Download MiusPlayerLauncher.exe and run it: it installs the mod into your game and keeps it up to date."
           if ($signed) { $notes += "`n`nThe launcher is signed. Free code signing provided by [SignPath.io](https://about.signpath.io), certificate by [SignPath Foundation](https://signpath.org) - see the code signing policy in the repository." }
           $notes += "`n`nSHA-256 (built here by GitHub Actions from this commit):`n- MiusPlayerLauncher.exe: $shaExe`n- MiusPlayer-$v.zip: $shaZip"
           gh release create "v$v" "dist\MiusPlayer-$v.zip" "dist\MiusPlayerLauncher.exe" --title "MiusPlayer $v" --notes $notes

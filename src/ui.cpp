@@ -1757,21 +1757,35 @@ static void draw_panel(void)
     float maxw = roundf(440 * s), w = roundf(250 * s);
     PanelPlayer players[5];
     int np = g_panel_open ? session_players(players, 5) : 0;
-    std::string lines[3];
-    int nl = wrap_text(session_status_line(), size, maxw - 2 * pad, lines, 3);
     char mode[96], tags[5][56];
     session_mode_line(mode, sizeof mode);
-    // the round trip and the frame rate, held a second (each number is an image of its own)
+    // The status line, the round trip and the frame rate, held a second and changed together (each number is an image
+    // of its own). The status line has numbers of its own in a battle ("speed x2.37 of x6.0 - B is slow (25 fps)"):
+    // taken every frame they ran on while the round trip and the frame rate below stood (the user, 2026-11-08: the
+    // green and the yellow text did not change at the same time). A new message - its words, not its numbers - shows
+    // at once, and takes the numbers with it.
     static DWORD shown_at;
-    static char lat[16], fps[16];
-    if (!shown_at || GetTickCount() - shown_at >= 1000) {
+    static char lat[16], fps[16], status[200], shape[200];
+    const char *now_status = session_status_line();
+    char now_shape[200];
+    {
+        size_t k = 0;
+        for (const char *c = now_status; *c && k + 1 < sizeof now_shape; c++)
+            if (!(*c >= '0' && *c <= '9') && *c != '.') now_shape[k++] = *c;
+        now_shape[k] = 0;
+    }
+    if (!shown_at || GetTickCount() - shown_at >= 1000 || strcmp(now_shape, shape)) {
         shown_at = GetTickCount() | 1;
+        strcpy_s(status, now_status);
+        strcpy_s(shape, now_shape);
         float ms = session_latency_ms(), f = session_fps();
         if (ms > 0) sprintf_s(lat, "%.0f ms", ms < 1 ? 1.0f : ms);
         else strcpy_s(lat, "-");
         if (f > 0) sprintf_s(fps, "%.0f", f);
         else strcpy_s(fps, "-");
     }
+    std::string lines[3];
+    int nl = wrap_text(status, size, maxw - 2 * pad, lines, 3);
     // as wide as its widest row
     for (int i = 0; i < np; i++) {
         tags[i][0] = 0;

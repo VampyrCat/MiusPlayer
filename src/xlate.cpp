@@ -44,18 +44,21 @@ static u32 text_hash(const char *s, size_t max)
 
 // What a description is, whatever its address: its first 0x60 bytes, with every value that is a pointer
 // replaced by the text it points at (names are) or left out.
+// (The values that may be pointers are looked at through readable_span, the system asked at once: readable()'s cache
+// had one as readable that no longer was, and the text was read for up to 64 bytes where 16 had been looked at.)
 static u32 fingerprint(const void *p)
 {
-    if (!readable(p, 0x60)) return 0;
+    if (readable_span(p, 0x60) < 0x60) return 0;
     u64 w[12];
     memcpy(w, p, sizeof w);
     u32 h = 2166136261u;
     for (u64 v : w) {
-        if (v >= 0x10000 && v < 0x800000000000ull && readable((void *)v, 16)) {
+        size_t span;
+        if (v >= 0x10000 && v < 0x800000000000ull && (span = readable_span((void *)v, 64)) >= 16) {
             const unsigned char *s = (const unsigned char *)v;
             int n = 0;
             while (n < 16 && s[n] >= 0x20 && s[n] < 0x7f) n++;
-            v = n >= 3 && (n == 16 || !s[n]) ? text_hash((const char *)s, 64) : 0;
+            v = n >= 3 && (n == 16 || !s[n]) ? text_hash((const char *)s, span) : 0;
         }
         for (int i = 0; i < 8; i++) h = (h ^ (unsigned char)(v >> (i * 8))) * 16777619u;
     }
@@ -71,14 +74,14 @@ static void local_tables(ObjMan *om, std::vector<std::pair<u32, u32>> &desc, std
     const char *base = (const char *)om;
     u32 n = *(const u32 *)(base + OM_DESC_COUNT);
     const char *rows = *(const char **)(base + OM_DESC_ROWS);
-    if (n < 100000 && readable(rows, (size_t)n * 0x10))
+    if (n < 100000 && readable_span(rows, (size_t)n * 0x10) == (size_t)n * 0x10)
         for (u32 i = 0; i < n; i++)
             desc.push_back({ *(const u32 *)(rows + (size_t)i * 0x10), fingerprint(*(void **)(rows + (size_t)i * 0x10 + 8)) });
     u32 m = *(const u32 *)(base + 0x15c);
     Object **list = *(Object ***)(base + 0x150);
-    if (m < 1000000 && readable(list, (size_t)m * 8))
+    if (m < 1000000 && readable_span(list, (size_t)m * 8) == (size_t)m * 8)
         for (u32 i = 0; i < m; i++)
-            if (readable(list[i], sizeof(Object))) obj.push_back({ i, text_hash(list[i]->full, sizeof list[i]->full) });
+            if (readable_span(list[i], sizeof(Object)) == sizeof(Object)) obj.push_back({ i, text_hash(list[i]->full, sizeof list[i]->full) });
 }
 
 static void send_table(const std::vector<std::pair<u32, u32>> &t, unsigned char kind)

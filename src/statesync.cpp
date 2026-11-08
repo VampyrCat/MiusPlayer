@@ -124,6 +124,8 @@ struct Track {
     u32 base_ver = 0, last_ver = 0;
     std::vector<StateSent> sent_versions;   // sent since then, newest last; any of them may be confirmed next
     DWORD checked = 0, sent = 0;
+    float pos[3] = { 0, 0, 0 };    // where the unit was at the last check (standing or moving, see owner_frame)
+    bool seen = true;              // the other player had it spotted at the last check
 };
 
 // How fast states are sent (KB a second). Up to MP_STATE_KBPS (600), and only as fast as the line carries:
@@ -247,6 +249,105 @@ static void send_object(Owner &o, int ch, u64 key, Track &t, DWORD now, bool aga
     if (!ch) { g_stat_objects++; g_stat_raw += cur.size(); }
 }
 
+// ---------------------------------------------------------------- where the state traffic comes from
+// MP_STATE_PROFILE=1 (tests): for every new version of a unit's state sent to the other player, which bytes
+// changed against the version before (by 32-byte stretches of the blob, per class), how large the difference
+// is, and whether the unit was moving (more than 0.3 m/s over the last check) - reported every 5 s.
+namespace prof {
+enum { BIN = 32, BINS = 4096, EX = 512 };
+struct Class { u64 versions, still_versions, delta, still_delta, checks, same, size; u32 bins[BINS], still_bins[BINS]; };
+static Class g_cls[2];
+static int g_on = -1;
+struct Last { float pos[3]; DWORD at; };
+static std::unordered_map<u64, Last> g_last;
+struct Example { bool have; u32 off; unsigned char before[BIN], after[BIN]; char name[48]; };
+static Example g_ex[2][2][EX];       // [class][still][bin]
+static bool on(void)
+{
+    if (g_on < 0) { char v[8]; g_on = GetEnvironmentVariableA("MP_STATE_PROFILE", v, sizeof v) ? atoi(v) : 0; }
+    return g_on > 0;
+}
+static bool moving(Object *obj, u64 key, DWORD now)
+{
+    const float *p = (const float *)((char *)obj + UNIT_POS);
+    if (!readable(p, 12)) return true;
+    Last &l = g_last[key];
+    bool mv = true;
+    if (l.at && now > l.at) {
+        float dx = p[0] - l.pos[0], dz = p[2] - l.pos[2];
+        mv = sqrtf(dx * dx + dz * dz) / ((now - l.at) / 1000.0f) > 0.3f;
+    }
+    l.pos[0] = p[0]; l.pos[1] = p[1]; l.pos[2] = p[2]; l.at = now;
+    return mv;
+}
+static void check(int c, bool changed) { g_cls[c].checks++; if (!changed) g_cls[c].same++; }
+static void version(Object *obj, int c, bool mv, const Blob &prev, const Blob &cur, size_t delta)
+{
+    Class &k = g_cls[c];
+    k.versions++; k.delta += delta; k.size += cur.size();
+    if (!mv) { k.still_versions++; k.still_delta += delta; }
+    for (size_t i = 0; i < cur.size(); i++)
+        if (i >= prev.size() || cur[i] != prev[i]) {
+            u32 b = (u32)(i / BIN);
+            if (b < BINS) {
+                k.bins[b]++;
+                if (!mv) k.still_bins[b]++;
+                Example &e = g_ex[c][!mv][min(b, (u32)(EX - 1))];
+                if (!e.have && b < EX && i / BIN * BIN + BIN <= prev.size() && i / BIN * BIN + BIN <= cur.size()) {
+                    e.have = true; e.off = b * BIN;
+                    memcpy(e.before, prev.data() + e.off, BIN); memcpy(e.after, cur.data() + e.off, BIN);
+                    strncpy_s(e.name, obj->full ? obj->full : "?", _TRUNCATE);
+                }
+            }
+        }
+}
+static void report(void)
+{
+    if (!on()) return;
+    static const char *names[2] = { "vehicles", "soldiers" };
+    for (int c = 0; c < 2; c++) {
+        Class &k = g_cls[c];
+        if (!k.checks) continue;
+        for (int still = 0; still < 2; still++) {
+        const u32 *bins = still ? k.still_bins : k.bins;
+        u64 changed = 0;
+        for (u32 b = 0; b < BINS; b++) changed += bins[b];
+        if (!changed) continue;
+        if (still) mp_log("state profile:   %s standing still:", names[c]);
+        if (!still)
+        mp_log("state profile: 5 s: %s: %llu checks, %llu unchanged; %llu new versions (%llu of still units), %.1f KB/s of difference (%.1f KB/s still), %.0f bytes a state",
+               names[c], k.checks, k.same, k.versions, k.still_versions, k.delta / 5120.0, k.still_delta / 5120.0,
+               k.versions ? (double)k.size / k.versions : 0.0);
+        u32 top[16] = { 0 };
+        u64 versions = still ? k.still_versions : k.versions;
+        for (int t = 0; t < (still ? 16 : 6); t++) {
+            u32 best = 0, bv = 0;
+            for (u32 b = 0; b < BINS; b++) {
+                bool used = false;
+                for (int u = 0; u < t; u++) if (top[u] == b) used = true;
+                if (!used && bins[b] > bv) { bv = bins[b]; best = b; }
+            }
+            if (!bv) break;
+            top[t] = best;
+            char ex[300] = "";
+            if (best < EX && g_ex[c][still][best].have) {
+                const Example &e = g_ex[c][still][best];
+                int n = sprintf_s(ex, "  e.g. %s:", e.name);
+                for (int w = 0; w < BIN / 4 && n < (int)sizeof ex - 24; w++) {
+                    u32 a = *(const u32 *)(e.before + w * 4), z = *(const u32 *)(e.after + w * 4);
+                    if (a != z) n += sprintf_s(ex + n, sizeof ex - n, " +%x %08x>%08x", e.off + w * 4, a, z);
+                }
+            }
+            mp_log("state profile:   bytes +0x%04x..: %.1f %% of the changed bytes, in %.0f %% of the versions%s",
+                   best * BIN, changed ? 100.0 * bv / changed : 0.0, versions ? 100.0 * bv / BIN / versions : 0.0, ex);
+        }
+        }
+        memset(&k, 0, sizeof k);
+    }
+    memset(g_ex, 0, sizeof g_ex);
+}
+}
+
 static void owner_frame(Owner &o, int ch, ObjMan *om, DWORD now, bool (*owns)(Object *))
 {
     static Blob blob;
@@ -267,12 +368,45 @@ static void owner_frame(Owner &o, int ch, ObjMan *om, DWORD now, bool (*owns)(Ob
         u64 key = statesync_key(obj);
         Track &t = o.tracks[key];
         bool unit = state_is_unit(obj);
-        if (now - t.checked < (!strcmp(obj->iface, "i_techn") ? 700u : 400u)) continue;
+        // How often: a vehicle every 0.7 s, a soldier every 0.4 s - as long as he moves (more than 0.3 m/s since the last
+        // look) and the other player can see him. One standing still every MP_STATE_STILL_MS (1.6 s); a unit of the host's
+        // side that the other player has not spotted, which is not drawn there, every MP_STATE_UNSEEN_MS (3 s) - and at
+        // once when he spots it. What a soldier's condition, seat and animation are travel on their own at full rate
+        // (hits.cpp, seats.cpp, anim.cpp). Stepanovka: states were held to the rate control's 570 KB/s with each unit's
+        // going about every 1.2 s, half of them those of soldiers standing still. 0: as before.
+        static int still_ms = -1, unseen_ms;
+        if (still_ms < 0) {
+            char v[16];
+            still_ms = GetEnvironmentVariableA("MP_STATE_STILL_MS", v, sizeof v) ? atoi(v) : 1600;
+            unseen_ms = GetEnvironmentVariableA("MP_STATE_UNSEEN_MS", v, sizeof v) ? atoi(v) : 3000;
+        }
+        DWORD every = !strcmp(obj->iface, "i_techn") ? 700u : 400u;
+        if (unit && (still_ms > 0 || unseen_ms > 0)) {
+            bool seen = session_other_sees(obj);
+            bool newly = seen && !t.seen && t.checked;
+            t.seen = seen;
+            const float *p = (const float *)((char *)obj + UNIT_POS);
+            float dx = p[0] - t.pos[0], dz = p[2] - t.pos[2], dt = (now - t.checked) / 1000.0f;
+            bool still = t.checked && dt > 0 && dx * dx + dz * dz < 0.09f * dt * dt;
+            if (!newly) {
+                if (!seen && unseen_ms > 0) every = max(every, (DWORD)unseen_ms);
+                else if (still && still_ms > 0) every = max(every, (DWORD)still_ms);
+            } else every = 0;
+        }
+        if (now - t.checked < every) continue;
         t.checked = now;
+        if (unit) memcpy(t.pos, (const char *)obj + UNIT_POS, 12);
         if (!state_save(obj, blob)) continue;
         if (unit && blob.size() >= UNIT_MOTION_SIZE) memset(blob.data(), 0, UNIT_MOTION_SIZE);
         const Blob &newest = t.sent_versions.empty() ? t.base : t.sent_versions.back().blob;
-        if (blob.size() == newest.size() && !memcmp(blob.data(), newest.data(), blob.size())) {
+        bool same = blob.size() == newest.size() && !memcmp(blob.data(), newest.data(), blob.size());
+        if (!ch && unit && prof::on()) {
+            int c = !strcmp(obj->iface, "i_techn") ? 0 : 1;
+            bool mv = prof::moving(obj, key, now);
+            prof::check(c, !same);
+            if (!same) { static Blob d; encode_delta(newest, blob, d); prof::version(obj, c, mv, newest, blob, d.size()); }
+        }
+        if (same) {
             if (!t.sent_versions.empty() && now - t.sent > 400) send_object(o, ch, key, t, now, true);    // not confirmed: again
             continue;
         }
@@ -485,6 +619,7 @@ void statesync_report(void)
 {
     state_translate_report();
     state_wheels_report();
+    prof::report();
     if (!g_stat_objects && !g_stat_loads && !g_stat_unsafe) return;
     mp_log("state: 5 s: sent %llu object states (%.1f KB/s on the wire for %.1f KB/s of state), loaded %llu (%.1f KB/s received, %llu rejected), %llu not loaded (render handles differ)",
            g_stat_objects, g_stat_bytes / 5120.0, g_stat_raw / 5120.0, g_stat_loads, g_stat_received / 5120.0, g_stat_bad, g_stat_unsafe);

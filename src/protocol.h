@@ -23,7 +23,9 @@ static const unsigned k_magic = 0x504d5447;          // "GTMP"
 // 30: units' transforms travel as UnitWire (38 bytes, was UnitRec's 80) - an operation battle's 1280 units made 1.7 MB/s
 //     the host's list of the players for every game's player panel (PKT_ROSTER); Hello.echo / echo_held: the host's
 //     round trip to the joining player outside battles
-static const unsigned k_version = 30;
+// 31: transforms by dead reckoning (UnitWire.flags bit 1: the unit is run on until the next one, at most three
+//     snapshots later; a soldier's velocity is his ground speed)
+static const unsigned k_version = 31;
 static const char k_protocol[12] = "GTMF_TA_A1";     // the engine's own protocol id for this game
 static const unsigned k_chunk = 1000;
 static const unsigned short k_default_port = 1943;   // the port the engine's own network settings name

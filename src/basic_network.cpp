@@ -113,6 +113,21 @@ bool readable(const void *p, size_t n)
 
 unsigned readable_calls(void) { return (unsigned)InterlockedExchange(&g_readable_sys, 0); }
 
+// How many of the n bytes at p can be read now, asked of the system at once (not of the cache above). For values that
+// may or may not be pointers: the cache holds a region for half a second, and the game does give memory back - a host's
+// battle on the 2026 beta went down in xlate.cpp's fingerprint, 5 s into the battle, reading 0x100000021 (two numbers
+// that looked like an address) that the cache still had as readable.
+size_t readable_span(const void *p, size_t n)
+{
+    if (!p) return 0;
+    MEMORY_BASIC_INFORMATION mbi;
+    InterlockedIncrement(&g_readable_sys);
+    if (!VirtualQuery(p, &mbi, sizeof mbi)) return 0;
+    if (mbi.State != MEM_COMMIT || (mbi.Protect & (PAGE_NOACCESS | PAGE_GUARD))) return 0;
+    size_t left = (size_t)((const char *)mbi.BaseAddress + mbi.RegionSize - (const char *)p);
+    return left < n ? left : n;
+}
+
 void readable_new_step(void)
 {
     DWORD now = GetTickCount();

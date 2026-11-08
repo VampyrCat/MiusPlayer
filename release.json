@@ -1,5 +1,5 @@
 {
-  "version": "2.7.1",
-  "network": 30,
+  "version": "2.8.0",
+  "network": 31,
   "builds": ["public_beta-16070931", "public-15814271", "public_beta-26514238"]
 }
