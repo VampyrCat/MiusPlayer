@@ -46,7 +46,7 @@ static std::unordered_map<u64, Attempt> g_attempts;
 static DWORD g_last_scan, g_last_check;
 static char *g_physic;
 static bool g_enabled = true, g_checked, g_ok;
-static u64 g_stat_sent, g_stat_board, g_stat_leave, g_stat_evicted, g_stat_failed;
+static u64 g_stat_sent, g_stat_board, g_stat_leave, g_stat_evicted, g_stat_failed, g_stat_held;
 
 static bool ready(void)
 {
@@ -260,11 +260,21 @@ void seats_sim_step(ObjMan *om, bool apply)
     if (!apply) return;
     bool all_now = now - g_last_check >= 1000;
     if (all_now) g_last_check = now;
+    // A soldier his owner has seated, seated here too, whom this game's own simulation is about to take out (a
+    // leave pending, S_LEAVING: the in-vehicle update carries it out) stays: this game's AI dismounted riders the
+    // owner kept on board, and the check below put them back a second later - soldiers seen popping out of their
+    // vehicles and in again (Stepanovka, 2.6.0). The owner's own dismount comes as a new seat. MP_SEATS_HOLD=0: not held.
+    static int hold = -1;
+    if (hold < 0) { char v[8]; hold = !GetEnvironmentVariableA("MP_SEATS_HOLD", v, sizeof v) || atoi(v) != 0; }
     for (auto &w : g_wanted) {
         Object *o = session_unit(w.first);
         if (!is_soldier(o) || session_owns(o)) continue;
         Seat now_seat = { 0, -1 };
         bool known = seat_of(o, &now_seat);
+        if (hold && known && w.second.vehicle && !(now_seat != w.second)) {
+            char *u = (char *)o;
+            if (u[S_LEAVING] || u[S_LEAVING + 1]) { u[S_LEAVING] = 0; u[S_LEAVING + 1] = 0; g_stat_held++; }
+        }
         if (!all_now && known && !(now_seat != w.second)) continue;
         if (known && !(now_seat != w.second)) { g_attempts.erase(w.first); continue; }
         Attempt &a = g_attempts[w.first];
@@ -304,6 +314,7 @@ void seats_reset(void) { g_sent.clear(); g_attempts.clear(); }
 
 void seats_report(void)
 {
+    if (g_stat_held) { mp_log("seats: 5 s: %llu times a soldier seated by his owner was kept from leaving his vehicle by this game", g_stat_held); g_stat_held = 0; }
     if (g_stat_sent || g_stat_board || g_stat_leave || g_stat_failed)
         mp_log("seats: 5 s: %llu seats sent; here %llu soldiers seated and %llu taken out as the other game has them (%llu others "
                "made room), %llu could not be", g_stat_sent, g_stat_board, g_stat_leave, g_stat_evicted, g_stat_failed);

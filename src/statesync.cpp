@@ -484,6 +484,7 @@ void statesync_apply(ObjMan *om)
 void statesync_report(void)
 {
     state_translate_report();
+    state_wheels_report();
     if (!g_stat_objects && !g_stat_loads && !g_stat_unsafe) return;
     mp_log("state: 5 s: sent %llu object states (%.1f KB/s on the wire for %.1f KB/s of state), loaded %llu (%.1f KB/s received, %llu rejected), %llu not loaded (render handles differ)",
            g_stat_objects, g_stat_bytes / 5120.0, g_stat_raw / 5120.0, g_stat_loads, g_stat_received / 5120.0, g_stat_bad, g_stat_unsafe);

@@ -11,6 +11,7 @@
 #include "detour.h"
 #include <stdio.h>
 #include <malloc.h>
+#include <math.h>
 #include <stdlib.h>
 #include <string.h>
 #include <map>
@@ -531,6 +532,39 @@ static const TechnLists k_techn_old = { 0x1298, 0x12a4, 0x12a8, 0x1900, 0x190c, 
 static const TechnLists k_techn_b26 = { 0x17b8, 0x17c4, 0x17c8, 0x1e40, 0x1e4c, 0x1e50, 0x170,
                                         { { 0x1b30, 0x1b3c, 0x120, 8 }, { 0x1b48, 0x1b54, 0x1d0, 8 }, { 0x1a68, 0x1a74, 0x40, 0x40 } } };
 
+// A vehicle's wheels (+0x11e8: records of 0x2a0 bytes, count +0x11f4; beta26 +0x1708, 0x2e0, +0x1714) are saved
+// with their vectors and matrices (+0x00..+0x130 - where the wheel is in the world and how it moves; the field
+// tables adv_physic+0xd8100 / beta26 +0x15e1e0, 97 fields each), so a loaded state put them where the owner had
+// them when he saved it, while the body stays where this game has it (above). A moving vehicle's wheels landed
+// metres behind it, its suspension threw the body after them and the transform stream pulled it back: vehicles
+// shaking, or thrown 6-132 m now and then, on the joining game in an operation battle (Stepanovka, 2.6.0). Those,
+// the wheel's drawn angle and spin (+0x1b0, +0x1b4) and a track's run (+0x16c and its total: where the links
+// are drawn) stay this game's; the rest of a wheel (suspension, damage) is the owner's.
+// MP_STATE_KEEP_WHEELS=0: loaded as they come.
+#define ST_WHEELS      BF(0x11e8, 0x1708)
+#define ST_WHEEL_SIZE  BF(0x2a0, 0x2e0)
+#define ST_TRACKS      BF(0x1200, 0x1720)
+#define ST_TRACK_SIZE  BF(0x2c0, 0x3f0)
+#define ST_TRACK_TOTAL BF(0x1a4, 0x198)
+static u64 g_stat_wheel_loads, g_stat_wheel_other;
+static float g_stat_wheel_shift;
+// when each unit last had a state of the other game loaded (GetTickCount), for the joining game's report of
+// units it keeps correcting (session.cpp)
+static std::unordered_map<const Object *, DWORD> g_loaded_at;
+DWORD state_loaded_at(const Object *o)
+{
+    auto it = g_loaded_at.find(o);
+    return it == g_loaded_at.end() ? 0 : it->second;
+}
+void state_wheels_report(void)
+{
+    if (!g_stat_wheel_loads && !g_stat_wheel_other) return;
+    mp_log("state: 5 s: %llu vehicle states loaded with this game's wheels and tracks kept (the loads would have moved a wheel up to %.1f m), %llu with other wheels",
+           g_stat_wheel_loads, g_stat_wheel_shift, g_stat_wheel_other);
+    g_stat_wheel_loads = g_stat_wheel_other = 0;
+    g_stat_wheel_shift = 0;
+}
+
 int state_load_keep_motion(Object *o, const unsigned char *data, size_t size, bool keep_view)
 {
     const ViewFields &vf = g_bi == BUILD_BETA26 ? k_view_b26 : k_view_old;
@@ -597,6 +631,26 @@ int state_load_keep_motion(Object *o, const unsigned char *data, size_t size, bo
             if (n && n < 1024 && readable(p, (size_t)n * k_fitted[k].size)) fitted[k].assign(p, p + (size_t)n * k_fitted[k].size);
         }
 
+    static int keep_wheels = -1;
+    if (keep_wheels < 0) { char v[8]; keep_wheels = !GetEnvironmentVariableA("MP_STATE_KEEP_WHEELS", v, sizeof v) || atoi(v) != 0; }
+    char *wheels_at = 0, *tracks_at = 0;
+    u32 wheels_n = 0, tracks_n = 0;
+    std::vector<unsigned char> wheel_copy;
+    std::vector<float> track_run;
+    if (techn && keep_wheels) {
+        wheels_at = *(char **)((char *)o + ST_WHEELS);
+        wheels_n = *(u32 *)((char *)o + ST_WHEELS + 0xc);
+        if (wheels_n && wheels_n <= 64 && readable(wheels_at, (size_t)wheels_n * ST_WHEEL_SIZE))
+            wheel_copy.assign(wheels_at, wheels_at + (size_t)wheels_n * ST_WHEEL_SIZE);
+        tracks_at = *(char **)((char *)o + ST_TRACKS);
+        tracks_n = *(u32 *)((char *)o + ST_TRACKS + 0xc);
+        if (tracks_n && tracks_n <= 8 && readable(tracks_at, (size_t)tracks_n * ST_TRACK_SIZE))
+            for (u32 t = 0; t < tracks_n; t++) {
+                track_run.push_back(*(float *)(tracks_at + (size_t)t * ST_TRACK_SIZE + 0x16c));
+                track_run.push_back(*(float *)(tracks_at + (size_t)t * ST_TRACK_SIZE + ST_TRACK_TOTAL));
+            }
+    }
+
     install_part_guard();
     // beta26: without the guard the parts' handles could not be kept, so no state of the other game is loaded
     // (the 2024 builds always have it: their routine is checked byte for byte like everything else)
@@ -604,7 +658,33 @@ int state_load_keep_motion(Object *o, const unsigned char *data, size_t size, bo
     g_remote_load++;
     int r = state_load(o, data, size);
     g_remote_load--;
+    g_loaded_at[o] = GetTickCount();
     if (human) memcpy((char *)o + vf.anim, anim, 8);
+    if (!wheel_copy.empty()) {
+        char *w = *(char **)((char *)o + ST_WHEELS);
+        u32 n = *(u32 *)((char *)o + ST_WHEELS + 0xc);
+        if (w == wheels_at && n == wheels_n && readable(w, wheel_copy.size())) {
+            for (u32 i = 0; i < n; i++) {
+                char *rec = w + (size_t)i * ST_WHEEL_SIZE;
+                const unsigned char *mine = wheel_copy.data() + (size_t)i * ST_WHEEL_SIZE;
+                const float *a = (const float *)(rec + 0x30), *b = (const float *)(mine + 0x30);
+                float d = sqrtf((a[0] - b[0]) * (a[0] - b[0]) + (a[1] - b[1]) * (a[1] - b[1]) + (a[2] - b[2]) * (a[2] - b[2]));
+                if (d == d && d > g_stat_wheel_shift && d < 1e5f) g_stat_wheel_shift = d;
+                memcpy(rec, mine, 0x130);
+                memcpy(rec + 0x1b0, mine + 0x1b0, 8);
+            }
+            g_stat_wheel_loads++;
+        } else g_stat_wheel_other++;
+    }
+    if (!track_run.empty()) {
+        char *t = *(char **)((char *)o + ST_TRACKS);
+        u32 n = *(u32 *)((char *)o + ST_TRACKS + 0xc);
+        if (t == tracks_at && n == tracks_n && readable(t, (size_t)n * ST_TRACK_SIZE))
+            for (u32 i = 0; i < n; i++) {
+                *(float *)(t + (size_t)i * ST_TRACK_SIZE + 0x16c) = track_run[2 * i];
+                *(float *)(t + (size_t)i * ST_TRACK_SIZE + ST_TRACK_TOTAL) = track_run[2 * i + 1];
+            }
+    }
     if (techn)
         for (int k = 0; k < k_lists; k++) {
             u32 n = *(u32 *)((char *)o + k_fitted[k].count), room = *(u32 *)((char *)o + k_fitted[k].count + 4);

@@ -66,9 +66,16 @@ static bool key_pressed(int vk)
 
 static bool g_cease_hot;         // the mouse is on the ESC menu's CEASEFIRE button
 bool ui_blocks_input(void) { return g_screen != SCR_NONE || chat_is_open() || g_button_hot || g_map_button_hot || g_map_busy || g_cease_hot || GetTickCount() < g_block_until; }
+// The player panel (bottom left, see draw_panel): open (the list of players shown), the mouse on it, a press that
+// began on it / elsewhere, hidden with Ctrl+Backspace where the game has no hidden interface of its own to follow.
+static bool g_panel_open, g_panel_hot, g_panel_press, g_game_press, g_own_hidden;
+// A press that begins on the panel is the panel's, all of it; one that begins elsewhere is the game's, even where it
+// ends on the panel (a selection box dragged over it). Only the buttons are kept from the game: the keys, the wheel
+// and the view go on working while the mouse passes over the panel, which stays on screen all through a battle.
+static bool panel_blocks_clicks(void) { return g_panel_press || (g_panel_hot && !g_game_press); }
 // The operational map to look at (the host fights the turn's battles): the game gets no mouse clicks - no
 // orders, no battle started on this copy - but the view still moves (mouse, wheel, keys).
-bool ui_blocks_clicks(void) { return g_on_op_map && session_map_view(); }
+bool ui_blocks_clicks(void) { return (g_on_op_map && session_map_view()) || panel_blocks_clicks(); }
 
 static void close_menu(void)
 {
@@ -888,6 +895,27 @@ void ui_frame(ObjMan *om)
     g_mouse_was_down = g_mouse_down;
     g_mouse_down = focused && (GetAsyncKeyState(VK_LBUTTON) & 0x8000) != 0;
     g_clicked = g_mouse_was_down && !g_mouse_down;      // act on release
+    // the player panel: whose the press is (panel_blocks_clicks)
+    bool any_down = focused && ((GetAsyncKeyState(VK_LBUTTON) | GetAsyncKeyState(VK_RBUTTON) | GetAsyncKeyState(VK_MBUTTON)) & 0x8000) != 0;
+    if (!any_down) g_panel_press = g_game_press = false;
+    else if (!g_panel_press && !g_game_press) { if (g_panel_hot) g_panel_press = true; else g_game_press = true; }
+    // Ctrl+Backspace hides the panel and the chat lines with the game's own interface. In a battle the game's own
+    // switch is followed (session_interface_hidden); where there is none to follow - the menus, the operational map,
+    // a build not known - the panel keeps its own, shown again in every new program. Not while the multiplayer
+    // menu's fields or the chat line take the keys (Backspace edits them there).
+    int game_hidden = session_interface_hidden();
+    if (game_hidden < 0 && focused && g_screen == SCR_NONE && !chat_is_open() && key_pressed(VK_BACK) &&
+        (GetAsyncKeyState(VK_CONTROL) & 0x8000) && session_status()[0])
+        g_own_hidden = !g_own_hidden;
+    {
+        static bool was_hidden;             // (each change once in the log, for tests)
+        bool hidden = game_hidden >= 0 ? game_hidden != 0 : g_own_hidden;
+        if (hidden != was_hidden) {
+            was_hidden = hidden;
+            mp_log("ui: interface %s - the player panel %s (%s)", hidden ? "hidden" : "shown", hidden ? "hidden" : "shown again",
+                   game_hidden >= 0 ? "the game's own switch" : "Ctrl+Backspace, the panel's own switch");
+        }
+    }
 
     if (g_tactical) {
         chat_frame(focused);
@@ -1455,6 +1483,7 @@ static bool test_shot_request(char *name, size_t n)
     if (!strncmp(line, "menuoff", 7)) { session_test_menu(false); return false; }
     if (!strncmp(line, "menu", 4)) { session_test_menu(true); return false; }
     if (!strncmp(line, "endturn", 7)) { session_test_next_turn(); return false; }
+    if (!strncmp(line, "startbattle", 11)) { session_test_start_battle(); return false; }
     if (!strncmp(line, "savemap", 7)) { session_test_save(); return false; }
     if (!strncmp(line, "newmap", 6)) { session_test_new_map(); return false; }
     if (!strncmp(line, "flares", 6)) { shots_test_flares(atoi(line + 6)); return false; }
@@ -1560,11 +1589,19 @@ static void draw_host_banner(void)
 }
 
 // What a frame shows, drawn with either renderer.
-// Chat (chat.cpp): its last lines at the left, above the line being typed.
+// Ctrl+Backspace: the game's battle interface hidden (followed), else the panel's own switch (ui_frame).
+static bool ui_hidden(void)
+{
+    int game = session_interface_hidden();
+    return game >= 0 ? game != 0 : g_own_hidden;
+}
+
+// Chat (chat.cpp): its last lines at the left, above the line being typed. With the interface hidden only the line
+// being typed is shown.
 static void draw_chat(void)
 {
     const char *lines[8];
-    int n = chat_lines(lines, 8);
+    int n = ui_hidden() ? 0 : chat_lines(lines, 8);
     const char *typed = chat_typed();
     if (!n && !typed) return;
     float x = 24 * g_s, step = 26 * g_s, y = g_h * 0.62f - (n + (typed ? 1 : 0)) * step;
@@ -1582,6 +1619,204 @@ static void draw_chat(void)
     }
 }
 
+// ---------------------------------------------------------------- the player panel (bottom left)
+// In the place of the status line that ran across the top of the screen (MP_TOPBAR=1 brings that back, to compare):
+// a small panel in the bottom-left corner, after Foundry VTT's player list. Collapsed it shows what is going on (the
+// status line: the address to give a friend, whose turn it is, why the battle waits), this game's round trip and
+// frame rate, and what is being played; a click on it opens the list of the players above that - a dot of each one's
+// colour (grey: not connected), his name (this player's in bold) and where he stands - and the next click closes it.
+static bool topbar(void)
+{
+    static int on = -1;
+    if (on < 0) { char v[8]; on = GetEnvironmentVariableA("MP_TOPBAR", v, sizeof v) && atoi(v); }
+    return on != 0;
+}
+
+// How wide text() draws a text: measured with the same font, without making its image.
+static float text_width(const char *s, float size, bool bold = false)
+{
+    static HDC dc;
+    static HFONT font;
+    static int font_px = -1;
+    static bool font_bold;
+    int px = (int)(size * g_s + 0.5f);
+    if (!dc && !(dc = CreateCompatibleDC(0))) return 0;
+    if (!font || px != font_px || bold != font_bold) {
+        HFONT f = CreateFontA(-px, 0, 0, 0, bold ? FW_BOLD : FW_NORMAL, 0, 0, 0, DEFAULT_CHARSET, OUT_TT_PRECIS,
+                              CLIP_DEFAULT_PRECIS, ANTIALIASED_QUALITY, DEFAULT_PITCH, "Segoe Print");
+        if (!f) return 0;
+        SelectObject(dc, f);
+        if (font) DeleteObject(font);
+        font = f;
+        font_px = px;
+        font_bold = bold;
+    }
+    SIZE sz = { 0, 0 };
+    GetTextExtentPoint32A(dc, s, (int)strlen(s), &sz);
+    return (float)(sz.cx + 4);          // (text_tex's image is 4 pixels wider)
+}
+
+// A text broken into lines no wider than maxw, at the spaces (at most `room` lines; kept until the text changes).
+static int wrap_text(const char *s, float size, float maxw, std::string *out, int room)
+{
+    static std::string for_text, lines[4];
+    static float for_w;
+    static int n;
+    if (room > 4) room = 4;
+    if (for_text != s || for_w != maxw) {
+        for_text = s;
+        for_w = maxw;
+        n = 0;
+        std::string line;
+        for (const char *p = s; *p && n < room; ) {
+            while (*p == ' ') p++;
+            const char *e = p;
+            while (*e && *e != ' ') e++;
+            if (e == p) break;
+            std::string word(p, e), longer = line.empty() ? word : line + " " + word;
+            if (!line.empty() && text_width(longer.c_str(), size) > maxw) { lines[n++] = line; line = word; }
+            else line = longer;
+            p = e;
+        }
+        if (!line.empty() && n < room) lines[n++] = line;
+    }
+    for (int i = 0; i < n && i < room; i++) out[i] = lines[i];
+    return n < room ? n : room;
+}
+
+// A filled circle, rows of a pixel (cx, cy: a pixel corner).
+static void disc(float cx, float cy, float r, DWORD color)
+{
+    int k = (int)ceilf(r);
+    for (int i = -k; i < k; i++) {
+        float dy = i + 0.5f, d = r * r - dy * dy;
+        if (d <= 0) continue;
+        float half = roundf(sqrtf(d));
+        if (half > 0) quad(cx - half, cy + i, 2 * half, 1, color);
+    }
+}
+
+// The open / close mark: a small triangle pointing up (the list opens above) or down.
+static void arrow(float cx, float cy, float w, bool up, DWORD color)
+{
+    int h = (int)(w / 2 + 0.5f);
+    for (int i = 0; i < h; i++) {
+        float rw = roundf(w * (i + 1) / h), y = up ? cy - h / 2 + i : cy + h / 2 - 1 - i;
+        quad(roundf(cx - rw / 2), floorf(y), rw, 1, color);
+    }
+}
+
+// A small calendar before the line of what is being played (cy: its middle): a box with a header band and two
+// binding ticks standing up out of it. Lines two pixels or more, so that it still reads in the tests' half-size frames.
+static void calendar(float x, float cy, DWORD color)
+{
+    float s = g_s, t = max(2.0f, roundf(1.5f * s)), w = roundf(15 * s), h = roundf(14 * s), ring = roundf(3 * s);
+    float y = roundf(cy - h / 2), body = y + ring;
+    frame(x, body, w, h - ring, t, color);                          // the sheet
+    quad(x, body, w, max(t + 1, roundf(4 * s)), color);            // its header band
+    quad(x + roundf(3 * s), y, t, roundf(5 * s), color);           // the two binding ticks
+    quad(x + w - roundf(3 * s) - t, y, t, roundf(5 * s), color);
+    float dy = body + roundf(6 * s);                                // a row of days
+    for (int c = 0; c < 3; c++) quad(x + roundf((3 + c * 4) * s), dy, t, t, color);
+}
+
+// A box with slightly rounded corners (r pixels) and a border of one pixel.
+static void round_box(float x, float y, float w, float h, int r, DWORD fill, DWORD edge)
+{
+    float prev = 0;
+    for (int i = 0; i < r; i++) {
+        float dy = r - i - 0.5f, in = roundf(r - sqrtf(max(0.0f, (float)(r * r) - dy * dy)));
+        quad(x + in, y + i, w - 2 * in, 1, fill);
+        quad(x + in, y + h - 1 - i, w - 2 * in, 1, fill);
+        if (!i) {
+            quad(x + in, y, w - 2 * in, 1, edge);
+            quad(x + in, y + h - 1, w - 2 * in, 1, edge);
+        } else {                    // the stretch of the row the corner's curve runs through
+            float seg = max(1.0f, prev - in);
+            quad(x + in, y + i, seg, 1, edge);
+            quad(x + w - in - seg, y + i, seg, 1, edge);
+            quad(x + in, y + h - 1 - i, seg, 1, edge);
+            quad(x + w - in - seg, y + h - 1 - i, seg, 1, edge);
+        }
+        prev = in;
+    }
+    quad(x, y + r, w, h - 2 * r, fill);
+    quad(x, y + r, 1, h - 2 * r, edge);
+    quad(x + w - 1, y + r, 1, h - 2 * r, edge);
+}
+
+static const DWORD k_player_colors[5] = { 0xff4fc35a, 0xffa877f2, 0xffff9c40, 0xff45cfe2, 0xffffd84a };   // host, then the others
+static const DWORD k_pn_text = 0xfff2e6c8, k_pn_label = 0xffb4aa96, k_pn_value = 0xffffe7a8, k_pn_off = 0xff8a8276, k_pn_rule = 0x50f2e6c8;
+
+static void draw_panel(void)
+{
+    // (a tenth smaller than the first version, the user found it too big; grey like the game's top buttons)
+    float s = g_s * 0.9f, size = 13.5f, tagsize = 11.7f, pad = roundf(10 * s), padv = roundf(6 * s), row = roundf(24 * s), line = roundf(21 * s), rule = roundf(9 * s);
+    float gap = roundf(6 * s), dotw = roundf(16 * s), iconw = roundf(20 * s), arroww = roundf(9 * s);
+    float maxw = roundf(440 * s), w = roundf(250 * s);
+    PanelPlayer players[5];
+    int np = g_panel_open ? session_players(players, 5) : 0;
+    std::string lines[3];
+    int nl = wrap_text(session_status_line(), size, maxw - 2 * pad, lines, 3);
+    char mode[96], tags[5][56];
+    session_mode_line(mode, sizeof mode);
+    // the round trip and the frame rate, held a second (each number is an image of its own)
+    static DWORD shown_at;
+    static char lat[16], fps[16];
+    if (!shown_at || GetTickCount() - shown_at >= 1000) {
+        shown_at = GetTickCount() | 1;
+        float ms = session_latency_ms(), f = session_fps();
+        if (ms > 0) sprintf_s(lat, "%.0f ms", ms < 1 ? 1.0f : ms);
+        else strcpy_s(lat, "-");
+        if (f > 0) sprintf_s(fps, "%.0f", f);
+        else strcpy_s(fps, "-");
+    }
+    // as wide as its widest row
+    for (int i = 0; i < np; i++) {
+        tags[i][0] = 0;
+        if (players[i].tag[0]) sprintf_s(tags[i], "[%s]", players[i].tag);
+        w = max(w, 2 * pad + dotw + text_width(players[i].name, size, players[i].you) + gap + text_width(tags[i], tagsize));
+    }
+    for (int i = 0; i < nl; i++) w = max(w, 2 * pad + text_width(lines[i].c_str(), size));
+    w = max(w, 2 * pad + text_width("Latency", size) + gap + text_width(lat, size) + 3 * gap + text_width("FPS", size) + gap + text_width(fps, size) + 2 * arroww);
+    w = max(w, 2 * pad + iconw + text_width(mode, size));
+    w = roundf(w);
+    float h = 2 * padv + np * row + (np ? rule : 0) + nl * line + (nl ? rule : 0) + 2 * row;
+    // 12 pixels from the corner; in the menus clear of the stock screens' back button there (the Skirmish screen's)
+    float margin = roundf(12 * s), lift = !g_tactical && !g_on_op_map ? roundf(48 * s) : 0;
+    float x = margin, y = roundf(g_h - margin - lift - h);
+    g_panel_hot = g_mx >= x && g_mx < x + w && g_my >= y && g_my < y + h;
+    if (g_panel_hot && g_clicked) {
+        g_panel_open = !g_panel_open;
+        mp_log("ui: player panel %s", g_panel_open ? "opened" : "closed");
+    }
+
+    round_box(x, y, w, h, (int)max(2.0f, roundf(4 * s)), g_panel_hot ? 0xe85c5c58 : 0xe050504c, g_panel_hot ? 0xc0f2e6c8 : 0x70f2e6c8);
+    auto top = [&](float at, float height, float sz) { return at + height / 2 - sz * 0.81f * s; };      // text in the middle of a row
+    float cy = y + padv;
+    for (int i = 0; i < np; i++) {
+        const PanelPlayer &p = players[i];
+        disc(x + pad + roundf(5 * s), roundf(cy + row / 2), 4.5f * s, p.connected ? k_player_colors[p.color % 5] : k_pn_off);
+        float tx = x + pad + dotw;
+        tx += text(p.name, tx, top(cy, row, size), size, p.connected ? k_pn_text : k_pn_off, 0, p.you);
+        if (tags[i][0]) text(tags[i], tx + gap, top(cy, row, tagsize), tagsize, k_pn_label, 0);
+        cy += row;
+    }
+    if (np) { quad(x + pad, cy + roundf(rule / 2), w - 2 * pad, 1, k_pn_rule); cy += rule; }
+    // (Foundry's list has its "Breaktime" button here, between the players and the rest - the place for one)
+    for (int i = 0; i < nl; i++, cy += line) text(lines[i].c_str(), x + pad, top(cy, line, size), size, session_connected() ? 0xffa8f0a0 : k_pn_text, 0);
+    if (nl) { quad(x + pad, cy + roundf(rule / 2), w - 2 * pad, 1, k_pn_rule); cy += rule; }
+    float tx = x + pad, ty = top(cy, row, size);
+    tx += text("Latency", tx, ty, size, k_pn_label, 0) + gap;
+    tx += text(lat, tx, ty, size, k_pn_value, 0) + 3 * gap;
+    tx += text("FPS", tx, ty, size, k_pn_label, 0) + gap;
+    text(fps, tx, ty, size, k_pn_value, 0);
+    arrow(x + w - pad - roundf(arroww / 2), roundf(cy + row / 2), arroww, !g_panel_open, g_panel_hot ? k_pn_value : k_pn_label);
+    cy += row;
+    calendar(x + pad, cy + row / 2, k_pn_label);
+    text(mode, x + pad + iconw, top(cy, row, size), size, k_pn_text, 0);
+}
+
 static void draw_overlays(const char *status, bool hint, bool picking, bool host_wait)
 {
     if (g_screen != SCR_NONE) {
@@ -1591,11 +1826,13 @@ static void draw_overlays(const char *status, bool hint, bool picking, bool host
         if (picking) draw_pick_banner();
         if (host_wait) draw_host_banner();
 
-        if (status[0]) {
+        if (status[0] && topbar()) {
             TextTex *t = text_tex(g_draw, status, (int)(17 * g_s + 0.5f), false);
             float w = (t ? t->w : 0) + 36 * g_s, h = 34 * g_s;
             quad(g_w / 2 - w / 2, 46 * g_s, w, h, 0xc0181410);
             text(status, g_w / 2, 46 * g_s + 3 * g_s, 17, session_connected() ? 0xffa8f0a0 : 0xfff2e6c8);
+        } else if (status[0] && !ui_hidden()) {
+            draw_panel();
         }
         draw_ceasefire();
         draw_chat();
@@ -1637,6 +1874,7 @@ static void render_d3d11(Object *render, const char *status, bool hint, bool pic
 
 void ui_render(ObjMan *om)
 {
+    g_panel_hot = false;                // (set again by draw_panel when the panel is drawn)
     const char *status = session_status();
     bool hint = !g_tactical && g_screen == SCR_NONE && g_on_main_menu;        // the main menu's MULTIPLAYER entry
     bool picking = !g_tactical && g_screen == SCR_NONE && g_force_picking && g_pick_known;     // CHOOSE MY FORCE: the Skirmish screen

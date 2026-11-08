@@ -76,6 +76,8 @@ struct Joiner {
     std::vector<DWORD> asked;
     unsigned image_hash = 0, got = 0;
     DWORD last_hello = 0, started = 0;
+    unsigned roster_stamp = 0;         // the host's last player list (PKT_ROSTER): its stamp goes back in the next Hello -
+    DWORD roster_at = 0;               // the host's measure of the round trip in the lobby
     // skirmish: the force this player picked on his own Skirmish screen (a whole battle description; empty: none)
     std::vector<unsigned char> force;
     unsigned force_hash = 0, force_have = 0, force_refused = 0, force_side = 0, force_limit = 0, force_cost = 0;
@@ -207,6 +209,8 @@ struct Joiner {
             hello.force_hash = force_hash;
             hello.force_cost = force_cost;
             hello.player = joiner_player_id();
+            if (roster_stamp && now - roster_at < 5000) { hello.echo = roster_stamp; hello.echo_held = now - roster_at; }
+            roster_stamp = 0;
             xmit(&hello, sizeof hello);
             last_hello = now;
         }
@@ -299,6 +303,9 @@ struct Joiner {
                 asked.assign(have.size(), 0);
                 got = 0;
                 state = RECEIVING;
+            } else if (h->type == PKT_ROSTER && n >= (int)sizeof(Head) + 4) {
+                roster_stamp = ((const RosterPacket *)buf)->stamp;
+                roster_at = now;
             } else if (h->type == PKT_FORCE_REQUEST && n >= (int)sizeof(ImageRequest) && !force.empty()) {
                 unsigned index = ((const ImageRequest *)buf)->index;
                 if ((size_t)index * k_chunk >= force.size()) continue;

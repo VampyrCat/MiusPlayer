@@ -64,30 +64,54 @@ void mp_log(const char *fmt, ...)
 // for half a second (readable_new_step, every frame and step) or until the game's objects change
 // (readable_forget) - the game gives no memory back in between (its units and the map's objects stay until the
 // battle ends). MP_READABLE_CACHE=0: every call asks the system, as before.
+// 2.7: the regions are kept sorted, as many as there are (binary search). The 16 last ones were too few for an
+// operation battle: in Stepanovka (1280 units) a quarter of the joining game's main thread was in VirtualQuery
+// (sampled), the module "taking" 30-36 % of the time. readable_calls(): the system calls made, for the 5 s report.
 static volatile LONG g_readable_gen = 1;
 static DWORD g_readable_gen_at;
-struct ReadableRegion { const char *lo, *hi; LONG gen; };
-static thread_local ReadableRegion t_regions[16];
-static thread_local unsigned t_region_next;
+static volatile LONG g_readable_sys;
+struct ReadableRegion { const char *lo, *hi; };
+static const unsigned k_regions_max = 4096;
+static thread_local ReadableRegion *t_regs;         // sorted by lo, no two overlapping
+static thread_local unsigned t_nregs;
+static thread_local LONG t_regs_gen;
 
 bool readable(const void *p, size_t n)
 {
     if (!p) return false;
     const char *a = (const char *)p, *b = a + n;
+    if (b < a) return false;
     static int cache = -1;
     if (cache < 0) { char v[8]; cache = GetEnvironmentVariableA("MP_READABLE_CACHE", v, sizeof v) ? atoi(v) != 0 : 1; }
-    LONG gen = cache ? g_readable_gen : 0;
-    if (cache)
-        for (const ReadableRegion &r : t_regions)
-            if (r.gen == gen && a >= r.lo && b <= r.hi && b >= a) return true;
+    if (cache) {
+        LONG gen = g_readable_gen;
+        if (t_regs_gen != gen) { t_nregs = 0; t_regs_gen = gen; }
+        unsigned lo = 0, hi = t_nregs;              // the first region that starts after a
+        while (lo < hi) { unsigned m = (lo + hi) / 2; if (t_regs[m].lo <= a) lo = m + 1; else hi = m; }
+        if (lo && a < t_regs[lo - 1].hi && b <= t_regs[lo - 1].hi) return true;
+    }
     MEMORY_BASIC_INFORMATION mbi;
+    InterlockedIncrement(&g_readable_sys);
     if (!VirtualQuery(p, &mbi, sizeof mbi)) return false;
     if (mbi.State != MEM_COMMIT || (mbi.Protect & (PAGE_NOACCESS | PAGE_GUARD))) return false;
-    const char *lo = (const char *)mbi.BaseAddress, *hi = lo + mbi.RegionSize;
-    if (b > hi || b < a) return false;
-    t_regions[t_region_next++ & 15] = { lo, hi, gen };
+    const char *rlo = (const char *)mbi.BaseAddress, *rhi = rlo + mbi.RegionSize;
+    if (b > rhi) return false;
+    if (cache) {
+        if (!t_regs && !(t_regs = (ReadableRegion *)malloc(k_regions_max * sizeof(ReadableRegion)))) return true;
+        if (t_nregs == k_regions_max) t_nregs = 0;  // (never seen: start again)
+        unsigned at = 0, hi = t_nregs;
+        while (at < hi) { unsigned m = (at + hi) / 2; if (t_regs[m].lo < rlo) at = m + 1; else hi = m; }
+        if (at < t_nregs && t_regs[at].lo == rlo) t_regs[at].hi = rhi;
+        else {
+            memmove(t_regs + at + 1, t_regs + at, (t_nregs - at) * sizeof(ReadableRegion));
+            t_regs[at] = { rlo, rhi };
+            t_nregs++;
+        }
+    }
     return true;
 }
+
+unsigned readable_calls(void) { return (unsigned)InterlockedExchange(&g_readable_sys, 0); }
 
 void readable_new_step(void)
 {

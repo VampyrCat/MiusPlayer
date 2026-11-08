@@ -3,8 +3,9 @@
 #pragma once
 
 enum { PKT_HELLO = 1, PKT_WELCOME, PKT_KEEPALIVE, PKT_IMAGE_REQUEST, PKT_IMAGE_DATA, PKT_STATE, PKT_BYE, PKT_OBJECT, PKT_OBJECT_ACK, PKT_SHOT, PKT_SHOT_ACK, PKT_ANIM, PKT_SIDE,
-       PKT_FORCE_REQUEST, PKT_FORCE_DATA, PKT_VDMG, PKT_GUNS, PKT_SIGHT };     // PKT_VDMG: a vehicle's damage from the host (vdamage.cpp); PKT_GUNS: where its guns point (guns.cpp)
+       PKT_FORCE_REQUEST, PKT_FORCE_DATA, PKT_VDMG, PKT_GUNS, PKT_SIGHT, PKT_ROSTER };     // PKT_VDMG: a vehicle's damage from the host (vdamage.cpp); PKT_GUNS: where its guns point (guns.cpp)
                                                                             // PKT_SIGHT: the host's contact list for the other player's side (sight.cpp)
+                                                                            // PKT_ROSTER: the host's list of the players (RosterPacket)
 enum { HOST_MODE_SKIRMISH = 1, HOST_MODE_OPERATION = 2, HOST_MODE_MISSION = 3 };       // mission: made in the battle editor
 static const unsigned k_magic = 0x504d5447;          // "GTMP"
 // 21: mpmod2 - the host's game decides everything in a battle (orders travel to it)
@@ -19,7 +20,10 @@ static const unsigned k_magic = 0x504d5447;          // "GTMP"
 //     goes back to an older one (a slow line's states overlap), the sender's rate follows the line (statesync.cpp);
 //     Hello.session: a battle's lost connection is taken back by the host when the same game returns; Hello.player
 // 29: chat in a battle (ShotRec kind 20, chat.cpp); the round trip in the status line
-static const unsigned k_version = 29;
+// 30: units' transforms travel as UnitWire (38 bytes, was UnitRec's 80) - an operation battle's 1280 units made 1.7 MB/s
+//     the host's list of the players for every game's player panel (PKT_ROSTER); Hello.echo / echo_held: the host's
+//     round trip to the joining player outside battles
+static const unsigned k_version = 30;
 static const char k_protocol[12] = "GTMF_TA_A1";     // the engine's own protocol id for this game
 static const unsigned k_chunk = 1000;
 static const unsigned short k_default_port = 1943;   // the port the engine's own network settings name
@@ -48,6 +52,8 @@ struct Hello {
                                                         // number after a lost connection is the same game coming back
     unsigned player;                                    // the joining player: the same in every program his game starts (MP_PLAYER_ID) -
                                                         // a Hello with the first player's number is his own next program
+    unsigned echo, echo_held;                           // the stamp of the host's last RosterPacket (0: none) and how many ms this
+                                                        // game held it before this Hello: the host's round trip outside battles
 };
 // battle description = the file the operational phase hands to the tactical phase (units, map, sides, seed).
 // in_battle 0: the host is still in its menus or on the operational map; the joining game waits.
@@ -104,6 +110,12 @@ struct StateHead {
     float want_speed; unsigned char want_pause, pad2[3];
 };
 struct UnitRec { unsigned id; unsigned char kind, pad[3]; float pos[3], rot[9], lin[3], ang[3]; };
+// A UnitRec on the wire (PKT_STATE): the rotation as a unit quaternion - its three smallest parts in 16 bits each
+// (of +-1/sqrt2), ig which part is left out (it is the positive one, made from the others) -, the velocities in 16
+// bits: lin in cm/s, ang in mrad/s. steer and flags are UnitRec's pad[0] and pad[1].
+#pragma pack(push, 1)
+struct UnitWire { unsigned id; unsigned char kind, steer, flags, big; float pos[3]; short q[3], lin[3], ang[3]; };
+#pragma pack(pop)
 // One datagram of an object's saved state: a run-length coded XOR against a version the receiver holds
 // (base_version, 0: against nothing). epoch: changes when the sender starts its versions again; the receiver
 // answers with the version it holds now, 0: none (the sender starts that object again from nothing).
@@ -159,6 +171,14 @@ struct AnimRec {
 // What a game counts its own player's force and ground as (endgame.cpp): the trigger manager's four numbers
 // for the side at the start of the battle and now. State, sent a few times a second; the newest wins.
 struct SidePacket { Head h; unsigned side; float begin[4], end[4]; };
+// Who plays (the player panel, ui.cpp): the host's list, sent to every player every 2 s and when it changes - the extra
+// players' games know only the host otherwise. h.count entries, the host first, then the players in the order they
+// joined. stamp: the host's clock when sent (newest wins; echoed in Hello); you: the receiver's own entry (0xff none).
+// side: a side code (0 not known); role 0 host, 1 the first player, 2 another player; flags bit 0: connected;
+// color: the player's own colour (0 the host's); note: a word or two on where he stands ("ready", "turn ended").
+struct RosterEntry { char name[24]; unsigned side; unsigned char role, flags, color, pad; char note[20]; };
+enum { ROSTER_MAX = 5 };
+struct RosterPacket { Head h; unsigned stamp; unsigned char you, pad[3]; RosterEntry e[ROSTER_MAX]; };
 #pragma pack(pop)
 
 inline unsigned fnv(const unsigned char *p, size_t n)

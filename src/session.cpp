@@ -38,7 +38,7 @@
 #include <vector>
 #include <array>
 
-static const int k_units_per_packet = 14;       // 24 + 14 * 80 = 1144 bytes, below any sane MTU
+static const int k_units_per_packet = 28;       // 24 + 28 * 38 = 1088 bytes, below any sane MTU (UnitWire)
 
 static int g_role;
 static int g_host_mode;
@@ -126,7 +126,7 @@ static u32 g_units_count_seen;
 // one transform back when one arrives, so two were not enough: the unit was put on the older one and stood.
 struct Snap { UnitRec rec; double at, sim; };
 enum { HELD_SNAPS = 8 };        // (faster than normal the shown time is up to 1.5 battle s behind: 8 x 0.27 covers it)
-struct Held { Snap s[HELD_SNAPS]; int n; float wrote[3], wrote_lin[3]; u64 wrote_ms; int branch; float k; double t, ta, tb, newest; };      // wrote*: (tests) what the last step put there
+struct Held { Snap s[HELD_SNAPS]; int n; float wrote[3], wrote_lin[3]; u64 wrote_ms; int branch; float k; double t, ta, tb, newest; int fights; float corr[3]; };      // wrote*: (tests) what the last step put there
 struct Pending { UnitRec rec; double sim; };
 static std::vector<Pending> g_pending;                  // received, applied before the next simulation step
 static std::unordered_map<u64, Held> g_held;
@@ -167,8 +167,52 @@ static u64 g_sim_ms;
 struct JumpStat { u32 n; float max; Object *o; float here[3], there[3]; };
 static std::unordered_map<u64, JumpStat> g_jumps;
 static u64 g_stat_seated;                  // steps a followed soldier was left in his seat here
+static u64 g_stat_loose;                   // steps a standing vehicle rested within the loose limits (see the follow step)
+static u64 g_stat_soft;                    // steps a moving vehicle kept this game's height and tilt (see the follow step)
+// Units this game keeps correcting (shaking, as players saw a few vehicles and soldiers do in an operation battle):
+// steps in which one was put more than 5 cm from where this game's own step had moved it - how many of those while
+// its owner has it standing, right after a state of the other game was loaded into it; a soldier seated here whose
+// seat is more than a metre from where his owner has him.
+// flips: corrections of more than 5 cm the opposite way to the one before - shaking back and forth (following a
+// unit that walks or drives corrects it the same way step after step); fast: steps it moved faster than 30 m/s
+// (aircraft, which this game's own flight model flies between the steps).
+struct ShakeStat { u32 n, still, after_load, seat, flips, flips_y, fast; float sum, max; Object *o; };
+static std::unordered_map<u64, ShakeStat> g_shake;
+static void report_shaking(void)
+{
+    std::vector<std::pair<u64, ShakeStat>> v;
+    u32 seated = 0, fliers = 0, shaking = 0, walking = 0;
+    for (auto &kv : g_shake) {
+        const ShakeStat &st = kv.second;
+        if (st.seat >= 25) seated++;
+        if (st.fast >= 25) fliers++;
+        else if (st.flips >= 10 || st.still >= 25) { shaking++; v.push_back(kv); }
+        else if (st.n >= 25) walking++;
+    }
+    if (seated || fliers || shaking)
+        mp_log("net: 5 s: other player's units here: %u shaking (put back the other way 10+ times, or 25+ times while he has them still), %u riders seated "
+               "here a metre or more from their owner's place, %u flying, %u followed with 5 cm+ corrections on the move", shaking, seated, fliers, walking);
+    if (!v.empty()) {
+        std::sort(v.begin(), v.end(), [](const std::pair<u64, ShakeStat> &a, const std::pair<u64, ShakeStat> &b) { return a.second.flips + a.second.still > b.second.flips + b.second.still; });
+        mp_log("net: 5 s: %u of the other player's units shaking; the most:", (unsigned)v.size());
+        for (size_t i = 0; i < v.size() && i < 8; i++) {
+            const ShakeStat &st = v[i].second;
+            char *o = (char *)st.o;
+            char what[96] = "?", seat[64] = "";
+            if (readable(o, 0x48)) { memcpy(what, o + 8, 63); what[63] = 0; }
+            if (readable(o, SEAT_VEHICLE + 8) && !strncmp(what, "i_human", 7))
+                sprintf_s(seat, ", %s (seat %d)", *(void **)(o + SEAT_VEHICLE) ? "on a vehicle here" : "on foot here", *(int *)(o + SEAT_STATION));
+            mp_log("   %s: %u times, %u the other way (%u up/down; %u while its owner has it still, %u right after a state load), mean %.2f m, up to %.2f m%s",
+                   what, st.n, st.flips, st.flips_y, st.still, st.after_load, st.n ? st.sum / st.n : 0.0f, st.max, seat);
+        }
+    }
+    g_shake.clear();
+}
 static void report_jumps(void)
 {
+    report_shaking();
+    if (g_stat_loose) { mp_log("net: 5 s: %llu steps a standing vehicle of the other player rested a little off his pose (this game's physics tilts it)", g_stat_loose); g_stat_loose = 0; }
+    if (g_stat_soft) { mp_log("net: 5 s: %llu steps a moving vehicle of the other player kept this game's height and tilt (drawn to his)", g_stat_soft); g_stat_soft = 0; }
     if (g_stat_seated) { mp_log("net: 5 s: %llu times one of the other player's soldiers was left to ride on the vehicle he sits on here", g_stat_seated); g_stat_seated = 0; }
     if (g_jumps.empty()) return;
     std::vector<std::pair<u64, JumpStat>> v(g_jumps.begin(), g_jumps.end());
@@ -286,7 +330,7 @@ static void report_prof(void)
     for (int i = 0; i < PROF_N; i++) { all += g_prof_part[i]; if (g_prof_part[i] >= 1) order[n++] = i; }
     std::sort(order, order + n, [](int a, int b) { return g_prof_part[a] > g_prof_part[b]; });
     char line[700];
-    int at = sprintf_s(line, "load: 5 s: the module took %.0f ms (%.1f %% of the time)", all, all / 50.0);
+    int at = sprintf_s(line, "load: 5 s: the module took %.0f ms (%.1f %% of the time; %u memory checks by the system)", all, all / 50.0, readable_calls());
     for (int i = 0; i < n && at < (int)sizeof line - 60; i++)
         at += sprintf_s(line + at, sizeof line - at, "%s %s %.0f ms", i ? "," : ":", k_prof_names[order[i]], g_prof_part[order[i]]);
     mp_log("%s", line);
@@ -332,6 +376,29 @@ bool session_menu_open(void)
     return g_tactical && g_interface && readable((char *)g_interface + IE_MENU_OPEN, 1) && *((char *)g_interface + IE_MENU_OPEN) != 0;
 }
 
+// The battle's interface switched off with Ctrl+Backspace. That key is the game's do_switch_interf (its input table,
+// data\common\shared\config\proxy_temp.cfgpack: BACK with CTRL; do_hide_interf is Ctrl+Delete). Its handler
+// (adv_interf+0x3aa90, public +0x3aa00, beta26 +0x3da50) flips i_intereff +0xe00 (beta26 +0x106c) between 2, the
+// interface shown (as its constructor sets it), and 0, switched off; Ctrl+Delete's hide routine sets it to 0 as well
+// and the ESC menu to 2 while it is open. The interface's own "shown" test (2024 beta +0x47180) is that field not 0.
+// (Up to the 2026-11-08 afternoon build the module followed do_hide_interf's flag +0xef3, which Ctrl+Backspace never sets.)
+// The handler reads it with mov ecx, [rbx+0e00h] at +0x70: those bytes are checked before the field is read.
+// 1 hidden, 0 shown, -1 not known here (no battle, another build): the player panel keeps its own switch then.
+#define IE_UI_MODE BF(0xe00, 0x106c)
+int session_interface_hidden(void)
+{
+    static int ok = -1;
+    if (!g_tactical || !g_interface) return -1;
+    if (ok < 0) {
+        const unsigned char sig[] = { 0x8b, 0x8b, (unsigned char)(IE_UI_MODE & 0xff), (unsigned char)(IE_UI_MODE >> 8), 0x00, 0x00,
+                                      0x85, 0xc9, 0x74, 0x1a, 0x83, 0xe9, 0x01, 0x74, 0x05, 0x83, 0xf9, 0x01 };
+        ok = build_code("adv_interf.codelib", BV(0x3ab00, 0x3aa70, 0x3dac0), sig, sizeof sig) != 0;
+        if (!ok) mp_log("ui: unknown game build - the battle's interface switch is not followed (Ctrl+Backspace hides the player panel by itself)");
+    }
+    if (!ok || !readable((char *)g_interface + IE_UI_MODE, 4)) return -1;
+    return *(int *)((char *)g_interface + IE_UI_MODE) == 0;
+}
+
 const char *session_my_name(void) { return g_my_name; }
 bool session_swap(void) { return g_swap; }
 
@@ -357,9 +424,12 @@ static bool peer_force_arriving(void);
 
 // One line for the on-screen banner; empty when this game is not in multiplayer. Always the same shape:
 //     MULTIPLAYER  -  <who is playing>  -  <what is going on>
+// The player panel (ui.cpp) shows only <what is going on> (session_status_line): who is playing is its list.
+static char g_status_state[200];
 const char *session_status(void)
 {
     g_status[0] = 0;
+    g_status_state[0] = 0;
     if (g_map_mode) {
         const char *host = g_peer_name[0] ? g_peer_name : "the host";
         char what[200];
@@ -374,6 +444,7 @@ const char *session_status(void)
         else if (g_peer_turn_done) sprintf_s(what, "%s has ended his turn", host);
         else sprintf_s(what, "give your orders, then press next turn");
         sprintf_s(g_status, "MULTIPLAYER  -  %s", what);
+        strncpy_s(g_status_state, what, _TRUNCATE);
         return g_status;
     }
     if (g_role == ROLE_NONE || (g_role == ROLE_JOIN && !g_tactical)) return g_status;
@@ -481,7 +552,14 @@ const char *session_status(void)
     char ping[32] = "";
     if (g_tactical && g_connected && net_rtt_ms() > 0) sprintf_s(ping, "  -  ping %.0f ms", net_rtt_ms());
     sprintf_s(g_status, "MULTIPLAYER  -  %s  -  %s%s", who, state, ping);
+    strncpy_s(g_status_state, state, _TRUNCATE);
     return g_status;
+}
+
+const char *session_status_line(void)
+{
+    session_status();
+    return g_status_state;
 }
 
 // ---------------------------------------------------------------- the round trip (see common.h)
@@ -2322,6 +2400,38 @@ static void end_turn_here(ObjMan *om)
 static bool g_end_turn_asked, g_test_save_asked;
 void session_test_next_turn(void) { g_end_turn_asked = true; }
 
+// Tests: "startbattle" - the host's map goes into the battle it has selected, the way a click on the battle's box
+// does. A click runs adv_opgame+0xf2db0 (controller, 0): the square under the cursor must be in the selected
+// battle's area, then +0xf2f20 writes the battle's description and starts its program. With 1 for 0 it takes the
+// selected battle (controller +0x3edc, -1 none) and its square (+0x3ed4, +0x3ed8) instead of the cursor's - the
+// Stepanovka run's clicks, sent to a game in a window smaller than its picture, missed the square. 2024 beta only.
+static bool g_start_battle_asked;
+void session_test_start_battle(void) { g_start_battle_asked = true; }
+static void start_selected_battle(ObjMan *om)
+{
+    static const unsigned char sig[] = { 0x48, 0x89, 0x5c, 0x24, 0x18, 0x48, 0x89, 0x74, 0x24, 0x20, 0x57, 0x48, 0x83, 0xec, 0x30,
+                                         0x48, 0x8b, 0xd9, 0x0f, 0xb6, 0xf2 };
+    char *fn = BV(0xf2db0, 0, 0) ? build_code("adv_opgame.codelib", BV(0xf2db0, 0, 0), sig, sizeof sig) : 0;
+    char *c = (char *)menu_controller_of(om);
+    if (!fn || !c || !operation_on_screen(om) || !readable(c + 0x3ed4, 12)) {
+        mp_log("test: startbattle - not here (%s)", !fn ? "not this build" : "no operation on screen");
+        return;
+    }
+    int selected = *(int *)(c + 0x3edc);
+    mp_log("test: startbattle - the map's selected battle: %d", selected);
+    if (selected == -1) return;
+    // (the launch posts WM_CLOSE to the window the controller's +0x120 object names, its slot 3, and leaves the
+    //  battle program to the shell; the Stepanovka run saw the map stay open - so the two windows are logged and,
+    //  if they differ, this program's own main window is closed as well)
+    HWND engine_window = 0;
+    if (Object *w = *(Object **)(c + 0x120)) if (readable(w, 8) && readable(w->vtbl, 32)) engine_window = ((HWND (*)(Object *))w->vtbl[3])(w);
+    char r = ((char (*)(void *, char))fn)(c, 1);
+    HWND mine = main_window();
+    mp_log("test: startbattle - %s (the game closes window %p; this program's main window %p)", r ? "going into it" : "the game turned it down",
+           engine_window, mine);
+    if (r && mine && engine_window != mine) PostMessageA(mine, WM_CLOSE, 0, 0);
+}
+
 // Tests: the host behaves as if the operation had moved on (as after a turn), without a turn being
 // carried out: the other player's copy of the map is outdated and he is given a new one.
 void session_test_new_map(void)
@@ -2404,6 +2514,7 @@ static void host_map_frame(ObjMan *om, DWORD now)
         mp_log("test: operation %s (%s, %zu bytes, turn phase %d, %u orders)", ok ? "saved" : "not saved", file, save.size(),
                ok ? opsave::turn_phase(save) : -1, ok ? opsave::rows_of(save, "user_orders") : 0);
     }
+    if (g_start_battle_asked) { g_start_battle_asked = false; start_selected_battle(om); }
     if (g_end_turn_asked) {                                 // tests: the host presses "next turn"
         g_end_turn_asked = false;
         if (other_player_on_map()) { if (!g_turn_done) press_next_turn(); }
@@ -2600,6 +2711,61 @@ static bool get_steer(const UnitRec &r, float *steer)
     return (r.pad[1] & 1) != 0;
 }
 
+// UnitRec <-> UnitWire (protocol.h, network 30). The rotation goes as a quaternion; g_wire_err is the largest
+// difference a sent matrix's element has from what the other game makes of it (the 5 s report: a matrix that is
+// not a rotation would show here).
+static float g_wire_err;
+static const float k_q_scale = 32767.0f / 0.70710678f;
+static short pack16(float v, float scale)
+{
+    long q = lroundf(v * scale);
+    return (short)(q < -32767 ? -32767 : q > 32767 ? 32767 : q);
+}
+// (m: three rows of three; q: x, y, z, w - the two conversions are each other's inverse for a rotation)
+static void rot_to_quat(const float *m, float q[4])
+{
+    float tr = m[0] + m[4] + m[8];
+    if (tr > 0) { float s = sqrtf(tr + 1) * 2; q[3] = 0.25f * s; q[0] = (m[7] - m[5]) / s; q[1] = (m[2] - m[6]) / s; q[2] = (m[3] - m[1]) / s; }
+    else if (m[0] > m[4] && m[0] > m[8]) { float s = sqrtf(1 + m[0] - m[4] - m[8]) * 2; q[3] = (m[7] - m[5]) / s; q[0] = 0.25f * s; q[1] = (m[1] + m[3]) / s; q[2] = (m[2] + m[6]) / s; }
+    else if (m[4] > m[8]) { float s = sqrtf(1 + m[4] - m[0] - m[8]) * 2; q[3] = (m[2] - m[6]) / s; q[0] = (m[1] + m[3]) / s; q[1] = 0.25f * s; q[2] = (m[5] + m[7]) / s; }
+    else { float s = sqrtf(1 + m[8] - m[0] - m[4]) * 2; q[3] = (m[3] - m[1]) / s; q[0] = (m[2] + m[6]) / s; q[1] = (m[5] + m[7]) / s; q[2] = 0.25f * s; }
+    float n = sqrtf(q[0] * q[0] + q[1] * q[1] + q[2] * q[2] + q[3] * q[3]);
+    if (n > 1e-6f) for (int i = 0; i < 4; i++) q[i] /= n;
+    else { q[0] = q[1] = q[2] = 0; q[3] = 1; }
+}
+static void quat_to_rot(const float q[4], float *m)
+{
+    float x = q[0], y = q[1], z = q[2], w = q[3];
+    m[0] = 1 - 2 * (y * y + z * z); m[1] = 2 * (x * y - z * w);     m[2] = 2 * (x * z + y * w);
+    m[3] = 2 * (x * y + z * w);     m[4] = 1 - 2 * (x * x + z * z); m[5] = 2 * (y * z - x * w);
+    m[6] = 2 * (x * z - y * w);     m[7] = 2 * (y * z + x * w);     m[8] = 1 - 2 * (x * x + y * y);
+}
+static void to_wire(const UnitRec &r, UnitWire &w)
+{
+    w.id = r.id; w.kind = r.kind; w.steer = r.pad[0]; w.flags = r.pad[1];
+    memcpy(w.pos, r.pos, 12);
+    float q[4];
+    rot_to_quat(r.rot, q);
+    int big = 0;
+    for (int i = 1; i < 4; i++) if (fabsf(q[i]) > fabsf(q[big])) big = i;
+    float sign = q[big] < 0 ? -1.0f : 1.0f;
+    for (int i = 0, k = 0; i < 4; i++) if (i != big) w.q[k++] = pack16(q[i] * sign, k_q_scale);
+    w.big = (unsigned char)big;
+    for (int i = 0; i < 3; i++) { w.lin[i] = pack16(r.lin[i], 100); w.ang[i] = pack16(r.ang[i], 1000); }
+}
+static void from_wire(const UnitWire &w, UnitRec &r)
+{
+    memset(&r, 0, sizeof r);
+    r.id = w.id; r.kind = w.kind; r.pad[0] = w.steer; r.pad[1] = w.flags;
+    memcpy(r.pos, w.pos, 12);
+    float q[4], sum = 0;
+    int big = w.big & 3;
+    for (int i = 0, k = 0; i < 4; i++) if (i != big) { q[i] = w.q[k++] / k_q_scale; sum += q[i] * q[i]; }
+    q[big] = sqrtf(sum < 1 ? 1 - sum : 0);
+    quat_to_rot(q, r.rot);
+    for (int i = 0; i < 3; i++) { r.lin[i] = w.lin[i] / 100.0f; r.ang[i] = w.ang[i] / 1000.0f; }
+}
+
 static void steer_wheels(char *u, float steer)
 {
     *(float *)(u + TECHN_STEER) = steer;
@@ -2609,9 +2775,9 @@ static void send_transforms(ObjMan *om, DWORD now)
 {
     static Object *timer;
     if (!timer) timer = engine_find(om, "i_ctrltimer", "ctrltimer");
-    unsigned char packet[sizeof(StateHead) + k_units_per_packet * sizeof(UnitRec)];
+    unsigned char packet[sizeof(StateHead) + k_units_per_packet * sizeof(UnitWire)];
     StateHead *sh = (StateHead *)packet;
-    UnitRec *recs = (UnitRec *)(sh + 1);
+    UnitWire *recs = (UnitWire *)(sh + 1);
     int n = 0;
     auto flush = [&]() {
         sh->h = make_head(PKT_STATE, n);
@@ -2631,13 +2797,19 @@ static void send_transforms(ObjMan *om, DWORD now)
         sh->want_pause = g_my_pause;
         memset(sh->pad2, 0, sizeof sh->pad2);
         sh->pad2[0] = (unsigned char)(g_my_fps < 1 ? 1 : g_my_fps > 255 ? 255 : (int)(g_my_fps + 0.5f));      // frames a second here
-        send_all(packet, (int)(sizeof(StateHead) + n * sizeof(UnitRec)));
+        send_all(packet, (int)(sizeof(StateHead) + n * sizeof(UnitWire)));
         g_stat_packets++;
         n = 0;
     };
     u32 count, sent = 0;
     Object **all = all_objects(om, &count);
     g_snapshot++;
+    // MP_SOLDIER_MS=<ms>: a soldier on the move goes at most that often (120: every second snapshot), a vehicle
+    // every one. Off by default: a soldier mostly moves by his animation, not his velocity, and the other game shows
+    // units ~0.12 s behind - sent every 0.13 s he stood still at the end of each and caught up (the user saw
+    // infantry "animated at a low framerate" in the Stepanovka run).
+    static int soldier_ms = -1;
+    if (soldier_ms < 0) { char v[16]; soldier_ms = GetEnvironmentVariableA("MP_SOLDIER_MS", v, sizeof v) ? atoi(v) : 0; }
     for (u32 i = 0; i < count; i++) {
         u64 key;
         UnitRec r = {};
@@ -2649,6 +2821,7 @@ static void send_transforms(ObjMan *om, DWORD now)
                      fabsf(rot[0] - s.rot0[0]) + fabsf(rot[1] - s.rot0[1]) + fabsf(rot[2] - s.rot0[2]) > 0.0005f;
         // unchanged units are repeated every two seconds, spread out so they do not all go at once
         if (!moved && now - s.when < 2000 + (r.id % 16) * 30) continue;
+        if (moved && r.kind == 2 && soldier_ms > 0 && now - s.when < (DWORD)soldier_ms) continue;
         memcpy(s.pos, pos, 12);
         memcpy(s.rot0, rot, 12);
         s.when = now;
@@ -2657,7 +2830,13 @@ static void send_transforms(ObjMan *om, DWORD now)
         memcpy(r.lin, u + UNIT_LIN, 12);
         memcpy(r.ang, u + UNIT_ANG, 12);
         if (r.kind == 1) put_steer(r, vehicle_steer(u));
-        recs[n++] = r;
+        to_wire(r, recs[n]);
+        {
+            UnitRec back;
+            from_wire(recs[n], back);
+            for (int k = 0; k < 9; k++) { float d = fabsf(back.rot[k] - r.rot[k]); if (d > g_wire_err) g_wire_err = d; }
+        }
+        n++;
         g_stat_sent++;
         sent++;
         if (n == k_units_per_packet) flush();
@@ -2897,6 +3076,25 @@ void session_sim_step(ObjMan *om)
         }
     }
     double play_t = play_clock(now_s) - shown_delay;
+    // Each step moves the shown time on by the battle time the step covers, drawn a tenth of the way to the clock's
+    // own value. Taken from the clock alone it stood still between the two or three steps of one frame (faster than
+    // x1) and leapt at the next frame's first, while this game's physics moved the units evenly every step: the
+    // corrections changed direction step after step - vehicles shaking back and forth by 0.1-1 m (Stepanovka, turn
+    // 3: 97 % of a vehicle's corrections the other way). MP_FOLLOW_STEPTIME=0: the clock alone, as before.
+    {
+        static int step_time = -1;
+        if (step_time < 0) { char v[8]; step_time = !GetEnvironmentVariableA("MP_FOLLOW_STEPTIME", v, sizeof v) || atoi(v) != 0; }
+        static double last_play;
+        static u64 last_play_sim;
+        static bool have_last;
+        if (step_time && by_battle_time && have_last && g_sim_ms >= last_play_sim && g_sim_ms - last_play_sim <= 500) {
+            double want = last_play + (g_sim_ms - last_play_sim) / 1000.0;
+            play_t = want + (play_t - want) * 0.1;
+        }
+        last_play = play_t;
+        last_play_sim = g_sim_ms;
+        have_last = by_battle_time;
+    }
     // (the running gear turns by the battle time this step covers - none in a frame without a step)
     static u64 last_gear_ms;
     float gear_dt = g_sim_ms >= last_gear_ms ? (float)min((g_sim_ms - last_gear_ms) / 1000.0, 0.1) : 0.0f;
@@ -3001,6 +3199,9 @@ void session_sim_step(ObjMan *om)
         // as soon as he is on foot here.
         if (!strcmp(it->second->iface, "i_human") && readable(u, SEAT_VEHICLE + 8) && *(void **)(u + SEAT_VEHICLE) && *(int *)(u + SEAT_STATION) != -1) {
             g_stat_seated++;
+            const float *sp = (const float *)(u + UNIT_POS);
+            float sd = sqrtf((pos[0] - sp[0]) * (pos[0] - sp[0]) + (pos[1] - sp[1]) * (pos[1] - sp[1]) + (pos[2] - sp[2]) * (pos[2] - sp[2]));
+            if (sd > 1.0f && g_phase == 2) { ShakeStat &st = g_shake[kv.first]; st.seat++; st.o = it->second; }
             continue;
         }
         float *upos = (float *)(u + UNIT_POS), *urot = (float *)(u + UNIT_ROT), *uinv = (float *)(u + UNIT_INV);
@@ -3035,10 +3236,65 @@ void session_sim_step(ObjMan *om)
         float da[3] = { B.pos[0] - Aprev.pos[0], B.pos[1] - Aprev.pos[1], B.pos[2] - Aprev.pos[2] };
         bool still = !moving || (lin2 < 0.0025f && da[0] * da[0] + da[1] * da[1] + da[2] * da[2] < 0.0004f);
         float fwd = urot[0] * rot[0] + urot[1] * rot[1] + urot[2] * rot[2], up = urot[4] * rot[3] + urot[5] * rot[4] + urot[6] * rot[5];
-        if (rest_on && B.kind == 1 && still && err < 0.25f && fwd > 0.9994f && up > 0.9994f) {
-            g_stat_rest++;
-            continue;
+        // A standing vehicle that this game's physics keeps more than two degrees off its owner's pose (a slope, a crater
+        // only one game has, the riders it carries) was put back every step and shook in place, 5-10 cm fifty times a
+        // second (Stepanovka: loaded infantry carriers). After half a second of that it rests where this game's physics
+        // has it, within 0.4 m and about ten degrees, until it moves. MP_FOLLOW_LOOSE=0: always put back.
+        static int loose_on = -1;
+        if (loose_on < 0) { char v[8]; loose_on = !GetEnvironmentVariableA("MP_FOLLOW_LOOSE", v, sizeof v) || atoi(v) != 0; }
+        if (rest_on && B.kind == 1 && still) {
+            bool strict = err < 0.25f && fwd > 0.9994f && up > 0.9994f;
+            bool loose = loose_on && err < 0.4f && fwd > 0.985f && up > 0.985f;
+            if (strict || (loose && h.fights >= 25)) {
+                if (strict && h.fights < 25) h.fights = 0;
+                else if (!strict) g_stat_loose++;
+                g_stat_rest++;
+                continue;
+            }
+            h.fights = loose ? h.fights + 1 : 0;
+        } else h.fights = 0;
+        // A vehicle on the move keeps the height and tilt this game's suspension gives it on this game's ground while
+        // within 0.3 m and about five degrees of its owner's, drawn a fifth of the way there each step; further off
+        // it is put where its owner has it. Put back exactly every step, the suspension lifted and tilted it again:
+        // moving vehicles shook (Stepanovka, turn 2: their corrections changed direction two steps in three).
+        // Its place on the ground and its heading stay the owner's. MP_FOLLOW_SOFT=1: on (off by default).
+        static int soft_on = -1;
+        if (soft_on < 0) { char v[8]; soft_on = GetEnvironmentVariableA("MP_FOLLOW_SOFT", v, sizeof v) && atoi(v) != 0; }      // (off: turn 3 showed the shaking is not up and down)
+        if (soft_on && B.kind == 1 && !still && fabsf(pos[1] - upos[1]) < 0.3f && up > 0.996f) {
+            pos[1] = upos[1] + (pos[1] - upos[1]) * 0.2f;
+            float nu[3], f[3];
+            for (int i = 0; i < 3; i++) nu[i] = urot[4 + i] * 0.8f + rot[3 + i] * 0.2f;
+            float ln = sqrtf(nu[0] * nu[0] + nu[1] * nu[1] + nu[2] * nu[2]);
+            if (ln > 1e-4f) {
+                for (int i = 0; i < 3; i++) nu[i] /= ln;
+                float d = rot[0] * nu[0] + rot[1] * nu[1] + rot[2] * nu[2];
+                for (int i = 0; i < 3; i++) f[i] = rot[i] - d * nu[i];
+                float lf = sqrtf(f[0] * f[0] + f[1] * f[1] + f[2] * f[2]);
+                if (lf > 1e-4f) {
+                    for (int i = 0; i < 3; i++) { rot[i] = f[i] / lf; rot[3 + i] = nu[i]; }
+                    rot[6] = rot[1] * rot[5] - rot[2] * rot[4];
+                    rot[7] = rot[2] * rot[3] - rot[0] * rot[5];
+                    rot[8] = rot[0] * rot[4] - rot[1] * rot[3];
+                    g_stat_soft++;
+                }
+            }
+            for (int i = 0; i < 3; i++) e[i] = pos[i] - upos[i];
+            err = sqrtf(e[0] * e[0] + e[1] * e[1] + e[2] * e[2]);
         }
+        if (err > 0.05f && g_phase == 2) {
+            ShakeStat &st = g_shake[kv.first];
+            st.n++;
+            st.still += still;
+            st.sum += err;
+            if (err > st.max) st.max = err;
+            st.o = it->second;
+            DWORD la = state_loaded_at(it->second);
+            if (la && GetTickCount() - la < 250) st.after_load++;
+            if (e[0] * h.corr[0] + e[1] * h.corr[1] + e[2] * h.corr[2] < 0) st.flips++;
+            if (fabsf(e[1]) > 0.03f && e[1] * h.corr[1] < 0) st.flips_y++;
+            if (lin2 > 900.0f) st.fast++;
+        }
+        if (err > 0.02f) memcpy(h.corr, e, sizeof h.corr);
         g_stat_applied++;
         memcpy(upos, pos, 12);
         for (int row = 0; row < 3; row++)
@@ -3779,6 +4035,334 @@ static void catch_return_to_operation(void)
     }
 }
 
+// ---------------------------------------------------------------- who plays: the player panel's list (ui.cpp)
+// The host knows every player: it sends its list (RosterPacket) to everyone every 2 s and at once when it changes -
+// an extra player's game knows nobody but the host otherwise. A joining game shows the newest list it has had in the
+// last 6 s, else what it knows itself (the host and its own player). The list's stamp goes back in the next Hello:
+// outside battles nothing else measures the host's round trip.
+static RosterEntry g_roster[ROSTER_MAX];        // joining game: the host's newest list
+static int g_roster_n, g_roster_you = -1;
+static DWORD g_roster_at;
+static u32 g_roster_newest;                     // its stamp
+static u32 g_roster_echo, g_roster_echo_at;     // the stamp to send back in the next Hello, and when it arrived
+
+static void roster_put(RosterEntry &e, const char *name, unsigned side, int role, bool on, int color, const char *note)
+{
+    memset(&e, 0, sizeof e);
+    strncpy_s(e.name, name && *name ? name : "Player", _TRUNCATE);
+    e.side = side;
+    e.role = (unsigned char)role;
+    e.flags = on ? 1 : 0;
+    e.color = (unsigned char)color;
+    if (note) strncpy_s(e.note, note, _TRUNCATE);
+}
+
+// Host: the list as it stands. chan[c]: the entry of the first player (0) / of extra player c (-1: none).
+static int host_roster(RosterEntry *out, int *chan)
+{
+    for (int c = 0; c <= MAX_EXTRA; c++) chan[c] = -1;
+    // the sides: the battle's, or in a skirmish lobby those of the host's Skirmish screen (0: not known yet)
+    bool battle = g_tactical && g_user_side;
+    bool setup = !g_tactical && g_host_mode == HOST_MODE_SKIRMISH && g_setup_own && g_setup_enemy;
+    unsigned mine = battle ? g_user_side : setup ? (g_swap ? g_setup_enemy : g_setup_own) : 0;
+    unsigned his = battle ? (g_versus ? g_enemy_side : g_user_side) : setup ? (g_swap ? g_setup_own : g_setup_enemy) : 0;
+    bool starting = g_tactical && g_phase < 2 && g_start_action;       // deployment, initial orders: who has pressed Start
+    bool map = !g_tactical && g_host_mode == HOST_MODE_OPERATION;      // (the operation's menus and map)
+    const char *note = (!g_tactical && g_host_mode == HOST_MODE_SKIRMISH && g_host_start_ready) || (starting && g_my_ready > g_phase) ? "ready"
+                     : map && g_turn_done ? "turn ended" : 0;
+    int n = 0;
+    roster_put(out[n++], g_my_name, mine, 0, true, 0, note);
+    if (g_connected || g_peer_name[0]) {
+        note = !g_connected && g_lost_at && session_resumable() ? "connection lost" : !g_connected ? "left"
+             : map && g_map_given && g_map_view_shared ? "watching"
+             : map && g_peer_on_map ? (g_peer_turn_done ? "turn ended" : 0)
+             : !g_tactical ? (g_peer_lobby_ready ? "ready" : "not ready")          // (the lobby)
+             : starting && g_peer_ready > g_phase ? "ready" : 0;
+        chan[0] = n;
+        roster_put(out[n++], g_peer_name, his, 1, g_connected, 1, note);
+    }
+    // the other players in the order they joined; one who has left stays (grey) until his place is taken
+    int order[MAX_EXTRA], k = 0;
+    for (int c = 1; c <= MAX_EXTRA; c++) if (g_extra[c].name[0]) order[k++] = c;
+    std::sort(order, order + k, [](int a, int b) { return (int)(g_extra[a].since - g_extra[b].since) < 0; });
+    for (int i = 0; i < k && n < ROSTER_MAX; i++) {
+        const Extra &e = g_extra[order[i]];
+        chan[order[i]] = n;
+        roster_put(out[n++], e.name, battle ? (e.versus ? g_enemy_side : g_user_side) : 0, 2, e.on, 1 + order[i], e.on ? 0 : "left");
+    }
+    return n;
+}
+
+// Host: the list to every player, each told which entry is his own.
+static void roster_frame(DWORD now)
+{
+    static DWORD sent_at;
+    static unsigned sent_hash;
+    if (g_role != ROLE_HOST || g_sock == INVALID_SOCKET || (!g_connected && !extras_on()) || now - sent_at < 250) return;
+    RosterPacket p = {};
+    p.h = make_head(PKT_ROSTER);
+    int chan[MAX_EXTRA + 1];
+    int n = host_roster(p.e, chan);
+    unsigned hash = fnv((const unsigned char *)p.e, sizeof p.e);
+    if (hash == sent_hash && now - sent_at < 2000) return;
+    sent_at = now;
+    sent_hash = hash;
+    p.h.count = (unsigned short)n;
+    p.stamp = now ? now : 1;
+    if (g_connected && chan[0] >= 0) { p.you = (unsigned char)chan[0]; send_peer(&p, sizeof p); }
+    for (int c = 1; c <= MAX_EXTRA; c++)
+        if (g_extra[c].on) { p.you = (unsigned char)(chan[c] >= 0 ? chan[c] : 0xff); send_extra(c, &p, sizeof p); }
+}
+
+// Joining game: the host's list (names and notes are shown: printable characters only).
+static void roster_received(const unsigned char *data, int size, DWORD now)
+{
+    const RosterPacket *p = (const RosterPacket *)data;
+    if (size < (int)offsetof(RosterPacket, e)) return;
+    int n = p->h.count;
+    if (n < 1 || n > ROSTER_MAX || size < (int)(offsetof(RosterPacket, e) + n * sizeof(RosterEntry))) return;
+    g_roster_echo = p->stamp;
+    g_roster_echo_at = now ? now : 1;
+    if (g_roster_n && (int)(p->stamp - g_roster_newest) < 0 && now - g_roster_at < 6000) return;      // (an older one, late)
+    for (int i = 0; i < n; i++) {
+        RosterEntry e = p->e[i];
+        e.name[sizeof e.name - 1] = e.note[sizeof e.note - 1] = 0;
+        for (char *c = e.name; *c; c++) if ((unsigned char)*c < 0x20 || (unsigned char)*c >= 0x7f) *c = '?';
+        for (char *c = e.note; *c; c++) if ((unsigned char)*c < 0x20 || (unsigned char)*c >= 0x7f) *c = '?';
+        if (e.side != k_side_germans && e.side != k_side_soviets) e.side = 0;
+        if (e.color >= ROSTER_MAX) e.color = 0;
+        g_roster[i] = e;
+    }
+    g_roster_n = n;
+    g_roster_you = p->you < n ? p->you : -1;
+    g_roster_at = now;
+    g_roster_newest = p->stamp;
+}
+
+// Joining game without a list from the host (yet): the host and this game's own player.
+static int local_roster(RosterEntry *out)
+{
+    bool battle = g_tactical && g_user_side;
+    roster_put(out[0], g_peer_name[0] ? g_peer_name : "host", battle ? (g_versus ? g_enemy_side : g_user_side) : 0, 0, g_connected, 0, 0);
+    roster_put(out[1], g_my_name, battle ? g_user_side : 0, 1, true, 1, 0);
+    return 2;
+}
+
+int session_players(PanelPlayer *out, int max)
+{
+    if (g_role == ROLE_NONE) return 0;
+    RosterEntry e[ROSTER_MAX];
+    int n, you;
+    if (g_role == ROLE_HOST) {
+        int chan[MAX_EXTRA + 1];
+        n = host_roster(e, chan);
+        you = 0;
+    } else if (g_connected && g_roster_n && GetTickCount() - g_roster_at < 6000) {
+        n = g_roster_n;
+        memcpy(e, g_roster, sizeof e);
+        you = g_roster_you;
+    } else {
+        n = local_roster(e);
+        you = 1;
+    }
+    int k = 0;
+    for (int i = 0; i < n && k < max; i++) {
+        PanelPlayer &p = out[k++];
+        strcpy_s(p.name, e[i].name);
+        // "host, Germans, ready"
+        const char *parts[3] = { e[i].role == 0 ? "host" : 0, e[i].side ? image::side_name(e[i].side) : 0, e[i].note[0] ? e[i].note : 0 };
+        p.tag[0] = 0;
+        for (const char *s : parts) if (s) { if (p.tag[0]) strcat_s(p.tag, ", "); strcat_s(p.tag, s); }
+        p.color = e[i].color;
+        p.connected = (e[i].flags & 1) != 0;
+        p.you = i == you;
+    }
+    return k;
+}
+
+float session_fps(void) { return g_my_fps; }
+// To the host, or (host) to the first player; 0: nobody connected, or not measured yet.
+float session_latency_ms(void) { return g_connected ? net_rtt_ms() : 0; }
+
+// ---------------------------------------------------------------- what is being played: the player panel's mode line
+// "Operation - Stepanovka - 1943", "Skirmish - Stepanovka (aut) - 1942", "Mission - ..."; a part that is not known is
+// left out (the host's menus show "Skirmish": its battle is not made yet).
+static bool number_token(const std::string &s) { return !s.empty() && s.size() <= 4 && s.find_first_not_of("0123456789") == std::string::npos; }
+
+// An operation's place and year from its id ("1943_07_Mius:07_30_Stepanovka_GER", maybe with ", 0, 3" after it) or
+// its save's name ("1943_07_Mius_07_30_Stepanovka_GER.opsave"): the campaign's year; the operation's name without
+// its date, the side it is played from and a variant tag ("07_17_Stepanovka_NA_GER"). "" / 0 when it does not fit.
+static void operation_place(const char *id, char *place, size_t size, unsigned *year)
+{
+    place[0] = 0;
+    *year = 0;
+    std::string s = id;
+    s = s.substr(0, s.find(','));
+    size_t dot = s.find(".opsave");
+    if (dot != std::string::npos) s.erase(dot);
+    std::vector<std::string> t;
+    int op = -1;                    // the operation's first token (after the colon)
+    std::string cur;
+    for (size_t i = 0; i <= s.size(); i++) {
+        char c = i < s.size() ? s[i] : 0;
+        if (c && c != '_' && c != ':' && c != ' ') { cur += c; continue; }
+        if (!cur.empty()) t.push_back(cur);
+        cur.clear();
+        if (c == ':') op = (int)t.size();
+    }
+    if (t.empty() || t[0].size() != 4 || !number_token(t[0])) return;
+    unsigned y = (unsigned)atoi(t[0].c_str());
+    if (y > 1900 && y < 2100) *year = y;
+    size_t i = 1;
+    if (op >= 0) i = (size_t)op;
+    else {                          // (a save's name: past the campaign's month and place)
+        while (i < t.size() && number_token(t[i])) i++;
+        while (i < t.size() && !number_token(t[i])) i++;
+    }
+    while (i < t.size() && number_token(t[i])) i++;
+    size_t end = t.size();
+    for (; end > i; end--) {
+        const char *w = t[end - 1].c_str();
+        if (_stricmp(w, "GER") && _stricmp(w, "RUS") && _stricmp(w, "USSR") && _stricmp(w, "SOV") && _stricmp(w, "NA")) break;
+    }
+    std::string name;
+    for (size_t k = i; k < end; k++) {
+        std::string w = t[k];
+        w[0] = (char)toupper((unsigned char)w[0]);
+        name += (name.empty() ? "" : " ") + w;
+    }
+    for (char c : name) if (!isalnum((unsigned char)c) && c != ' ' && c != '-') return;
+    if (name.size() < 40) strcpy_s(place, size, name.c_str());
+}
+
+static bool place_name_ok(const std::string &n)
+{
+    if (n.size() < 2 || n.size() > 40 || !isupper((unsigned char)n[0])) return false;
+    for (char c : n) if (!isalnum((unsigned char)c) && !(c && strchr(" -'().", c))) return false;
+    return true;
+}
+
+// A battle description's battlefield ("data\oprum\shared\polygons\6m_mius\MgH4_Mius.polypack2"): the first name in
+// that map's English text pack, polygons\6m_mius\local\6m_mius_text.loc_eng.textpack - "Stepanovka", as the Skirmish
+// screen calls it ("Stepanovka (aut)" for 6m_mius_a); its names follow the pack's two alphabets. Else the map's
+// folder: "6m_mius" -> "Mius".
+static void battlefield_name(const char *polygon, char *out, size_t size)
+{
+    out[0] = 0;
+    std::string dir = polygon;
+    size_t slash = dir.find_last_of('\\');
+    if (slash == std::string::npos) return;
+    dir.erase(slash);
+    // (a name from the other game's description: nothing outside the game's data folder)
+    if (_strnicmp(dir.c_str(), "data\\", 5) || dir.find("..") != std::string::npos || dir.find(':') != std::string::npos) return;
+    std::string folder = dir.substr(dir.find_last_of('\\') + 1);
+    char path[MAX_PATH];
+    sprintf_s(path, "%s\\%s\\local\\%s_text.loc_eng.textpack", g_root, dir.c_str(), folder.c_str());
+    static const char abc[] = "abcdefghijklmnopqrstuvwxyz";
+    std::vector<unsigned char> b;
+    if (read_file(path, b) && b.size() > 4 && !memcmp(b.data(), "AZTX", 4)) {
+        auto at = std::search(b.begin(), b.end(), abc, abc + sizeof abc);      // (with its terminating zero)
+        if (at != b.end()) {
+            size_t from = (size_t)(at - b.begin()) + sizeof abc, n = 0;
+            while (from + n < b.size() && b[from + n] && n < 48) n++;
+            std::string name((const char *)b.data() + from, n);
+            if (from + n < b.size() && place_name_ok(name)) { strcpy_s(out, size, name.c_str()); return; }
+        }
+    }
+    std::string name;
+    for (size_t a = 0; a <= folder.size(); ) {
+        size_t e = folder.find('_', a);
+        if (e == std::string::npos) e = folder.size();
+        std::string w = folder.substr(a, e - a);
+        if (w.size() >= 2 && w.find_first_of("0123456789") == std::string::npos) {
+            w[0] = (char)toupper((unsigned char)w[0]);
+            name += (name.empty() ? "" : " ") + w;
+        }
+        a = e + 1;
+    }
+    if (place_name_ok(name)) strcpy_s(out, size, name.c_str());
+}
+
+// The battle's place and year, from its description (once per description): the operation it belongs to, else its
+// battlefield; the year of its date ("date": a number list, the year first), else the operation's.
+static char g_place[48];
+static unsigned g_place_year;
+static u32 g_place_of;              // the description's hash they are of
+static void description_place(void)
+{
+    if (g_image.empty() || g_place_of == g_image_hash) return;
+    g_place_of = g_image_hash;
+    g_place[0] = 0;
+    g_place_year = 0;
+    image::Node g = image::find(g_image, "i_gamespec:gamespec");
+    auto text = [&](const char *field, char *out, size_t size) {
+        out[0] = 0;
+        size_t at = image::field(g_image, g, field);
+        if (!at || image::u32_at(g_image.data(), at + 16) != 2) return;
+        size_t off = image::u32_at(g_image.data(), at + 4), n = 0;
+        if (!off) return;
+        while (off + n < g_image.size() && g_image[off + n] && n + 1 < size) n++;
+        memcpy(out, g_image.data() + off, n);
+        out[n] = 0;
+    };
+    if (size_t at = image::field(g_image, g, "date"))
+        if (image::u32_at(g_image.data(), at + 16) == 6) {
+            unsigned y = image::u32_at(g_image.data(), at);
+            if (y > 1900 && y < 2100) g_place_year = y;
+        }
+    char op[128], poly[MAX_PATH];
+    text("chap_op_id", op, sizeof op);
+    if (g_battle_of[0]) strcpy_s(op, g_battle_of);          // (the operation this battle program was started for)
+    unsigned year = 0;
+    if (strchr(op, ':') && strncmp(op, "*:*", 3)) operation_place(op, g_place, sizeof g_place, &year);
+    else { text("polygon", poly, sizeof poly); battlefield_name(poly, g_place, sizeof g_place); }
+    if (!g_place_year) g_place_year = year;
+}
+
+// The operation an operational-map program was started for: the "<campaign>:<operation>" item of its command line
+// ("" none - the menu program, where the player opens an operation himself).
+static void command_line_operation(char *out, size_t size)
+{
+    out[0] = 0;
+    std::string line = GetCommandLineA();
+    for (size_t a = 0; a < line.size(); ) {
+        size_t e = line.find(',', a);
+        if (e == std::string::npos) e = line.size();
+        std::string item = line.substr(a, e - a);
+        size_t l = item.find_first_not_of(' '), r = item.find_last_not_of(' ');
+        item = l == std::string::npos ? "" : item.substr(l, r - l + 1);
+        if (item.find(':') != std::string::npos && item != "*:*" && item.size() < size &&
+            item.find_first_not_of("abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789_:") == std::string::npos) {
+            strcpy_s(out, size, item.c_str());
+            return;
+        }
+        a = e + 1;
+    }
+}
+
+void session_mode_line(char *out, size_t size)
+{
+    int mode = g_map_mode ? HOST_MODE_OPERATION : g_host_mode;
+    char place[48] = "", y[16] = "";
+    unsigned year = 0;
+    if (g_tactical) {
+        description_place();
+        strcpy_s(place, g_place);
+        year = g_place_year;
+        if (!mode && g_battle_of[0]) mode = HOST_MODE_OPERATION;    // (a joining game before the host's first word)
+    } else if (mode == HOST_MODE_OPERATION) {
+        // the save handed over last (the operation as it is now), else the program's own command line
+        const char *file = g_map_file[0] ? g_map_file : g_map_in_file[0] ? g_map_in_file : 0;
+        char op[128];
+        if (file) operation_place(file, place, sizeof place, &year);
+        else { command_line_operation(op, sizeof op); if (op[0]) operation_place(op, place, sizeof place, &year); }
+    }
+    const char *word = g_role == ROLE_NONE ? "Multiplayer" : mode == HOST_MODE_OPERATION ? "Operation" : mode == HOST_MODE_MISSION ? "Mission"
+                     : mode == HOST_MODE_SKIRMISH ? "Skirmish" : g_tactical ? "Battle" : "Multiplayer";
+    if (year) sprintf_s(y, " - %u", year);
+    sprintf_s(out, size, "%s%s%s%s", word, place[0] ? " - " : "", place, y);
+}
+
 // ---------------------------------------------------------------- receive
 // Host: a game that is to be an extra player has said hello (again).
 static void take_extra(const sockaddr_in &from, u32 session, const char *name, bool versus, DWORD now)
@@ -4008,6 +4592,8 @@ static void on_packet(const sockaddr_in &from, const unsigned char *data, int si
             g_peer_ready = in->ready;
             mp_log("ready: the other player has finished %s", g_peer_ready >= 2 ? "the initial orders" : g_peer_ready ? "deployment" : "nothing yet");
         }
+        // (outside battles nothing else measures the round trip: the player list's stamp, sent back)
+        if (!g_tactical && in->echo && in->echo_held < 5000 && now - in->echo - in->echo_held < 5000) net_rtt_sample(now - in->echo - in->echo_held);
         g_peer = from;
         g_have_peer = g_connected = true;
         g_peer_player = in->player;
@@ -4136,7 +4722,7 @@ static void on_packet(const sockaddr_in &from, const unsigned char *data, int si
     case PKT_STATE:
         if (size >= (int)sizeof(StateHead)) {
             const StateHead *sh = (const StateHead *)data;
-            if (size < (int)(sizeof(StateHead) + sh->h.count * sizeof(UnitRec))) return;
+            if (size < (int)(sizeof(StateHead) + sh->h.count * sizeof(UnitWire))) return;
             {
                 float speed = sh->want_speed >= 0.05f && sh->want_speed <= 16 ? sh->want_speed : 1;
                 bool pause = sh->want_pause != 0;
@@ -4203,8 +4789,12 @@ static void on_packet(const sockaddr_in &from, const unsigned char *data, int si
                     p.last = sim;
                 }
             }
-            const UnitRec *recs = (const UnitRec *)(sh + 1);
-            for (unsigned i = 0; i < sh->h.count; i++) g_pending.push_back({ recs[i], sim });
+            const UnitWire *recs = (const UnitWire *)(sh + 1);
+            for (unsigned i = 0; i < sh->h.count; i++) {
+                UnitRec r;
+                from_wire(recs[i], r);
+                g_pending.push_back({ r, sim });
+            }
             g_stat_packets++;
         }
         break;
@@ -4226,6 +4816,9 @@ static void on_packet(const sockaddr_in &from, const unsigned char *data, int si
         break;
     case PKT_SIDE:
         if (from_peer) endgame_on_packet(data, size);
+        break;
+    case PKT_ROSTER:
+        if (g_role == ROLE_JOIN) roster_received(data, size, now);
         break;
     case PKT_SHOT:
     case PKT_SHOT_ACK:
@@ -4364,9 +4957,12 @@ void session_frame(ObjMan *om)
             if (g_tactical && !g_session_id) g_session_id = (GetTickCount() ^ (GetCurrentProcessId() << 16) ^ 0x9e3779b9u) | 1;
             hello.session = g_tactical ? g_session_id : 0;
             hello.player = joiner_player_id();
+            if (g_roster_echo && now - g_roster_echo_at < 5000) { hello.echo = g_roster_echo; hello.echo_held = now - g_roster_echo_at; }
+            g_roster_echo = 0;
             send_to(g_peer, &hello, sizeof hello);
         }
     }
+    roster_frame(now);
     if ((g_connected || extras_on()) && g_tactical) {
         double p = prof_now();
         if (now - g_last_snapshot >= 66) {
@@ -4421,8 +5017,9 @@ void session_frame(ObjMan *om)
     if (g_host_lost && now - g_host_lost > 4000 && !endgame_over() && g_phase != 3) leave_battle_for_menu();
     if (now - g_last_report >= 5000) {
         if (g_connected && g_tactical && (g_stat_sent || g_stat_applied)) {
-            mp_log("net: 5 s: sent %u and applied %u unit transforms (%u times a standing vehicle left to this game's physics), mean correction %.2f m, largest %.2f m, %u jumps, %.1f KB/s in total",
-                   g_stat_sent, g_stat_applied, g_stat_rest, g_stat_applied ? g_stat_err_sum / g_stat_applied : 0.0, g_stat_err_max, g_stat_snaps, g_stat_bytes / 5120.0);
+            mp_log("net: 5 s: sent %u and applied %u unit transforms (%u times a standing vehicle left to this game's physics), mean correction %.2f m, largest %.2f m, %u jumps, %.1f KB/s in total; rotations packed within %.5f",
+                   g_stat_sent, g_stat_applied, g_stat_rest, g_stat_applied ? g_stat_err_sum / g_stat_applied : 0.0, g_stat_err_max, g_stat_snaps, g_stat_bytes / 5120.0, g_wire_err);
+            g_wire_err = 0;
             if (g_play.have && g_phase == 2)
                 mp_log("net: the other game's units shown by its battle clock: transforms %.0f ms apart, its clock %+.0f ms from this game's and running x%.3f, arrivals wandering %.0f ms, shown %.0f ms behind",
                        g_play.interval * 1000, (play_clock(seconds_now()) - g_sim_ms / 1000.0) * 1000, g_play.rate, g_play.dev * 1000, play_delay() * 1000);

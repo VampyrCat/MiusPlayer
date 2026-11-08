@@ -25,6 +25,7 @@ HWND main_window(void);
 bool readable(const void *p, size_t n);
 void readable_new_step(void);        // a new frame or simulation step: what readable() found is looked at again after 0.5 s
 void readable_forget(void);          // the game's objects changed: everything is looked at again
+unsigned readable_calls(void);       // the system calls readable() has made since the last time asked (the 5 s report)
 
 // Rigid-body state every unit (i_techn, i_human) carries, as offsets into the object:
 //   +0x0f0 rotation, 3 rows of 4 floats     +0x130 inverse rotation (transpose)
@@ -98,9 +99,19 @@ bool session_map_arriving(void);         // host: the map is coming back
 bool session_map_blocking(void);         // the operational map takes no clicks for a moment
 bool session_map_view(void);             // joining game: the map is only to look at (the host fights the turn's battles)
 void session_test_next_turn(void);
+void session_test_start_battle(void);       // tests: the host's map goes into its selected battle ("startbattle")
 void session_test_new_map(void);
 void session_test_save(void);
 const char *session_status(void);        // banner text, "" outside multiplayer
+const char *session_status_line(void);   // ... what is going on, without who plays (the player panel's status line)
+// The player panel (ui.cpp): who plays - the host first, then the others in the order they joined. tag: "host,
+// Germans, ready"; color: the player's own (0 the host's .. 4); you: this game's own player.
+struct PanelPlayer { char name[24], tag[48]; int color; bool connected, you; };
+int session_players(PanelPlayer *out, int max);
+void session_mode_line(char *out, size_t size);  // "Operation - Stepanovka - 1943", "Skirmish - Stepanovka (aut) - 1942"
+float session_fps(void);                 // frames this game draws a second
+float session_latency_ms(void);          // round trip to the host / (host) to the first player; 0 not known
+int session_interface_hidden(void);      // the battle's interface hidden with Ctrl+Backspace: 1, 0, -1 not known here
 bool session_owns(Object *o);            // this game is the one that decides what the object does
 Object *session_unit(u64 key);           // unit by number (kind << 32 | id), 0 when this game has none
 bool session_unit_key(Object *o, u64 *key);
@@ -117,6 +128,8 @@ int state_load(Object *o, const unsigned char *data, size_t size);
 bool state_handles_match(Object *o, const unsigned char *data, size_t size);
 bool state_handles_translatable(Object *o);        // its state can be loaded although the other game numbers handles differently
 void state_translate_report(void);
+void state_wheels_report(void);                 // 5 s: vehicle states loaded with this game's wheels kept
+DWORD state_loaded_at(const Object *o);         // when the unit last had a state of the other game loaded (0: never)
 bool state_local_handle(Object *o, u32 *handle);   // a handle of this unit as the other game numbers it -> as this game does
 int state_load_keep_motion(Object *o, const unsigned char *data, size_t size, bool keep_view);
 bool state_is_unit(Object *o);
