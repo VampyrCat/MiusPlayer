@@ -15,16 +15,22 @@
 // hit function and the stored list checked in IDA on beta16 and beta26.)
 //
 // Each game worked out from its own shells what they did to the objects, so a house could stand in one game and lie
-// in ruins in the other - and the joining player's game decides what his soldiers can see. Now the host's game scans
-// its damaged objects twice a second and sends each one that changed (ShotRec kind 18, two to a record: cell, state,
-// level, id, health, matrix), all of them again on a new connection. The joining game hits nothing itself (every
-// object gets this module's hit callback, which drops the hit) and carries out the host's: a building the host has
-// in ruins gets a hit strong enough to collapse it (the game then puts the same ruin in its place), another destroyed
-// object is hidden and marked destroyed, a bent or knocked over one gets the host's matrix, and the health the host's.
+// in ruins in the other - and the joining player's game decides what his soldiers can see. Now the host's game sends
+// each damaged object that changed (ShotRec kind 18, two to a record: cell, state, level, id, health, matrix), all of
+// them again on a new connection. The joining game hits nothing itself (the hit function is detoured: its own hits
+// are dropped) and carries out the host's: a building the host has in ruins gets a hit strong enough to collapse it
+// (the game then puts the same ruin in its place), another destroyed object is hidden and marked destroyed, a bent or
+// knocked over one gets the host's matrix, and the health the host's.
+// Finding what changed on the host: an object the hit function was called for is looked at every 100 ms for 3 s (a
+// collapse, a ruin follow the hit a moment later); the whole pool is passed over every 2 s for what changes without a
+// hit (a vehicle bending a tree). (Until 2.4 every object's hit callback was patched - a pass over the pool every
+// second in the joining game - and the host passed over the pool twice a second: together a tenth of the module's
+// time and more.)
 // MP_SYNC_OBJECTS=0 switches this off.
 #include "common.h"
 #include "build.h"
 #include "protocol.h"
+#include "detour.h"
 #include <string.h>
 #include <unordered_map>
 #include <vector>
@@ -39,24 +45,28 @@ enum {
     OE_MATRIX = 16, OE_OWNER = 128, OE_HITFN = 136, OE_TYPE = 144, OE_BODY = 152, OE_INDEX = 168, OE_ID = 216, OE_LEVEL = 220,
     OE_CELL = 221, OE_SCENE = 228, OE_HEALTH = 232, OE_STATE = 239,
     OT_STRENGTH = 96, OT_STRENGTH_BLAST = 104, OT_HEALTH0 = 108, OT_KIND = 244, OT_DESTRUCTIBLE = 664, OT_BLAST_ONLY = 675,
-    OBJECTS = 18, PER_REC = 2, REC_SIZE = 60, CHUNK = 16384
+    OBJECTS = 18, PER_REC = 2, REC_SIZE = 60, CHUNK = 4096, PASS_MS = 2000, WATCH_MS = 3000, WATCH_EVERY_MS = 100
 };
 typedef double (*ObjHit)(void *orender, u32 index, void *hit);
 typedef void (*Bounds)(void *, void *);
 static ObjHit g_hit;
 static Bounds g_bounds;
 static char *g_orender;
-static bool g_tried, g_ok, g_enabled = true, g_applying, g_patched;
+static bool g_tried, g_ok, g_enabled = true, g_applying;
 static std::vector<u32> g_sig;                  // host: what was sent of each object (0: undamaged / nothing yet)
-static u32 g_scan_pos, g_patch_pos;
-static DWORD g_next_scan, g_next_patch, g_next_full;
+static u32 g_scan_pos;
+static DWORD g_next_scan, g_next_full, g_next_watch;
+// host: objects the hit function was called for (from any thread), and those being watched until a time
+static SRWLOCK g_hit_lock = SRWLOCK_INIT;
+static std::vector<u32> g_hit_list;
+static std::unordered_map<u32, DWORD> g_watch;
 static bool g_full;                             // host: this pass sends every damaged object (every 10 s: a building
                                                 // more than one damage level ahead goes up one level per update there)
 static std::unordered_map<u64, u32> g_index;    // joining game: (id, cell) -> index
 static u32 g_index_n;
 static DWORD g_index_at;
 static std::vector<unsigned char> g_in;         // joining game: the host's objects waiting for a step
-static u64 g_stat_sent, g_stat_rx, g_stat_collapsed, g_stat_hidden, g_stat_moved, g_stat_health, g_stat_unknown, g_stat_dropped, g_stat_stored;
+static u64 g_stat_hits, g_stat_looked, g_stat_sent, g_stat_rx, g_stat_collapsed, g_stat_hidden, g_stat_moved, g_stat_health, g_stat_unknown, g_stat_dropped, g_stat_stored;
 
 static bool pool(char **base, u32 *n)
 {
@@ -66,15 +76,25 @@ static bool pool(char **base, u32 *n)
     return *base && *n && *n < 1000000 && readable(*base, (size_t)*n * OR_ELEM);
 }
 
+// (a time that is 0 is due at once: compared as a difference, so that it holds past 24.8 days of the PC running)
+static bool due(DWORD now, DWORD at) { return !at || (int)(now - at) >= 0; }
+
 static bool ready(void) { return g_ok && session_connected() && session_versus_or_coop() && session_host_auth(); }
 static bool joining(void) { return ready() && session_role() == ROLE_JOIN; }
 
-// The joining game's own hits on the map's objects: the host's come instead.
+// The hit function, detoured: the joining game's own hits on the map's objects are dropped (the host's come
+// instead); on the host an object hit is watched for what the hit did to it.
 static double hit_hook(void *orender, u32 index, void *hit)
 {
-    if (g_applying || !joining()) return g_hit(orender, index, hit);
-    g_stat_dropped++;
-    return 0.0;
+    if (!g_applying && joining()) { g_stat_dropped++; return 0.0; }
+    double r = g_hit(orender, index, hit);
+    if (orender == g_orender && !g_applying && session_role() == ROLE_HOST && ready()) {
+        AcquireSRWLockExclusive(&g_hit_lock);
+        if (g_hit_list.size() < 65536) g_hit_list.push_back(index);
+        g_stat_hits++;
+        ReleaseSRWLockExclusive(&g_hit_lock);
+    }
+    return r;
 }
 
 static void install(ObjMan *om)
@@ -88,6 +108,9 @@ static void install(ObjMan *om)
     g_orender = (char *)o;
     g_hit = (ObjHit)(bg + OBJ_HIT_FN);
     g_bounds = (Bounds)(bg + OBJ_BOUNDS);
+    // its start, the same in the three builds: mov [rsp+8],rbx; mov [rsp+10h],rbp; mov [rsp+18h],rsi; push rdi
+    static const unsigned char hsig[] = { 0x48, 0x89, 0x5c, 0x24, 0x08, 0x48, 0x89, 0x6c, 0x24, 0x10, 0x48, 0x89, 0x74, 0x24, 0x18, 0x57 };
+    char *hitfn = build_code("basic_game.codelib", OBJ_HIT_FN, hsig, sizeof hsig);
     // the pool as this build has it: its objects carry the game's hit function and name this orender and their index
     char *base;
     u32 n, checked = 0, good = 0;
@@ -97,6 +120,9 @@ static void install(ObjMan *om)
         good += *(void **)(e + OE_HITFN) == (void *)g_hit && *(char **)(e + OE_OWNER) == g_orender && *(u32 *)(e + OE_INDEX) == i;
     }
     if (good * 10 < checked * 9) { mp_log("objects: the map's objects are not laid out as expected (%u of %u), each game works out its own", good, checked); return; }
+    ObjHit original = hitfn ? (ObjHit)install_detour(hitfn, sizeof hsig, hit_hook) : 0;
+    if (!original) { mp_log("objects: the hit function could not be hooked, each game works out its own map objects"); return; }
+    g_hit = original;
     g_ok = true;
     mp_log("objects: what happens to the map's %u objects is the host's - its damage is sent and made the same here", n);
 }
@@ -111,72 +137,78 @@ static void send_rec(ShotRec &r, u32 &k)
     k = 0;
 }
 
-// Host: a part of the pool every step, a pass twice a second.
+// Host: one object - sent if it is damaged and has changed since it was sent (every damaged one on a full pass).
+static void look_at(const char *base, u32 i, bool full, ShotRec &r, u32 &k)
+{
+    const unsigned char *o = (const unsigned char *)base + (size_t)i * OR_ELEM;
+    const char *type = *(const char *const *)(o + OE_TYPE);
+    u32 id = *(const u32 *)(o + OE_ID);
+    if (!type || !id) return;
+    g_stat_looked++;
+    unsigned char st = o[OE_STATE], lv = o[OE_LEVEL];
+    float hp = *(const float *)(o + OE_HEALTH);
+    if (!(st & 0x2c) && !lv && !(hp < *(const float *)(type + OT_HEALTH0) - 0.01f)) { g_sig[i] = 0; return; }
+    u32 sig = fnv(o + OE_STATE, 1) ^ (fnv(o + OE_LEVEL, 1) * 31) ^ (fnv(o + OE_HEALTH, 4) * 961) ^ (fnv(o + OE_MATRIX, 64) * 29791);
+    sig |= 1;
+    if (sig == g_sig[i] && !full) return;
+    g_sig[i] = sig;
+    unsigned char *e = r.launch + k * REC_SIZE;
+    e[0] = o[OE_CELL];
+    e[1] = st;
+    e[2] = lv;
+    memcpy(e + 4, &id, 4);
+    memcpy(e + 8, &hp, 4);
+    const float *m = (const float *)(o + OE_MATRIX);
+    for (int row = 0; row < 4; row++) memcpy(e + 12 + 12 * row, m + 4 * row, 12);
+    g_stat_sent++;
+    if (++k == PER_REC) send_rec(r, k);
+}
+
+// Host: the objects the hit function was called for since the last step are watched for a while.
+static void take_hits(DWORD now, u32 n)
+{
+    std::vector<u32> hits;
+    AcquireSRWLockExclusive(&g_hit_lock);
+    hits.swap(g_hit_list);
+    ReleaseSRWLockExclusive(&g_hit_lock);
+    for (u32 i : hits) if (i < n) g_watch[i] = now + WATCH_MS;
+}
+
+// Host: the objects hit lately every 100 ms, and a part of the pool every step - a pass every 2 s.
 static void host_scan(DWORD now)
 {
     char *base;
     u32 n;
-    if (!g_scan_pos && now < g_next_scan) return;
     if (!pool(&base, &n)) return;
-    if (!g_scan_pos) {
-        g_next_scan = now + 500;
-        g_full = now >= g_next_full;
-        if (g_full) g_next_full = now + 10000;
-    }
-    if (g_sig.size() != n) { g_sig.assign(n, 0); g_scan_pos = 0; }
-    u32 end = g_scan_pos + CHUNK < n ? g_scan_pos + CHUNK : n;
+    if (g_sig.size() != n) { g_sig.assign(n, 0); g_scan_pos = 0; g_watch.clear(); }
     ShotRec r = {};
     u32 k = 0;
-    __try {
-        for (u32 i = g_scan_pos; i < end; i++) {
-            const unsigned char *o = (const unsigned char *)base + (size_t)i * OR_ELEM;
-            const char *type = *(const char *const *)(o + OE_TYPE);
-            u32 id = *(const u32 *)(o + OE_ID);
-            if (!type || !id) continue;
-            unsigned char st = o[OE_STATE], lv = o[OE_LEVEL];
-            float hp = *(const float *)(o + OE_HEALTH);
-            if (!(st & 0x2c) && !lv && !(hp < *(const float *)(type + OT_HEALTH0) - 0.01f)) { g_sig[i] = 0; continue; }
-            u32 sig = fnv(o + OE_STATE, 1) ^ (fnv(o + OE_LEVEL, 1) * 31) ^ (fnv(o + OE_HEALTH, 4) * 961) ^ (fnv(o + OE_MATRIX, 64) * 29791);
-            sig |= 1;
-            if (sig == g_sig[i] && !g_full) continue;
-            g_sig[i] = sig;
-            unsigned char *e = r.launch + k * REC_SIZE;
-            e[0] = o[OE_CELL];
-            e[1] = st;
-            e[2] = lv;
-            memcpy(e + 4, &id, 4);
-            memcpy(e + 8, &hp, 4);
-            const float *m = (const float *)(o + OE_MATRIX);
-            for (int row = 0; row < 4; row++) memcpy(e + 12 + 12 * row, m + 4 * row, 12);
-            g_stat_sent++;
-            if (++k == PER_REC) send_rec(r, k);
+    take_hits(now, n);
+    if (!g_watch.empty() && due(now, g_next_watch)) {
+        g_next_watch = now + WATCH_EVERY_MS;
+        __try {
+            for (auto it = g_watch.begin(); it != g_watch.end();) {
+                look_at(base, it->first, false, r, k);
+                if (due(now, it->second)) it = g_watch.erase(it);
+                else ++it;
+            }
+        } __except (EXCEPTION_EXECUTE_HANDLER) {
+            g_watch.clear();
         }
+    }
+    if (!g_scan_pos && !due(now, g_next_scan)) { send_rec(r, k); return; }
+    if (!g_scan_pos) {
+        g_next_scan = now + PASS_MS;
+        g_full = due(now, g_next_full);
+        if (g_full) g_next_full = now + 10000;
+    }
+    u32 end = g_scan_pos + CHUNK < n ? g_scan_pos + CHUNK : n;
+    __try {
+        for (u32 i = g_scan_pos; i < end; i++) look_at(base, i, g_full, r, k);
     } __except (EXCEPTION_EXECUTE_HANDLER) {
     }
     send_rec(r, k);
     g_scan_pos = end < n ? end : 0;
-}
-
-// Joining game: every object gets this module's hit callback (a part every step, a pass every second - a ruin
-// takes its building's place with the game's callback).
-static void patch_step(DWORD now, bool on)
-{
-    char *base;
-    u32 n;
-    if (!pool(&base, &n)) return;
-    if (on && !g_patch_pos && now < g_next_patch) return;
-    if (!g_patch_pos) g_next_patch = now + 1000;
-    u32 from = on ? g_patch_pos % n : 0, to = on ? (from + CHUNK < n ? from + CHUNK : n) : n;
-    __try {
-        for (u32 i = from; i < to; i++) {
-            void **cb = (void **)(base + (size_t)i * OR_ELEM + OE_HITFN);
-            if (on && *cb == (void *)g_hit) *cb = (void *)hit_hook;
-            else if (!on && *cb == (void *)hit_hook) *cb = (void *)g_hit;
-        }
-    } __except (EXCEPTION_EXECUTE_HANDLER) {
-    }
-    g_patch_pos = on && to < n ? to : 0;
-    g_patched = on;
 }
 
 static bool lookup(unsigned char cell, u32 id, u32 *index)
@@ -306,8 +338,6 @@ void mapobj_sim_step(ObjMan *om)
     DWORD now = GetTickCount();
     bool on = ready() && session_simulating();
     if (session_role() == ROLE_JOIN) {
-        if (on) patch_step(now, true);
-        else if (g_patched) patch_step(now, false);         // (the game's own callbacks back)
         if (on && !g_in.empty()) {
             std::vector<unsigned char> in;
             in.swap(g_in);
@@ -327,10 +357,13 @@ void mapobj_received(const ShotRec &r)
 }
 
 // A new connection: every damaged object once more.
-void mapobj_reset(void) { std::fill(g_sig.begin(), g_sig.end(), 0u); g_scan_pos = 0; g_next_scan = g_next_full = 0; }
+void mapobj_reset(void) { std::fill(g_sig.begin(), g_sig.end(), 0u); g_scan_pos = 0; g_next_scan = g_next_full = 0; g_watch.clear(); }
 
 void mapobj_report(void)
 {
+    if (g_stat_hits || g_stat_looked)
+        mp_log("objects: 5 s: the hit function called %llu times for this game's objects, %zu objects watched, %llu looked at", g_stat_hits, g_watch.size(), g_stat_looked);
+    g_stat_hits = g_stat_looked = 0;
     if (g_stat_sent || g_stat_rx || g_stat_dropped)
         mp_log("objects: 5 s: %llu sent; here %llu taken from the host (%llu collapsed, %llu hidden, %llu moved, %llu damaged, %llu not "
                "found, %llu stored hits dropped), %llu hits of this game's own left to the host", g_stat_sent, g_stat_rx, g_stat_collapsed,

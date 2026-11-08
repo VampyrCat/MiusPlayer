@@ -16,6 +16,7 @@
 #include "image.h"
 #include "opsave.h"
 #include "force.h"
+#include "netsim.h"
 
 // A host reached through Steam ("steam:<id>" in place of an address) instead of over UDP. The game's menu
 // puts its Steam functions here; the command-line launcher has none and cannot join that way.
@@ -23,6 +24,24 @@ typedef bool (*JoinerSteamSend)(unsigned long long to, const void *data, int siz
 typedef int (*JoinerSteamRecv)(unsigned long long *from, void *buf, int room);
 inline JoinerSteamSend &joiner_steam_send() { static JoinerSteamSend f; return f; }
 inline JoinerSteamRecv &joiner_steam_recv() { static JoinerSteamRecv f; return f; }
+
+// This player's number (Hello.player): made once and kept in the environment, so every program the game starts (the
+// menu started again, the battle, the operational map) says it too.
+inline unsigned joiner_player_id(void)
+{
+    static unsigned id;
+    if (id) return id;
+    char v[16];
+    if (GetEnvironmentVariableA("MP_PLAYER_ID", v, sizeof v)) id = strtoul(v, 0, 16);
+    if (!id) {
+        LARGE_INTEGER t;
+        QueryPerformanceCounter(&t);
+        id = ((unsigned)t.QuadPart ^ (unsigned)(t.QuadPart >> 32) ^ (GetCurrentProcessId() * 2654435761u)) | 1;
+        sprintf_s(v, "%08x", id);
+        SetEnvironmentVariableA("MP_PLAYER_ID", v);
+    }
+    return id;
+}
 
 struct Joiner {
     enum State { IDLE, CONNECTING, WAITING_FOR_BATTLE, RECEIVING, DONE, FAILED };
@@ -52,6 +71,7 @@ struct Joiner {
     int game_build = -1;               // this game's build (BUILD_* of build.h / buildid.h); the host's must be the same
     SOCKET sock = INVALID_SOCKET;
     sockaddr_in host = {};
+    NetSim sim;                        // (tests: a poor connection, see netsim.h)
     std::vector<unsigned char> image, have;
     std::vector<DWORD> asked;
     unsigned image_hash = 0, got = 0;
@@ -81,8 +101,20 @@ struct Joiner {
         sock = INVALID_SOCKET;
     }
 
+    // Goodbye to the host: this game is done with it (the battle or map downloaded, or the player left) - the host
+    // frees its place at once instead of after 8 s of silence (a game that came back in the meantime was told the
+    // host had all its players).
+    void bye()
+    {
+        if (state != CONNECTING && state != WAITING_FOR_BATTLE && state != RECEIVING) return;
+        if (!steam && sock == INVALID_SOCKET) return;
+        Head h = make_head(PKT_BYE);
+        xmit(&h, sizeof h);
+    }
+
     void cancel()
     {
+        bye();
         close();
         state = IDLE;
     }
@@ -90,12 +122,14 @@ struct Joiner {
     bool start(const char *addr)
     {
         cancel();
+        sim.init();
+        sim.clear();
         error[0] = 0;
         strcpy_s(address, addr);
         steam = !_strnicmp(addr, "steam:", 6);
         steam_id = steam ? _strtoui64(addr + 6, 0, 10) : 0;
         if (steam && (!steam_id || !joiner_steam_send() || !joiner_steam_recv()))
-            return fail("Joining through Steam is done from the game's menu, with Steam running.");
+            return fail("Join through Steam from the game's menu, with Steam running.");
         char name[128];
         strcpy_s(name, steam ? "127.0.0.1" : addr);        // (through Steam there is no address; the socket stays unused)
         unsigned short port = k_default_port;
@@ -139,6 +173,21 @@ struct Joiner {
     float progress() const { return have.empty() ? 0 : (float)got / have.size(); }
     unsigned waited_seconds() const { return (GetTickCount() - started) / 1000; }
 
+    // (tests) everything waiting goes into the simulated poor connection, poll() takes it from there when due
+    void pump()
+    {
+        unsigned char buf[2048];
+        for (int guard = 0; guard < 4096; guard++) {
+            sockaddr_in from = {};
+            unsigned long long who = 0;
+            int n;
+            if (steam) n = joiner_steam_recv()(&who, buf, sizeof buf);
+            else { int flen = sizeof from; n = recvfrom(sock, (char *)buf, sizeof buf, 0, (sockaddr *)&from, &flen); }
+            if (n <= 0) break;
+            sim.put(from, who, buf, n);
+        }
+    }
+
     void poll()
     {
         if (state != CONNECTING && state != WAITING_FOR_BATTLE && state != RECEIVING) return;
@@ -157,6 +206,7 @@ struct Joiner {
             hello.force_size = (unsigned)force.size();
             hello.force_hash = force_hash;
             hello.force_cost = force_cost;
+            hello.player = joiner_player_id();
             xmit(&hello, sizeof hello);
             last_hello = now;
         }
@@ -171,12 +221,18 @@ struct Joiner {
                 sent++;
             }
         }
+        if (sim.on) pump();
         for (int guard = 0; guard < 256; guard++) {
             unsigned char buf[2048];
             sockaddr_in from;
             int flen = sizeof from;
             int n;
-            if (steam) {
+            if (sim.on) {
+                unsigned long long who = 0;
+                n = sim.get(&from, &who, buf, sizeof buf);
+                if (n <= 0) break;
+                if (steam ? who != steam_id : from.sin_addr.s_addr != host.sin_addr.s_addr) continue;
+            } else if (steam) {
                 unsigned long long who = 0;
                 n = joiner_steam_recv()(&who, buf, sizeof buf);
                 if (n <= 0) break;
@@ -191,10 +247,11 @@ struct Joiner {
             if (h->magic != k_magic) continue;
             if (h->type == PKT_WELCOME && n >= 24 && state != RECEIVING) {
                 const Welcome *w = (const Welcome *)buf;
-                if (w->version != k_version || n < (int)sizeof(Welcome)) { fail("The host runs a different version of the multiplayer files."); return; }
+                if (w->version != k_version || n < (int)sizeof(Welcome)) { fail("The host has another version of the mod - both need the same."); return; }
+                if (w->map_flags & 16) { fail("The host's game has all its players. (Just left it? Try again in 10 seconds.)"); return; }
                 if (w->game_build != game_build) {
                     char why[160];
-                    _snprintf_s(why, _TRUNCATE, "The host has the %s, you the %s. Both need the same (Steam: Properties, Betas).",
+                    _snprintf_s(why, _TRUNCATE, "The host has the %s, you the %s - both need the same (Steam: Properties, Betas).",
                                 buildid_name(w->game_build), buildid_name(game_build));
                     fail(why);
                     return;
@@ -274,6 +331,7 @@ struct Joiner {
                 got = 0;
             } else {
                 if (want_extras) { extras.swap(image); image.swap(battle_image); want_extras = false; }
+                bye();
                 close();
                 state = DONE;
             }
@@ -345,7 +403,7 @@ struct Joiner {
         CreateDirectoryA(keep, 0);
         sprintf_s(keep, "%s\\users\\mp_saves\\_replaced\\%s", root, map_file);
         if (GetFileAttributesA(keep) == INVALID_FILE_ATTRIBUTES) CopyFileA(path, keep, TRUE);
-        if (fopen_s(&f, path, "wb") || !f) return fail("Could not save the operation to the profile folder.");
+        if (fopen_s(&f, path, "wb") || !f) return fail("Could not save the operation.");
         fwrite(image.data(), 1, image.size(), f);
         fclose(f);
         SetEnvironmentVariableA("MP_ROLE", "join");
@@ -466,9 +524,9 @@ struct Joiner {
             }
         }
         // commanding the host's opponent: same battle, with the command of the two forces exchanged
-        if (versus && !image::mirror(image)) return fail("The host's battle could not be prepared for the other side.");
+        if (versus && !image::mirror(image)) return fail("The battle could not be prepared for your side.");
         sprintf_s(path, "%s\\%s", root, k_image_path);
-        if (fopen_s(&f, path, "wb") || !f) return fail("Could not save the battle to the game folder.");
+        if (fopen_s(&f, path, "wb") || !f) return fail("Could not save the battle.");
         fwrite(image.data(), 1, image.size(), f);
         fclose(f);
         SetEnvironmentVariableA("MP_ROLE", "join");

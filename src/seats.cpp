@@ -37,6 +37,12 @@ typedef void (*BoardFn)(Object *soldier, Object *vehicle, u32 station);
 typedef void (*UnseatFn)(Object *vehicle, Object *soldier, u32 station);
 }
 static std::unordered_map<u64, Seat> g_sent, g_wanted;
+// A soldier this game has tried to seat as the other game has him: at most once a second, three times for the same
+// seat. The engine can take a boarding into the vehicle's seats without the soldier's own field showing it yet; tried
+// again every step, a game that joined a running battle (its men still on foot) hung after a few tries - the same
+// men put into the vehicle's seats again and again.
+struct Attempt { Seat seat; DWORD at; int n; };
+static std::unordered_map<u64, Attempt> g_attempts;
 static DWORD g_last_scan, g_last_check;
 static char *g_physic;
 static bool g_enabled = true, g_checked, g_ok;
@@ -260,6 +266,13 @@ void seats_sim_step(ObjMan *om, bool apply)
         Seat now_seat = { 0, -1 };
         bool known = seat_of(o, &now_seat);
         if (!all_now && known && !(now_seat != w.second)) continue;
+        if (known && !(now_seat != w.second)) { g_attempts.erase(w.first); continue; }
+        Attempt &a = g_attempts[w.first];
+        if (a.n && a.seat != w.second) a.n = 0;
+        if (a.n >= 3 || (a.n && now - a.at < 1000)) continue;
+        a.seat = w.second;
+        a.at = now;
+        a.n++;
         int r = seat_to(o, w.second);
         if (r < 0) g_stat_failed++;
         static int logged;
@@ -287,7 +300,7 @@ void seats_received(const ShotRec &r)
 }
 
 // A new connection: every seat is sent again; what the other game asked for stays until it says otherwise.
-void seats_reset(void) { g_sent.clear(); }
+void seats_reset(void) { g_sent.clear(); g_attempts.clear(); }
 
 void seats_report(void)
 {

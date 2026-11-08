@@ -15,7 +15,10 @@ static const unsigned k_magic = 0x504d5447;          // "GTMP"
 // 25: the map's objects (ShotRec kind 18; the joining game makes no object damage of its own)
 // 26: the host's spotting for the other player's side (PKT_SIGHT)
 // 27: tracks breaking (ShotRec kind 19) and their repair are the host's
-static const unsigned k_version = 27;
+// 28: unit states carry the sender's epoch (ObjectFrag / ObjectAck): the receiver keeps a few versions and never
+//     goes back to an older one (a slow line's states overlap), the sender's rate follows the line (statesync.cpp);
+//     Hello.session: a battle's lost connection is taken back by the host when the same game returns; Hello.player
+static const unsigned k_version = 28;
 static const char k_protocol[12] = "GTMF_TA_A1";     // the engine's own protocol id for this game
 static const unsigned k_chunk = 1000;
 static const unsigned short k_default_port = 1943;   // the port the engine's own network settings name
@@ -40,6 +43,10 @@ struct Hello {
     unsigned map_size, map_hash, turn_done, map_epoch;
     unsigned force_size, force_hash, force_cost;        // force_cost: what the Skirmish screen priced it at
     int game_build;                                     // build.h: the game build this player has (BUILD_*)
+    unsigned session;                                   // the joining game's battle program (random, 0 before the battle): the same
+                                                        // number after a lost connection is the same game coming back
+    unsigned player;                                    // the joining player: the same in every program his game starts (MP_PLAYER_ID) -
+                                                        // a Hello with the first player's number is his own next program
 };
 // battle description = the file the operational phase hands to the tactical phase (units, map, sides, seed).
 // in_battle 0: the host is still in its menus or on the operational map; the joining game waits.
@@ -56,7 +63,8 @@ struct Welcome {
     // bit 0: both players have ended the turn - the joining game sends its map now; bit 1: the host has
     // pressed "next turn"; bit 2: skirmish lobby - the host is ready; bit 3: the map is shared to look at only
     // (battles are being fought, or the turn is past its orders): the joining player sees it, gives no orders,
-    // and enters each battle from it; bits 8 and up: a number that changes whenever the operation moves on (a
+    // and enters each battle from it; bit 4: the host's game has all the players it takes - this one is turned away
+    // (another one is playing); bits 8 and up: a number that changes whenever the operation moves on (a
     // turn ended, a battle was fought) - a joining game whose copy of the map carries another number takes the new map
     unsigned map_flags;
     // A battle that belongs to an operation: battle_of = "campaign:operation, 0, turn" as on the host's battle's
@@ -95,9 +103,11 @@ struct StateHead {
     float want_speed; unsigned char want_pause, pad2[3];
 };
 struct UnitRec { unsigned id; unsigned char kind, pad[3]; float pos[3], rot[9], lin[3], ang[3]; };
-// One datagram of an object's saved state: a run-length coded XOR against the version the receiver holds.
-struct ObjectFrag { Head h; unsigned long long key; unsigned version, base_version, raw_size, delta_size; unsigned short frag, nfrags; };
-struct ObjectAck { Head h; unsigned long long key; unsigned version; };
+// One datagram of an object's saved state: a run-length coded XOR against a version the receiver holds
+// (base_version, 0: against nothing). epoch: changes when the sender starts its versions again; the receiver
+// answers with the version it holds now, 0: none (the sender starts that object again from nothing).
+struct ObjectFrag { Head h; unsigned long long key; unsigned version, base_version, raw_size, delta_size; unsigned short frag, nfrags; unsigned epoch; };
+struct ObjectAck { Head h; unsigned long long key; unsigned version, epoch; };
 // Shell launches by units the sending game owns (shots.cpp). They are events, not state: each one has to
 // arrive, once, and in the order it happened. A PKT_SHOT datagram is a ShotHead and h.count ShotRecs with
 // consecutive sequence numbers; the receiver takes the next one it is waiting for and answers every datagram

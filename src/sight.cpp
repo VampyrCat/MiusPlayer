@@ -77,6 +77,9 @@ static bool g_tried, g_ok, g_enabled = true;
 // host: the list last built for the other player's side, its number, when it went out
 static std::vector<SightEntry> g_list;
 static unsigned g_seq, g_list_side;
+// more players (session.cpp): extra players on the side opposite the other player's get that side's list
+static std::vector<SightEntry> g_list2;
+static unsigned g_list2_side;
 static DWORD g_sent_at;
 static float g_timer_seen;
 // joining game: the host's list by unit number, put in at every tick
@@ -167,11 +170,11 @@ static void build_list(u32 side, std::vector<SightEntry> &out)
 }
 
 // The side the other player plays, from this game's records: the enemy's in a versus battle, else this player's own.
-static u32 other_players_side(void)
+static u32 other_players_side(bool opposite = false)
 {
     u32 rn;
     char *r0 = recs(&rn);
-    int flag = session_versus() ? VR_ENEMY : VR_OWN;
+    int flag = session_versus() != opposite ? VR_ENEMY : VR_OWN;
     for (u32 i = 0; r0 && i < rn && i < 8192; i++)
         if (r0[(size_t)i * VR_SIZE + flag]) return *(u32 *)(r0 + (size_t)i * VR_SIZE + VR_SIDE);
     return 0;
@@ -289,7 +292,7 @@ static void install(ObjMan *om)
     mp_log("sight: what each player sees of the enemy is the host's spotting - its list for the other player's side is sent and put in here");
 }
 
-static void send_list(void (*send)(const void *, int))
+static void send_list(void (*send)(const void *, int), const std::vector<SightEntry> &g_list, unsigned g_list_side)
 {
     unsigned parts = (unsigned)((g_list.size() + PER_PACKET - 1) / PER_PACKET);
     if (!parts) parts = 1;
@@ -311,8 +314,8 @@ static void send_list(void (*send)(const void *, int))
 }
 
 // Every frame: install; the host builds the other player's side's list after its i_visman rebuilt its own, and sends
-// it (and again every second).
-void sight_frame(ObjMan *om, void (*send)(const void *, int))
+// it (and again every second). send_opposite (more players): the extra players on the other side, who get theirs.
+void sight_frame(ObjMan *om, void (*send)(const void *, int), void (*send_opposite)(const void *, int))
 {
     if (!g_tried && g_enabled && session_role() != ROLE_NONE && !strcmp(g_program, "tacgame")) install(om);
     if (!ready()) return;
@@ -338,11 +341,22 @@ void sight_frame(ObjMan *om, void (*send)(const void *, int))
                 std::sort(keys.begin(), keys.end());
                 mp_log("sight: list %u - %zu enemies, hash %08x", g_seq, keys.size(), keys.empty() ? 0 : fnv((const unsigned char *)keys.data(), keys.size() * 8));
             }
-            send_list(send);
+            send_list(send, g_list, g_list_side);
+            u32 side2 = send_opposite ? other_players_side(true) : 0;
+            if (side2) {
+                std::vector<SightEntry> list2;
+                build_list(side2, list2);
+                g_list2.swap(list2);
+                g_list2_side = side2;
+                send_list(send_opposite, g_list2, g_list2_side);
+            }
             return;
         }
     }
-    if (g_seq && GetTickCount() - g_sent_at >= 1000) send_list(send);
+    if (g_seq && GetTickCount() - g_sent_at >= 1000) {
+        send_list(send, g_list, g_list_side);
+        if (send_opposite && g_list2_side) send_list(send_opposite, g_list2, g_list2_side);
+    }
 }
 
 void sight_on_packet(const unsigned char *data, int size)

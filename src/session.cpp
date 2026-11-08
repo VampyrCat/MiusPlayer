@@ -21,6 +21,7 @@
 #include "detour.h"
 #include "opsave.h"
 #include "joiner.h"
+#include "netsim.h"
 #include <winsock2.h>
 #include <ws2tcpip.h>
 #include <natupnp.h>
@@ -188,6 +189,52 @@ static void report_jumps(void)
 static u32 g_phase, g_host_phase;          // battle phase here / on the host
 static DWORD g_last_phase_step;
 static DWORD g_host_lost;                  // joining game: when the host went away (0 = it has not)
+// A connection lost in a battle (nothing heard for 8 s - not a game that closed) is waited for: up to
+// MP_RESUME_WAIT seconds (90; 0: not waited for, the joining game leaves as before). Meanwhile the joining
+// game stands paused and the host's game pauses once (its player may go on with the pause key); when the same
+// player is heard again the battle goes on where the host has it - the ordered channel keeps what was not
+// delivered, unit states go on from what the joining game holds, its clock catches up with the host's.
+static DWORD g_lost_at;                    // when this game stopped hearing the other one in a battle (0: it has not)
+static bool g_pause_for_lost;              // host: pause the battle at the next clock step (once)
+static DWORD g_netcut_until;               // tests ("netcut <s>"): everything received until then is thrown away
+static u32 g_session_id;                   // joining game: this battle program's number (Hello.session)
+static u32 g_peer_session;                 // host: the number of the game that joined (0: none / not in a battle)
+static u32 g_peer_player;                  // host: the first player's number (Hello.player)
+// More than two players (host, MP_MAX_PLAYERS: 2 - the default - to 5). Besides the first joining player - the
+// lobby, the battle's clock, the ceasefire and the operation are his and the host's - up to three more may join a
+// skirmish or custom mission once its battle phase has begun: each picks a side (Hello.prefer_side: the host's
+// or the other) and commands that side's units, together with whoever else commands them. The host's game decides
+// everything, as for the first player. An extra player gets what the first one gets - unit transforms, animation,
+// guns, vehicle damage and the battle clock (send_all); the ordered records (shots.cpp) and unit states
+// (statesync.cpp) on a channel of his own (1-3); the host's spotting for his side (send_side, send_opposite)
+// - and his orders are carried out by the host as the first player's are. Nothing else his game
+// says is taken: it decides nothing.
+struct Extra { bool on, versus; sockaddr_in addr; char name[24]; u32 session; DWORD last_rx, since; };
+enum { MAX_EXTRA = 3 };
+static Extra g_extra[MAX_EXTRA + 1];       // [1..3]: the channel
+static int g_order_sender;                 // the orders being carried out came from this channel (0: the first player)
+static int max_players(void)
+{
+    static int m = -1;
+    static DWORD read_at;
+    DWORD now = GetTickCount();
+    if (m < 0 || now - read_at > 2000) {        // (the lobby's PLAYERS button changes it)
+        char v[8];
+        m = GetEnvironmentVariableA("MP_MAX_PLAYERS", v, sizeof v) ? atoi(v) : 2;
+        m = m < 2 ? 2 : m > 2 + MAX_EXTRA ? 2 + MAX_EXTRA : m;
+        read_at = now;
+    }
+    return m;
+}
+static int extras_on(void) { int n = 0; for (int c = 1; c <= MAX_EXTRA; c++) n += g_extra[c].on; return n; }
+void session_set_order_sender(int ch) { g_order_sender = ch >= 1 && ch <= MAX_EXTRA && g_extra[ch].on ? ch : 0; }
+int session_order_sender(void) { return g_order_sender; }
+static unsigned resume_wait_ms(void)
+{
+    static int w = -1;
+    if (w < 0) { char v[16]; w = GetEnvironmentVariableA("MP_RESUME_WAIT", v, sizeof v) ? max(atoi(v), 0) : 90; }
+    return (unsigned)w * 1000u;
+}
 // Both players have to press Start to leave deployment, and again to leave the initial orders.
 static u32 g_my_ready, g_peer_ready;       // the phase each player has asked to move on to (1 or 2)
 typedef u64 (*StartAction)(Object *, u64, u64, u64);
@@ -226,6 +273,24 @@ unsigned short session_port(void) { return g_port; }
 // load measurement for the 5 s report
 static u32 g_prof_frames, g_prof_steps, g_prof_step_ms;
 static double g_prof_save, g_prof_load;
+double g_prof_part[PROF_N];
+static const char *const k_prof_names[PROF_N] = { "receiving", "saving states", "loading states", "shots", "hits", "trenches",
+    "animation", "vehicle damage", "seats", "ground", "map objects", "following units", "guns", "sending transforms", "spotting",
+    "unit lists", "menu and banners" };
+// one line: the parts that took a millisecond or more in the 5 s, the largest first
+static void report_prof(void)
+{
+    int order[PROF_N], n = 0;
+    double all = 0;
+    for (int i = 0; i < PROF_N; i++) { all += g_prof_part[i]; if (g_prof_part[i] >= 1) order[n++] = i; }
+    std::sort(order, order + n, [](int a, int b) { return g_prof_part[a] > g_prof_part[b]; });
+    char line[700];
+    int at = sprintf_s(line, "load: 5 s: the module took %.0f ms (%.1f %% of the time)", all, all / 50.0);
+    for (int i = 0; i < n && at < (int)sizeof line - 60; i++)
+        at += sprintf_s(line + at, sizeof line - at, "%s %s %.0f ms", i ? "," : ":", k_prof_names[order[i]], g_prof_part[order[i]]);
+    mp_log("%s", line);
+    for (double &v : g_prof_part) v = 0;
+}
 static double seconds_now(void)
 {
     static LARGE_INTEGER f;
@@ -298,17 +363,16 @@ const char *session_status(void)
         const char *host = g_peer_name[0] ? g_peer_name : "the host";
         char what[200];
         if (!g_connected) sprintf_s(what, "connecting to %s", host);
-        else if (g_map_battle_at) sprintf_s(what, "%s has started the battle - entering it", host);
-        else if (g_map_view && !g_map_in.empty()) sprintf_s(what, "%s's newest map is arriving", host);
-        else if (g_map_view)
-            sprintf_s(what, "the map to look at - %s starts the turn's battles and you go into each from here; you give orders again once they are over", host);
+        else if (g_map_battle_at) sprintf_s(what, "%s started a battle - entering it", host);
+        else if (g_map_view && !g_map_in.empty()) sprintf_s(what, "the map is updating");
+        else if (g_map_view) sprintf_s(what, "view only while the battles are fought");
         else if (g_map_sent && !g_map_in.empty()) sprintf_s(what, "the new turn is arriving");
-        else if (g_map_sent) sprintf_s(what, "the turn is being carried out - the map reloads with the result (orders given now do not count)");
-        else if (g_map_given) sprintf_s(what, "both players have ended the turn - sending your moves");
-        else if (g_turn_done) sprintf_s(what, "you have ended the turn - waiting for %s  (next turn again: go on giving orders)", host);
-        else if (g_peer_turn_done) sprintf_s(what, "%s has ended his turn - press next turn when your orders are given", host);
-        else sprintf_s(what, "move your own forces; the turn ends when both players have pressed next turn");
-        sprintf_s(g_status, "MULTIPLAYER  -  %s on the operational map  -  %s", g_my_name, what);
+        else if (g_map_sent) sprintf_s(what, "the turn is being carried out");
+        else if (g_map_given) sprintf_s(what, "sending your moves");
+        else if (g_turn_done) sprintf_s(what, "turn ended - waiting for %s  (next turn again: undo)", host);
+        else if (g_peer_turn_done) sprintf_s(what, "%s has ended his turn", host);
+        else sprintf_s(what, "give your orders, then press next turn");
+        sprintf_s(g_status, "MULTIPLAYER  -  %s", what);
         return g_status;
     }
     if (g_role == ROLE_NONE || (g_role == ROLE_JOIN && !g_tactical)) return g_status;
@@ -326,6 +390,10 @@ const char *session_status(void)
     } else {
         sprintf_s(who, "%s (%s)", g_my_name, image::side_name(g_user_side));
     }
+    if (g_role == ROLE_HOST && extras_on()) {       // (more players)
+        size_t l = strlen(who);
+        sprintf_s(who + l, sizeof who - l, "  +%d player%s", extras_on(), extras_on() > 1 ? "s" : "");
+    }
 
     const char *what = g_phase == 0 ? "deployment" : "the initial orders";
     bool mine = g_my_ready > g_phase, theirs = g_peer_ready > g_phase;
@@ -333,8 +401,11 @@ const char *session_status(void)
         sprintf_s(state, "UDP port %u is busy, retrying", g_port);
     else if (g_role == ROLE_JOIN && g_host_lost && !endgame_over())
         sprintf_s(state, "%s has left, returning to the menu", peer);
+    else if (!g_connected && g_lost_at && session_resumable())
+        sprintf_s(state, "connection to %s lost - waiting for it (%u s)%s", peer, (resume_wait_ms() - (GetTickCount() - g_lost_at) + 999) / 1000,
+                  g_role == ROLE_HOST ? "  (pause key: go on)" : "");
     else if (!g_connected && g_role == ROLE_HOST && !g_tactical && g_host_mode == HOST_MODE_SKIRMISH && g_host_start_ready)
-        sprintf_s(state, "you are ready - waiting for a player at %s:%u; the battle starts when he has joined and is ready", g_local_ip, g_port);
+        sprintf_s(state, "ready - waiting for a player at %s:%u", g_local_ip, g_port);
     else if (!g_connected && g_role == ROLE_HOST)
         sprintf_s(state, "waiting for a player at %s:%u", g_local_ip, g_port);
     else if (!g_connected)
@@ -342,30 +413,30 @@ const char *session_status(void)
     else if (!g_tactical && (g_map_collect || g_map_restart_at || g_end_turn_pending))
         sprintf_s(state, "ending the turn with %s's moves", peer);
     else if (!g_tactical && g_map_given && g_map_view_shared)
-        sprintf_s(state, "%s sees the map while the turn's battles are fought - he goes into each battle you start", peer);
+        sprintf_s(state, "%s watches the map during the battles", peer);
     else if (!g_tactical && g_map_given && g_peer_on_map && g_turn_done)
-        sprintf_s(state, "you have ended the turn - waiting for %s to finish his orders  (next turn again: take it back)", peer);
+        sprintf_s(state, "turn ended - waiting for %s  (next turn again: undo)", peer);
     else if (!g_tactical && g_map_given && g_peer_on_map && g_peer_turn_done)
-        sprintf_s(state, "%s has finished his orders - press next turn when yours are given", peer);
+        sprintf_s(state, "%s has ended his turn", peer);
     else if (!g_tactical && g_map_given && g_peer_on_map)
-        sprintf_s(state, "%s is moving his forces on his own map - the turn ends when both have pressed next turn", peer);
+        sprintf_s(state, "%s is giving orders", peer);
     else if (!g_tactical && g_map_given)
-        sprintf_s(state, "%s is getting his copy of the map", peer);
+        sprintf_s(state, "%s is receiving the map", peer);
     else if (!g_tactical && g_map_note[0])
         sprintf_s(state, "%s", g_map_note);
     else if (!g_tactical && g_host_mode == HOST_MODE_SKIRMISH && g_host_start_ready)
-        sprintf_s(state, "you are ready - the battle starts when %s is ready%s  (start again: not ready; F9: lobby)", peer,
-                  g_peer_lobby_ready && peer_force_arriving() ? " (his own force is arriving)" : g_peer_lobby_ready ? "" : " - he is not yet");
+        sprintf_s(state, "ready - %s%s  (F9: lobby)", peer,
+                  g_peer_lobby_ready && peer_force_arriving() ? "'s force is arriving" : g_peer_lobby_ready ? " is ready" : " is not ready yet");
     else if (!g_tactical && g_host_mode == HOST_MODE_SKIRMISH)
-        sprintf_s(state, "%s has joined and is %s - press start on the Skirmish screen when you are ready  (F9: lobby)", peer, g_peer_lobby_ready ? "ready" : "not ready yet");
+        sprintf_s(state, "%s is %s - press start when ready  (F9: lobby)", peer, g_peer_lobby_ready ? "ready" : "not ready");
     else if (!g_tactical)
-        sprintf_s(state, "%s has joined and is %s  (F9: lobby)", peer, g_peer_lobby_ready ? "ready" : "not ready yet");
+        sprintf_s(state, "%s is %s  (F9: lobby)", peer, g_peer_lobby_ready ? "ready" : "not ready");
     else if (g_phase < 2 && g_start_action && mine && !theirs)
         sprintf_s(state, "waiting for %s to finish %s", peer, what);
     else if (g_phase < 2 && g_start_action && theirs && !mine)
-        sprintf_s(state, "%s has finished %s, press Start when ready", peer, what);
+        sprintf_s(state, "%s has finished %s - press Start", peer, what);
     else if (g_phase < 2 && g_start_action && !mine)
-        sprintf_s(state, "%s ends when both players press Start", g_phase == 0 ? "deployment" : "initial orders");
+        sprintf_s(state, "%s - press Start when done", g_phase == 0 ? "deployment" : "initial orders");
     else if (g_phase < 2)
         sprintf_s(state, "connected, starting");
     else if (g_phase == 2 && g_waiting_since && GetTickCount() - g_waiting_since > 1500)
@@ -380,33 +451,63 @@ const char *session_status(void)
     } else if (g_phase == 2 && (endgame_truce() & 3) == 3)
         sprintf_s(state, "ceasefire agreed - the battle ends in %d s", endgame_countdown() > 0 ? (int)endgame_countdown() + 1 : 0);
     else if (g_phase == 2 && (endgame_truce() & 2))
-        sprintf_s(state, "%s proposes a ceasefire  (ESC menu: CEASEFIRE to accept)", peer);
+        sprintf_s(state, "%s proposes a ceasefire  (ESC menu to accept)", peer);
     else if (g_phase == 2 && (endgame_truce() & 1))
-        sprintf_s(state, "you have proposed a ceasefire - waiting for %s", peer);
+        sprintf_s(state, "ceasefire proposed - waiting for %s", peer);
     else if (g_phase == 2 && g_connected && g_my_pause && g_peer_pause)
-        sprintf_s(state, "paused by both players - it goes on when either of you un-pauses");
+        sprintf_s(state, "paused");
     else if (g_phase == 2 && g_connected && g_my_pause)
-        sprintf_s(state, "you have asked for a pause - it starts when %s pauses too", peer);
+        sprintf_s(state, "pause asked - waiting for %s to pause too", peer);
     else if (g_phase == 2 && g_connected && g_peer_pause)
-        sprintf_s(state, "%s asks for a pause - pause as well to agree", peer);
+        sprintf_s(state, "%s asks for a pause", peer);
     else if (g_phase == 2 && g_connected && g_my_speed != 1 && agreed_speed() != g_my_speed)
         sprintf_s(state, "you have asked for speed x%.1f - the battle runs at x%.1f until %s asks for it too", g_my_speed, agreed_speed(), peer);
     else if (g_phase == 2 && g_connected && g_peer_speed != 1 && agreed_speed() != g_peer_speed)
-        sprintf_s(state, "%s asks for speed x%.1f - set your speed to agree", peer, g_peer_speed);
+        sprintf_s(state, "%s asks for speed x%.1f", peer, g_peer_speed);
     else if (g_phase == 2 && g_connected && agreed_speed() > 1 && running_speed() < agreed_speed() - 0.01f) {
         float fps;
         const char *slow = slow_game(&fps, peer);
-        if (slow) sprintf_s(state, "speed x%.2f of the agreed x%.1f - held while %s draws %.0f frames a second", running_speed(), agreed_speed(), slow, fps);
-        else sprintf_s(state, "speed x%.2f, working up to the agreed x%.1f", running_speed(), agreed_speed());
+        if (slow) sprintf_s(state, "speed x%.2f of x%.1f - %s is slow (%.0f fps)", running_speed(), agreed_speed(), slow, fps);
+        else sprintf_s(state, "speed x%.2f, rising to x%.1f", running_speed(), agreed_speed());
     }
     else if (g_phase == 2 && g_connected && agreed_speed() != 1)
-        sprintf_s(state, "speed x%.1f, agreed by both players", agreed_speed());
+        sprintf_s(state, "speed x%.1f", agreed_speed());
     else if (g_phase == 2)
         sprintf_s(state, "connected");
     else
         sprintf_s(state, "battle over");
     sprintf_s(g_status, "MULTIPLAYER  -  %s  -  %s", who, state);
     return g_status;
+}
+
+// ---------------------------------------------------------------- the round trip (see common.h)
+static float g_srtt, g_rttvar;
+static float g_rtt_slot_min[6] = { -1, -1, -1, -1, -1, -1 };     // the smallest of each 5 s
+static int g_rtt_slot;
+static DWORD g_rtt_slot_at;
+void net_rtt_sample(u32 ms)
+{
+    if (ms > 20000) return;
+    float m = (float)ms;
+    if (g_srtt <= 0) { g_srtt = m > 0 ? m : 0.5f; g_rttvar = m / 2; }
+    else { g_rttvar += 0.25f * (fabsf(m - g_srtt) - g_rttvar); g_srtt += 0.125f * (m - g_srtt); if (g_srtt < 0.5f) g_srtt = 0.5f; }
+    DWORD now = GetTickCount();
+    if (!g_rtt_slot_at || now - g_rtt_slot_at >= 5000) { g_rtt_slot = (g_rtt_slot + 1) % 6; g_rtt_slot_min[g_rtt_slot] = m; g_rtt_slot_at = now ? now : 1; }
+    else if (m < g_rtt_slot_min[g_rtt_slot]) g_rtt_slot_min[g_rtt_slot] = m;
+}
+float net_rtt_ms(void) { return g_srtt; }
+float net_rtt_dev_ms(void) { return g_rttvar; }
+float net_rtt_min_ms(void)
+{
+    float best = -1;
+    for (float v : g_rtt_slot_min) if (v >= 0 && (best < 0 || v < best)) best = v;
+    return best < 0 ? 0 : best;
+}
+void net_rtt_reset(void)
+{
+    g_srtt = g_rttvar = 0;
+    for (float &v : g_rtt_slot_min) v = -1;
+    g_rtt_slot_at = 0;
 }
 
 static void send_to(const sockaddr_in &to, const void *data, int size)
@@ -419,6 +520,44 @@ static void send_to(const sockaddr_in &to, const void *data, int size)
 static void send_peer(const void *data, int size)
 {
     if (g_sock != INVALID_SOCKET && g_have_peer) send_to(g_peer, data, size);
+}
+
+// more players: one extra player (by channel), all of them with the first one, the first one's side
+static void send_extra(int ch, const void *data, int size)
+{
+    if (g_sock != INVALID_SOCKET && ch >= 1 && ch <= MAX_EXTRA && g_extra[ch].on) send_to(g_extra[ch].addr, data, size);
+}
+static void send_all(const void *data, int size)
+{
+    send_peer(data, size);
+    for (int c = 1; c <= MAX_EXTRA; c++) send_extra(c, data, size);
+}
+static void send_side(const void *data, int size)
+{
+    send_peer(data, size);
+    for (int c = 1; c <= MAX_EXTRA; c++) if (g_extra[c].versus == g_versus) send_extra(c, data, size);
+}
+static void send_opposite(const void *data, int size)
+{
+    for (int c = 1; c <= MAX_EXTRA; c++) if (g_extra[c].on && g_extra[c].versus != g_versus) send_extra(c, data, size);
+}
+static bool any_opposite(void)
+{
+    for (int c = 1; c <= MAX_EXTRA; c++) if (g_extra[c].on && g_extra[c].versus != g_versus) return true;
+    return false;
+}
+static int extra_of(const sockaddr_in &a)
+{
+    for (int c = 1; c <= MAX_EXTRA; c++) if (g_extra[c].on && same_addr(a, g_extra[c].addr)) return c;
+    return 0;
+}
+static void close_extra(int ch, const char *why)
+{
+    if (!g_extra[ch].on) return;
+    mp_log("net: %s (player %d) %s", g_extra[ch].name, ch + 2, why);
+    g_extra[ch].on = false;
+    shots_close_channel(ch);
+    statesync_close_extra(ch);
 }
 
 // Full-state replication: a unit's whole saved state comes from its owner's game, so what has happened to
@@ -554,7 +693,8 @@ bool session_owns_squad(u32 id)
 bool session_peer_commands(u64 key)
 {
     if (g_role != ROLE_HOST) return false;
-    if (!g_versus) {
+    bool versus = g_order_sender ? g_extra[g_order_sender].versus : g_versus;
+    if (!versus) {
         if (!g_user_side_units.empty()) return g_user_side_units.count(key) != 0;
         return g_enemy_side_units.empty() ? true : g_enemy_side_units.count(key) == 0;
     }
@@ -2273,7 +2413,7 @@ static void host_map_frame(ObjMan *om, DWORD now)
         mp_log("map: the other player's game is gone; the turn is not ended for him");
         g_turn_done = false;
         g_map_collect = false;
-        strcpy_s(g_map_note, "the other player's game is gone - next turn ends the turn without him");
+        strcpy_s(g_map_note, "the other player left - next turn ends the turn without him");
     }
     // A copy for the other player: he is ready (in the lobby, or on an older copy of the map) and has none of
     // this state yet. While orders are given it is his to move his forces on; while the turn's battles are
@@ -2402,10 +2542,13 @@ void session_start(ObjMan *)
 void session_stop(void)
 {
     if (g_sock != INVALID_SOCKET) {
-        if (g_have_peer) { Head bye = make_head(PKT_BYE); send_to(g_peer, &bye, sizeof bye); }
+        Head bye = make_head(PKT_BYE);
+        if (g_have_peer) send_to(g_peer, &bye, sizeof bye);
+        for (int c = 1; c <= MAX_EXTRA; c++) { send_extra(c, &bye, sizeof bye); g_extra[c].on = false; }
         closesocket(g_sock);
         g_sock = INVALID_SOCKET;
     }
+    netsim().clear();
     if (g_role == ROLE_HOST) steam_host(false, 0);
     g_have_peer = g_connected = g_bind_pending = false;
 }
@@ -2484,7 +2627,7 @@ static void send_transforms(ObjMan *om, DWORD now)
         sh->want_pause = g_my_pause;
         memset(sh->pad2, 0, sizeof sh->pad2);
         sh->pad2[0] = (unsigned char)(g_my_fps < 1 ? 1 : g_my_fps > 255 ? 255 : (int)(g_my_fps + 0.5f));      // frames a second here
-        send_to(g_peer, packet, (int)(sizeof(StateHead) + n * sizeof(UnitRec)));
+        send_all(packet, (int)(sizeof(StateHead) + n * sizeof(UnitRec)));
         g_stat_packets++;
         n = 0;
     };
@@ -2653,7 +2796,7 @@ Object *session_unit(u64 key)
 
 void session_sim_step(ObjMan *om)
 {
-    if (!g_connected || !g_tactical) return;
+    if ((!g_connected && !extras_on()) || !g_tactical) return;       // (more players: theirs go on without the first one)
     // Received states wait until this game has been simulating for a while: a battle that has only just
     // appeared is still setting its units up, and a vehicle that gets a state loaded into it at that point
     // crashes the renderer (seen with large operation battles). MP_APPLY_DELAY = seconds, default 12.
@@ -2665,21 +2808,25 @@ void session_sim_step(ObjMan *om)
         first_step = GetTickCount();
     }
     g_sim_steps_seen++;
-    double t0 = seconds_now();
+    readable_new_step();
+    double t0 = seconds_now(), p = prof_now();
     // (a state is only loaded once the other game's numbers can be translated - see xlate.cpp)
     if (sync_state_enabled() && xlate_ready() && GetTickCount() - first_step >= (DWORD)delay) statesync_apply(om);
     g_prof_load += seconds_now() - t0;
+    p = prof_add(PROF_STATE_LOAD, p);
     u32 count;
     all_objects(om, &count);
-    if (count != g_units_count_seen) rebuild_units(om);
-    shots_sim_step(om);
-    hits_sim_step(om);
-    trench_sim_step(om);
-    anim_sim_step(om);
-    vdamage_sim_step(om);
+    if (count != g_units_count_seen) { readable_forget(); rebuild_units(om); }
+    p = prof_add(PROF_OTHER, p);
+    shots_sim_step(om);         p = prof_add(PROF_SHOTS, p);
+    hits_sim_step(om);          p = prof_add(PROF_HITS, p);
+    trench_sim_step(om);        p = prof_add(PROF_TRENCH, p);
+    anim_sim_step(om);          p = prof_add(PROF_ANIM, p);
+    vdamage_sim_step(om);       p = prof_add(PROF_VDAMAGE, p);
     seats_sim_step(om, GetTickCount() - first_step >= (DWORD)delay);     // (seated here only once the battle is set up, as states)
-    cells_sim_step(om);
-    mapobj_sim_step(om);
+    p = prof_add(PROF_SEATS, p);
+    cells_sim_step(om);         p = prof_add(PROF_CELLS, p);
+    mapobj_sim_step(om);        p = prof_add(PROF_MAPOBJ, p);
 
     // Followed units are not predicted and not left to this game's own physics: they are shown where their
     // owner had them, a tenth of a second ago, moving smoothly from one received transform to the next
@@ -2906,7 +3053,9 @@ void session_sim_step(ObjMan *om)
             steer_wheels(u, steer_k < 1 && j && get_steer(h.s[j - 1].rec, &sa) ? sa + (sb - sa) * steer_k : sb);
         if (B.kind == 1 && g_phase == 2) turn_running_gear(u, gear_dt);
     }
+    p = prof_add(PROF_FOLLOW, p);
     guns_sim_step(om);
+    prof_add(PROF_GUNS, p);
 }
 
 // ---------------------------------------------------------------- detours: Start button, battle clock
@@ -2941,6 +3090,16 @@ void session_test_ready(void) { if (gate_active()) mark_ready(); }
 // (message box 6, "it_mb_2oper"). Carried out from the logic pass, not from inside the render pipeline.
 static bool g_resign_asked;
 void session_test_resign(void) { g_resign_asked = true; }
+bool session_resumable(void)
+{
+    return g_tactical && g_lost_at && GetTickCount() - g_lost_at < resume_wait_ms() && g_phase != 3 && !endgame_over();
+}
+void session_test_netcut(unsigned seconds)
+{
+    g_netcut_until = GetTickCount() + seconds * 1000;
+    if (!g_netcut_until) g_netcut_until = 1;
+    mp_log("test: everything received is thrown away for %u s", seconds);
+}
 
 static void resign_if_asked(ObjMan *om)
 {
@@ -3242,6 +3401,11 @@ static void timer_step_hook(char *ct, float dt, u32 arg)
     } else if (auto_was >= 0 && g_role == ROLE_HOST) {
         ct[CT_AUTO] = (char)auto_was;         // alone again: as the player has it set
         auto_was = -1;
+    }
+    if (g_role == ROLE_JOIN && g_tactical && !g_connected && session_resumable()) ct[CT_PAUSE] = 1;     // (waiting for the host)
+    if (g_role == ROLE_HOST && g_pause_for_lost) {
+        g_pause_for_lost = false;
+        if (!ct[CT_PAUSE]) { ct[CT_PAUSE] = 1; mp_log("clock: paused while the other player's connection is lost"); }
     }
     if (g_role == ROLE_HOST && g_set_speed && shared_clock()) {
         // the host's clock is what the two players have agreed on
@@ -3612,6 +3776,65 @@ static void catch_return_to_operation(void)
 }
 
 // ---------------------------------------------------------------- receive
+// Host: a game that is to be an extra player has said hello (again).
+static void take_extra(const sockaddr_in &from, u32 session, const char *name, bool versus, DWORD now)
+{
+    int ch = extra_of(from);
+    if (!ch) {
+        if (g_phase != 2 || endgame_over()) return;          // (extra players come into the battle phase only)
+        for (int c = 1; c <= MAX_EXTRA && !ch; c++) if (!g_extra[c].on) ch = c;
+        if (!ch || extras_on() >= max_players() - 2) {
+            static DWORD said;
+            if (now - said > 10000) { said = now ? now : 1; mp_log("net: %s is turned away - the battle has its %d players", name[0] ? name : "a player", max_players()); }
+            return;
+        }
+        Extra &e = g_extra[ch];
+        e = Extra();
+        e.on = true;
+        e.versus = versus;
+        e.addr = from;
+        strcpy_s(e.name, name[0] ? name : "Player");
+        e.session = session;
+        e.since = now;
+        if (is_steam(from)) steam_accept(steam_id_of(from));
+        mp_log("net: %s joins the battle as player %d, commanding the %s", e.name, ch + 2, image::side_name(versus ? g_enemy_side : g_user_side));
+        shots_open_channel(ch);
+        statesync_open_extra(ch);
+        g_sent.clear();             // (every unit's transform and every soldier's animation once more, to everyone)
+        anim_reset();
+    }
+    g_extra[ch].last_rx = now;
+}
+
+// Host: the battle description (and an operation's files) for a game that is downloading it before it is a player.
+static void serve_image(const sockaddr_in &from, const unsigned char *data, int size)
+{
+    const Head *h = (const Head *)data;
+    if (size < (int)sizeof(ImageRequest) || (h->flags != 0 && h->flags != 2)) return;
+    const std::vector<unsigned char> &blob = h->flags == 2 ? g_extras : g_image;
+    u32 index = ((const ImageRequest *)data)->index;
+    if ((u64)index * k_chunk >= blob.size()) return;
+    ImageData d = { make_head(PKT_IMAGE_DATA), index, 0 };
+    d.h.flags = h->flags;
+    d.size = (u32)min((size_t)k_chunk, blob.size() - (size_t)index * k_chunk);
+    memcpy(d.data, blob.data() + (size_t)index * k_chunk, d.size);
+    send_to(from, &d, (int)(sizeof d - k_chunk + d.size));
+}
+
+// Host: what an extra player's game sends - its acknowledgements, its orders (on its channel), its goodbye.
+static void extra_packet(int ch, const unsigned char *data, int size, DWORD now)
+{
+    const Head *h = (const Head *)data;
+    g_extra[ch].last_rx = now;
+    switch (h->type) {
+    case PKT_SHOT:
+    case PKT_SHOT_ACK: shots_on_packet_extra(ch, data, size, send_extra); break;
+    case PKT_OBJECT_ACK: statesync_on_packet_extra(ch, data, size); break;
+    case PKT_IMAGE_REQUEST: serve_image(g_extra[ch].addr, data, size); break;
+    case PKT_BYE: close_extra(ch, "has left the battle"); break;
+    }
+}
+
 static void on_packet(const sockaddr_in &from, const unsigned char *data, int size, DWORD now)
 {
     const Head *h = (const Head *)data;
@@ -3627,7 +3850,20 @@ static void on_packet(const sockaddr_in &from, const unsigned char *data, int si
             static DWORD said;
             if (now - said > 10000) { said = now; mp_log("net: a player with another game build (%d, this game %d) is turned away", in->game_build, g_bi); }
         }
-        if (full) g_peer_in_lobby = in->phase == 0xff;
+        // A battle program after the first player was only a menu or mp_join.exe (which said hello to download the
+        // battle and never says goodbye): his battle, taking the place as before.
+        bool after_menu = !from_peer && full && g_peer_in_lobby && in->phase < 0xfe;
+        // Another program of the first player's own game (his number): his next program, taking the place as before -
+        // the menu started again by CHOOSE MY FORCE, the battle after mp_join.exe, the map after the battle.
+        bool same_player = !from_peer && full && in->player && in->player == g_peer_player;
+        // (more players: another game while the first player is in this battle - see below)
+        bool extra_game = g_role == ROLE_HOST && g_tactical && max_players() > 2 && g_host_mode != HOST_MODE_OPERATION && g_have_peer &&
+                          g_connected && !from_peer && !after_menu && !same_player;
+        // a game that cannot come in: the first player is here and there is no room for another (up to 2.4 it took
+        // the first player's place - a third player knocked the second out of the battle)
+        bool turned_away = g_role == ROLE_HOST && g_have_peer && g_connected && !from_peer && !after_menu && !same_player &&
+                           !(extra_game && (extra_of(from) || extras_on() < max_players() - 2));
+        if (full && !extra_game && !turned_away) g_peer_in_lobby = in->phase == 0xff;
         unsigned prefer = full ? in->prefer_side : 0;
         // The joining player commands the opponent unless it asked for the side the host plays.
         bool versus = !(prefer && prefer == g_user_side);
@@ -3665,6 +3901,7 @@ static void on_packet(const sockaddr_in &from, const unsigned char *data, int si
                       (!g_tactical && g_host_mode == HOST_MODE_SKIRMISH && g_host_start_ready ? 4 : 0) |    // bit 2: the host is ready
                       (!g_tactical && g_map_given && g_map_view_shared ? 8 : 0);                          // bit 3: the copy is to look at
         w.game_build = g_bi;
+        if (turned_away) w.map_flags |= 16;
         if (!g_tactical && g_host_mode == HOST_MODE_SKIRMISH) {
             w.force_have = g_peer_force_hash;
             w.force_refused = g_force_refused;
@@ -3684,11 +3921,37 @@ static void on_packet(const sockaddr_in &from, const unsigned char *data, int si
         }
         send_to(from, &w, sizeof w);
         if (!full) return;                              // the caller reads the version from the reply and gives up
+        if (turned_away) {
+            static DWORD said;
+            if (now - said > 10000) {
+                said = now ? now : 1;
+                char ip[64] = "Steam";
+                if (!is_steam(from)) inet_ntop(AF_INET, &from.sin_addr, ip, sizeof ip);
+                mp_log("net: a player at %s is turned away - %s", ip, max_players() > 2 && !g_tactical ? "more players come in once the battle has begun" : "the game has all its players");
+            }
+            return;
+        }
         char name[24];
         memcpy(name, in->name, sizeof name);
         name[sizeof name - 1] = 0;
         for (char *c = name; *c; c++) if (!isalnum((unsigned char)*c) && *c != '_' && *c != '-') *c = '_';
-        if (!from_peer) {
+        // more players: another game while the first player is in this battle - an extra player once its battle
+        // program says hello in the battle phase (the Welcome above has told its menu about the battle: it downloads
+        // it and starts its battle program); the first player is not touched
+        if (extra_game) {
+            if (in->phase < 0xfe && in->session && in->session != g_peer_session) take_extra(from, in->session, name, versus, now);
+            return;
+        }
+        // the same player back in this battle after his connection was lost: everything goes on as it was
+        // (the same game: a restarted one has none of what was sent before and starts from nothing)
+        bool back = !from_peer && g_tactical && session_resumable() && !g_connected && g_peer_name[0] && !strcmp(name, g_peer_name) &&
+                    in->session && in->session == g_peer_session &&
+                    (same_addr(from, g_peer) || (!is_steam(from) && !is_steam(g_peer) && from.sin_addr.s_addr == g_peer.sin_addr.s_addr));
+        if (back) {
+            if (is_steam(from)) steam_accept(steam_id_of(from));
+            mp_log("net: %s is back after %.0f s - the battle goes on", name, (now - g_lost_at) / 1000.0);
+            g_sent.clear();            // (every unit's transform once more)
+        } else if (!from_peer) {
             if (is_steam(from)) {
                 // (the programs that follow this one - the battle, the map - take the same player on)
                 char id[32];
@@ -3712,6 +3975,8 @@ static void on_packet(const sockaddr_in &from, const unsigned char *data, int si
             g_peer_swap_known = false;
             if (!g_tactical) peer_force_clear("another player");
         }
+        if (!from_peer) g_lost_at = 0;
+        g_peer_session = in->session;
         if (name[0]) strcpy_s(g_peer_name, name);
         g_peer_lobby_ready = in->lobby_ready != 0;
         g_peer_on_map = in->phase == 0xfe && in->map_epoch == g_map_epoch;
@@ -3741,11 +4006,17 @@ static void on_packet(const sockaddr_in &from, const unsigned char *data, int si
         }
         g_peer = from;
         g_have_peer = g_connected = true;
+        g_peer_player = in->player;
         g_last_rx = now;
         if (g_tactical) set_versus(versus);
         return;
     }
-    if (!from_peer) return;
+    if (!from_peer) {
+        int ch = g_role == ROLE_HOST ? extra_of(from) : 0;
+        if (ch) extra_packet(ch, data, size, now);
+        else if (g_role == ROLE_HOST && h->type == PKT_IMAGE_REQUEST && g_tactical && max_players() > 2 && g_have_peer) serve_image(from, data, size);
+        return;
+    }
     g_last_rx = now;
 
     switch (h->type) {
@@ -3796,9 +4067,15 @@ static void on_packet(const sockaddr_in &from, const unsigned char *data, int si
     case PKT_WELCOME:
         if (g_role == ROLE_JOIN && size >= (int)sizeof(Welcome)) {
             const Welcome *w = (const Welcome *)data;
+            if ((w->map_flags & 16) && !g_connected) {          // (the host has all its players)
+                if (g_tactical && !g_host_lost) { mp_log("net: the host's game has all its players"); g_host_lost = now ? now : 1; }
+                break;
+            }
             if (!g_connected) {
                 g_connected = true;
-                mp_log("net: connected to host (host commands %s)", image::side_name(w->user_side));
+                if (g_lost_at && session_resumable()) mp_log("net: the host is back after %.0f s - the battle goes on", (now - g_lost_at) / 1000.0);
+                else mp_log("net: connected to host (host commands %s)", image::side_name(w->user_side));
+                g_lost_at = 0;
             }
             memcpy(g_peer_name, w->name, sizeof g_peer_name);
             g_peer_name[sizeof g_peer_name - 1] = 0;
@@ -3952,6 +4229,7 @@ static void on_packet(const sockaddr_in &from, const unsigned char *data, int si
     case PKT_BYE:
         mp_log("net: the other player's game closed");
         g_connected = false;
+        g_lost_at = 0;
         if (g_role == ROLE_JOIN && g_tactical && !g_host_lost) g_host_lost = now ? now : 1;
         if (g_role == ROLE_HOST) { g_have_peer = false; g_peer_on_map = g_peer_turn_done = false; }
         break;
@@ -3961,6 +4239,7 @@ static void on_packet(const sockaddr_in &from, const unsigned char *data, int si
 void session_frame(ObjMan *om)
 {
     DWORD now = GetTickCount();
+    readable_new_step();
     g_prof_frames++;
     {
         static DWORD fps_from;
@@ -3980,12 +4259,26 @@ void session_frame(ObjMan *om)
     if (g_sock == INVALID_SOCKET) return;
 
     unsigned char buf[2048];
+    double prof_rx = prof_now();
+    NetSim &sim = netsim();         // (tests: a poor connection, MP_TEST_LAG / _JITTER / _LOSS - see netsim.h)
+    if (sim.on) {
+        static DWORD sim_logged;
+        if (!sim_logged || now - sim_logged >= 30000) {
+            if (!sim_logged) mp_log("net: TEST connection: what arrives is held %u ms + up to %u ms, %.2f %% thrown away (in bursts of %u), line %u KB/s (0: any) with a %u ms queue",
+                                    sim.lag, sim.jitter, sim.loss / 100.0, sim.burst, sim.kbps, sim.queue_ms);
+            else mp_log("net: TEST connection: %u datagrams handed on, %u thrown away (%u of them the line's queue full), %zu held",
+                        sim.passed, sim.dropped, sim.overflowed, sim.q.size());
+            sim_logged = now ? now : 1;
+        }
+    }
     for (int i = 0; i < 2048; i++) {
         sockaddr_in from;
         int flen = sizeof from;
         int n = recvfrom(g_sock, (char *)buf, sizeof buf, 0, (sockaddr *)&from, &flen);
         if (n <= 0) break;
         g_stat_bytes += n;
+        if (g_netcut_until && (int)(g_netcut_until - now) > 0) continue;
+        if (sim.on) { sim.put(from, 0, buf, n); continue; }
         on_packet(from, buf, n, now);
         if (g_sock == INVALID_SOCKET) return;
     }
@@ -3997,17 +4290,27 @@ void session_frame(ObjMan *om)
             int n = steam_recv(&who, buf, sizeof buf);
             if (n <= 0) break;
             g_stat_bytes += n;
+            if (g_netcut_until && (int)(g_netcut_until - now) > 0) continue;
+            if (sim.on) { sim.put(steam_addr(who), who, buf, n); continue; }
             on_packet(steam_addr(who), buf, n, now);
             if (g_sock == INVALID_SOCKET) return;
         }
     }
+    if (sim.on) {
+        sockaddr_in from;
+        for (int n; (n = sim.get(&from, 0, buf, sizeof buf)) > 0; ) {
+            on_packet(from, buf, n, now);
+            if (g_sock == INVALID_SOCKET) { sim.clear(); return; }
+        }
+    }
+    prof_add(PROF_RECEIVE, prof_rx);
 
     install_detours();
     install_map_detours();
     resign_if_asked(om);
     if (g_tactical && !g_interface) g_interface = engine_find(om, "i_intereff", "intereff");
     menu_tests(om);
-    if (g_connected && g_tactical) shots_idle();
+    if ((g_connected || extras_on()) && g_tactical) shots_idle();
     endgame_frame(om, send_peer);
     host_map_frame(om, now);
     if ((g_role == ROLE_HOST && !g_tactical) || g_map_mode) request_map_pieces(now);
@@ -4052,25 +4355,42 @@ void session_frame(ObjMan *om)
             if (g_map_mode && g_map_given && !g_map_sent) { hello.map_size = (u32)g_map_out.size(); hello.map_hash = g_map_out_hash; }
             hello.turn_done = g_map_mode && g_turn_done;
             hello.map_epoch = g_map_base_epoch;
+            if (g_tactical && !g_session_id) g_session_id = (GetTickCount() ^ (GetCurrentProcessId() << 16) ^ 0x9e3779b9u) | 1;
+            hello.session = g_tactical ? g_session_id : 0;
+            hello.player = joiner_player_id();
             send_to(g_peer, &hello, sizeof hello);
         }
     }
-    if (g_connected && g_tactical) {
+    if ((g_connected || extras_on()) && g_tactical) {
+        double p = prof_now();
         if (now - g_last_snapshot >= 66) {
             g_last_snapshot = now;
             send_transforms(om, now);
-            anim_frame(send_peer);
-            guns_frame(om, send_peer);
+            p = prof_add(PROF_TRANSFORMS, p);
+            anim_frame(send_all);
+            p = prof_add(PROF_ANIM, p);
+            guns_frame(om, send_all);
+            p = prof_add(PROF_GUNS, p);
         }
         double t0 = seconds_now();
-        if (sync_state_enabled()) statesync_owner_frame(om, now, owns_object, send_peer);
+        if (sync_state_enabled()) {
+            if (g_connected) statesync_owner_frame(om, now, owns_object, send_peer);
+            for (int c = 1; c <= MAX_EXTRA; c++) if (g_extra[c].on) statesync_owner_frame_extra(c, om, now, owns_object, send_extra);
+        }
         g_prof_save += seconds_now() - t0;
+        p = prof_add(PROF_STATE_SAVE, p);
         xlate_frame(om);
         stats_frame();
         shots_frame(send_peer);
-        vdamage_frame(om, send_peer);
-        sight_frame(om, send_peer);
+        for (int c = 1; c <= MAX_EXTRA; c++) if (g_extra[c].on) shots_frame_extra(c, send_extra);
+        p = prof_add(PROF_SHOTS, p);
+        vdamage_frame(om, send_all);
+        p = prof_add(PROF_VDAMAGE, p);
+        sight_frame(om, send_side, any_opposite() ? send_opposite : 0);
+        prof_add(PROF_SIGHT, p);
     }
+    for (int c = 1; c <= MAX_EXTRA; c++)
+        if (g_extra[c].on && (!g_tactical || now - g_extra[c].last_rx > 8000)) close_extra(c, "is gone (nothing heard for 8 s)");
 
     if (g_connected && now - g_last_rx > 8000) {
         mp_log("net: connection lost (nothing received for 8 s)");
@@ -4078,10 +4398,20 @@ void session_frame(ObjMan *om)
         g_peer_pause = false;
         g_peer_speed = 1;
         g_peer_ready = 0;
-        if (g_role == ROLE_JOIN && g_tactical && !g_host_lost) g_host_lost = now ? now : 1;
+        if (g_tactical && g_phase != 3 && !endgame_over() && resume_wait_ms()) {
+            g_lost_at = now ? now : 1;
+            g_pause_for_lost = g_role == ROLE_HOST && g_phase == 2;
+            mp_log("net: waiting up to %u s for it to come back%s", resume_wait_ms() / 1000,
+                   g_role == ROLE_JOIN ? " (this game stands paused meanwhile)" : "");
+        } else if (g_role == ROLE_JOIN && g_tactical && !g_host_lost) g_host_lost = now ? now : 1;
         if (g_role == ROLE_HOST) { g_have_peer = false; g_peer_on_map = g_peer_turn_done = false; }
     }
     // (a battle that is over is left by its player, from the statistics, when he has read them)
+    if (g_lost_at && !g_connected && !session_resumable()) {          // not back in time (or the battle is over)
+        if (now - g_lost_at >= resume_wait_ms()) mp_log("net: the connection did not come back in %u s", resume_wait_ms() / 1000);
+        g_lost_at = 0;
+        if (g_role == ROLE_JOIN && g_tactical && !g_host_lost) g_host_lost = now ? now : 1;
+    }
     if (g_host_lost && now - g_host_lost > 4000 && !endgame_over() && g_phase != 3) leave_battle_for_menu();
     if (now - g_last_report >= 5000) {
         if (g_connected && g_tactical && (g_stat_sent || g_stat_applied)) {
@@ -4124,6 +4454,7 @@ void session_frame(ObjMan *om)
             mp_log("load: 5 s: %u frames, %u simulation steps covering %u ms, %.0f ms saving state, %.0f ms loading state, window %s",
                    g_prof_frames, g_prof_steps, g_prof_step_ms, g_prof_save * 1000, g_prof_load * 1000,
                    GetForegroundWindow() == main_window() ? "in front" : "in the background");
+            report_prof();
         }
         g_prof_frames = g_prof_steps = g_prof_step_ms = 0;
         g_prof_save = g_prof_load = 0;

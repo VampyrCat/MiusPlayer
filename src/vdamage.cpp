@@ -37,7 +37,13 @@
 #include <vector>
 
 namespace {
-struct Damage { std::vector<float> modules, left; std::vector<unsigned char> gone, tracks; int buttoned = -1; };      // tracks: 8 bytes each
+struct Damage { std::vector<float> modules, left; std::vector<unsigned char> gone, tracks; int buttoned = -1;       // tracks: 8 bytes each
+                // (joining game) where this vehicle's module damage values are, walked from its module map once a second:
+                // the walk, one node after the other every step for every vehicle, was most of the joining game's time here
+                std::vector<float *> at; const void *at_of = 0; DWORD at_when = 0; bool at_ok = false;
+                // (joining game) the host's numbers are put in when new ones came, and every half second (nothing here
+                // changes them - this game's own hits are dropped); putting them in every step cost a miss per value
+                bool fresh = true; DWORD put_at = 0; };
 struct Sent { u32 hash; DWORD when; };
 }
 static std::unordered_map<u64, Damage> g_want;          // joining game: the host's numbers per vehicle
@@ -336,6 +342,7 @@ void vdamage_on_packet(const unsigned char *data, int size)
     const unsigned char *end = data + size;
     p += 12;
     Damage &d = g_want[key];
+    d.fresh = true;
     if (part & 1) {
         d.modules.resize(nm);
         memcpy(d.modules.data(), p, nm * 4ull);
@@ -365,7 +372,6 @@ void vdamage_sim_step(ObjMan *om)
         for (const ShotRec &s : in) make_break(s);
     }
     if (g_want.empty()) return;
-    std::vector<float *> mods;
     for (auto &kv : g_want) {
         Object *o = session_unit(kv.first);
         if (!o || strcmp(o->iface, "i_techn") || !readable(o, V_END)) continue;
@@ -422,10 +428,21 @@ void vdamage_sim_step(ObjMan *om)
                     g_trk_missing.erase(mk);
                 }
             }
-        if (!module_list(v, mods) || !second_list(v, &sec, &nsec) || (!d.modules.empty() && mods.size() != d.modules.size()) ||
+        Damage &dw = kv.second;
+        DWORD tnow = GetTickCount();
+        if (!dw.fresh && tnow - dw.put_at < 500) continue;
+        dw.fresh = false;
+        dw.put_at = tnow;
+        if (dw.at_of != v || tnow - dw.at_when >= 1000) {
+            dw.at_ok = module_list(v, dw.at);
+            dw.at_of = v;
+            dw.at_when = tnow;
+        }
+        const std::vector<float *> &at = dw.at;
+        if (!dw.at_ok || !second_list(v, &sec, &nsec) || (!d.modules.empty() && at.size() != d.modules.size()) ||
             (!d.left.empty() && nsec != d.left.size())) { g_stat_mismatch++; continue; }
         for (size_t i = 0; i < d.modules.size(); i++)
-            if (*mods[i] != d.modules[i]) { *mods[i] = d.modules[i]; g_stat_set++; }
+            if (*at[i] != d.modules[i]) { *at[i] = d.modules[i]; g_stat_set++; }
         for (u32 k = 0; k < d.left.size(); k++) {
             char *r = sec + (size_t)k * SEC_SIZE;
             if (*(float *)(r + SEC_LEFT) != d.left[k]) { *(float *)(r + SEC_LEFT) = d.left[k]; g_stat_set++; }

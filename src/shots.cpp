@@ -61,13 +61,40 @@ static char *g_blowing_up;              // the vehicle whose crew is blowing it 
 static DWORD g_main_thread;
 static bool g_injecting, g_enabled = true;
 static FILE *g_file;
-static u32 g_seq, g_epoch, g_last_seq_in, g_epoch_in, g_dumped;
+static u32 g_dumped;
 static int g_test_rounds, g_test_kind, g_test_blowup, g_test_flares;
 static u64 g_stat_own, g_stat_dropped, g_stat_injected, g_stat_refused, g_stat_free, g_stat_sent_bytes, g_stat_repeats;
 static u64 g_stat_offmap, g_stat_x_own, g_stat_x_dropped, g_stat_x_in, g_stat_f_own, g_stat_f_dropped, g_stat_f_in;
-struct ShotPending { ShotRec rec; DWORD sent; };
-static std::deque<ShotPending> g_out;               // launched here, not yet acknowledged by the other game
-static std::vector<ShotRec> g_in;               // received, carried out before the next simulation step
+struct ShotPending { ShotRec rec; DWORD sent; unsigned char tries; };       // tries: datagrams it went out in
+// One channel per game at the other end: 0 the other player (a joining game's host, or a host's first player),
+// 1-3 a host's extra players (session.cpp). Each has its own numbering: what goes out is repeated until that game
+// has acknowledged it, what comes in is taken in order.
+//   out: sent here, not yet acknowledged by that game; in: received, carried out before the next simulation step
+struct Channel { bool on; u32 seq, epoch, last_seq_in, epoch_in; std::deque<ShotPending> out; std::vector<ShotRec> in; };
+enum { CHANNELS = 4 };
+static Channel g_ch[CHANNELS];
+#define g_seq         (g_ch[0].seq)
+#define g_epoch       (g_ch[0].epoch)
+#define g_last_seq_in (g_ch[0].last_seq_in)
+#define g_epoch_in    (g_ch[0].epoch_in)
+#define g_out         (g_ch[0].out)
+#define g_in          (g_ch[0].in)
+static int g_only = -1;     // >= 1: records queued now go to that channel only (what a new extra player is told once)
+
+// A record this game makes goes to every channel: channel 0 as it is queued, the extra players' copies here, each
+// numbered on its own channel.
+static void to_extras(const ShotRec &s)
+{
+    for (int c = 1; c < CHANNELS; c++) {
+        Channel &x = g_ch[c];
+        if (!x.on || (g_only >= 1 && g_only != c)) continue;
+        ShotPending p = { s, 0, 0 };
+        p.rec.seq = ++x.seq;
+        x.out.push_back(p);
+    }
+}
+
+int shots_target(int ch) { int was = g_only; g_only = ch; return was; }
 
 // launch record: pointers at +0x38 (ammunition), +0x40 (weapon), +0x48 (firing object), +0x50 (object),
 // +0x60 (description); +0x68 the side's code
@@ -172,6 +199,7 @@ static void queue_shot(const char *rec, u64 flags, const float *pos, void *obj5,
     memset(s.launch + L_AMMO, 0, 0x20);             // the four pointers
     memset(s.launch + L_DESC3, 0, 8);
     g_out.push_back({ s, 0 });
+    to_extras(s);
 }
 
 // An explosion: its place and its two descriptions (ammo / weapon carry their ids, launch the record with
@@ -191,6 +219,7 @@ static void queue_explosion(const char *rec, void *vehicle)
     memcpy(s.launch, rec, X_SIZE);
     memset(s.launch + X_DESC1, 0, X_SIZE - X_DESC1);
     g_out.push_back({ s, 0 });
+    to_extras(s);
 }
 
 // A flare: the engine's arguments as they were (place, kind, direction, side, last argument; beta26: the
@@ -209,14 +238,18 @@ static void queue_flare(const float *pos, u32 kind, const float *dir, u32 side, 
     memcpy(s.launch + 24, &arg6, 4);
     if (params) { s.launch[28] = 1; memcpy(s.launch + 32, params, FLARE_PARAMS); }
     g_out.push_back({ s, 0 });
+    to_extras(s);
 }
 
 // Another kind of record for the same channel (trench.cpp).
 void shots_queue(ShotRec &s)
 {
-    if (!g_epoch) g_epoch = (GetTickCount() ^ (GetCurrentProcessId() << 16)) | 1;
-    s.seq = ++g_seq;
-    g_out.push_back({ s, 0 });
+    if (g_only < 1) {
+        if (!g_epoch) g_epoch = (GetTickCount() ^ (GetCurrentProcessId() << 16)) | 1;
+        s.seq = ++g_seq;
+        g_out.push_back({ s, 0 });
+    }
+    to_extras(s);
 }
 
 static void launch_hook(char *sp, char *rec, u64 flags, float *pos, void *obj5, u32 arg6)
@@ -358,57 +391,155 @@ void shots_install(ObjMan *om)
     if (!g_launch) g_enabled = false;
 }
 
+// How long an unacknowledged record waits before it goes out again: a round trip and what it wanders, plus
+// a frame of each game (each looks at its datagrams once a frame) - at least the 150 ms used before the round
+// trip was measured. (A long-distance line of 300 ms sent every record two or three times at 150.)
+static DWORD shots_resend_ms(void)
+{
+    float rtt = net_rtt_ms();
+    if (rtt <= 0) return 150;
+    float w = rtt + 4 * net_rtt_dev_ms() + 40;
+    return (DWORD)(w < 150 ? 150 : w > 1500 ? 1500 : w);
+}
+
 // Every frame: what the other game has not acknowledged goes out - new launches at once, older ones again
 // after a pause. Nothing is given up: a launch stays in the queue until the other game has it.
-void shots_frame(void (*send)(const void *, int))
+static void frame_channel(Channel &c, int ch, void (*send)(const void *, int), void (*send_ch)(int, const void *, int))
 {
-    if (g_out.empty()) return;
-    if (!(session_connected() && session_role() != ROLE_NONE)) { g_out.clear(); return; }
     const size_t per = 5, window = 60;
-    DWORD now = GetTickCount();
-    size_t n = g_out.size() < window ? g_out.size() : window, at = 0;
+    DWORD now = GetTickCount(), wait = shots_resend_ms();
+    size_t n = c.out.size() < window ? c.out.size() : window, at = 0;
     while (at < n) {
         // a datagram starts at the first launch that is due and carries the ones after it
-        if (g_out[at].sent && now - g_out[at].sent < 150) { at++; continue; }
+        if (c.out[at].sent && now - c.out[at].sent < wait) { at++; continue; }
         unsigned char packet[sizeof(ShotHead) + per * sizeof(ShotRec)];
         size_t k = n - at < per ? n - at : per;
-        ShotHead h = { make_head(PKT_SHOT, (int)k), g_epoch };
+        ShotHead h = { make_head(PKT_SHOT, (int)k), c.epoch };
         memcpy(packet, &h, sizeof h);
         for (size_t i = 0; i < k; i++) {
-            memcpy(packet + sizeof h + i * sizeof(ShotRec), &g_out[at + i].rec, sizeof(ShotRec));
-            if (g_out[at + i].sent) g_stat_repeats++;
-            g_out[at + i].sent = now ? now : 1;
+            memcpy(packet + sizeof h + i * sizeof(ShotRec), &c.out[at + i].rec, sizeof(ShotRec));
+            if (c.out[at + i].sent) g_stat_repeats++;
+            c.out[at + i].sent = now ? now : 1;
+            if (c.out[at + i].tries < 255) c.out[at + i].tries++;
         }
-        send(packet, (int)(sizeof h + k * sizeof(ShotRec)));
+        if (send) send(packet, (int)(sizeof h + k * sizeof(ShotRec)));
+        else send_ch(ch, packet, (int)(sizeof h + k * sizeof(ShotRec)));
         g_stat_sent_bytes += sizeof h + k * sizeof(ShotRec);
         at += k;
     }
 }
 
-void shots_on_packet(const unsigned char *data, int size, void (*send)(const void *, int))
+void shots_frame(void (*send)(const void *, int))
+{
+    if (g_out.empty()) return;
+    if (!(session_connected() && session_role() != ROLE_NONE)) {
+        // (a lost connection that may come back keeps what it has not delivered - up to a point)
+        if (!session_resumable() || session_role() == ROLE_NONE) g_out.clear();
+        else if (g_out.size() > 20000) shots_reset();
+        return;
+    }
+    frame_channel(g_ch[0], 0, send, 0);
+}
+
+// Host: an extra player's channel.
+void shots_frame_extra(int ch, void (*send)(int, const void *, int))
+{
+    if (ch < 1 || ch >= CHANNELS || !g_ch[ch].on || g_ch[ch].out.empty()) return;
+    if (g_ch[ch].out.size() > 20000) { shots_open_channel(ch); return; }       // (a player that does not answer)
+    frame_channel(g_ch[ch], ch, 0, send);
+}
+
+static void packet_channel(Channel &c, int ch, const unsigned char *data, int size, void (*send)(const void *, int),
+                           void (*send_ch)(int, const void *, int))
 {
     const Head *head = (const Head *)data;
     if (head->type == PKT_SHOT_ACK) {
         if (size < (int)sizeof(ShotAck)) return;
         const ShotAck *a = (const ShotAck *)data;
-        if (a->epoch != g_epoch) return;
-        while (!g_out.empty() && g_out.front().rec.seq <= a->seq) g_out.pop_front();
+        if (a->epoch != c.epoch) return;
+        // (a round trip: the newest record acknowledged here that went out only once)
+        DWORD now = GetTickCount(), rtt = 0;
+        bool sample = false;
+        while (!c.out.empty() && c.out.front().rec.seq <= a->seq) {
+            if (c.out.front().tries == 1) { rtt = now - c.out.front().sent; sample = true; }
+            c.out.pop_front();
+        }
+        if (sample && !ch) net_rtt_sample(rtt);
         return;
     }
     if (size < (int)sizeof(ShotHead) || size < (int)(sizeof(ShotHead) + head->count * sizeof(ShotRec))) return;
     const ShotHead *h = (const ShotHead *)data;
     const ShotRec *recs = (const ShotRec *)(h + 1);
-    if (h->epoch != g_epoch_in) {               // the other game started counting again
-        g_epoch_in = h->epoch;
-        g_last_seq_in = 0;
+    if (h->epoch != c.epoch_in) {               // the other game started counting again
+        c.epoch_in = h->epoch;
+        c.last_seq_in = 0;
     }
     for (unsigned i = 0; i < head->count; i++) {
-        if (recs[i].seq != g_last_seq_in + 1) continue;         // had already, or not its turn yet
-        g_last_seq_in = recs[i].seq;
-        g_in.push_back(recs[i]);
+        if (recs[i].seq != c.last_seq_in + 1) continue;         // had already, or not its turn yet
+        c.last_seq_in = recs[i].seq;
+        c.in.push_back(recs[i]);
     }
-    ShotAck ack = { make_head(PKT_SHOT_ACK), g_epoch_in, g_last_seq_in };
-    send(&ack, sizeof ack);
+    ShotAck ack = { make_head(PKT_SHOT_ACK), c.epoch_in, c.last_seq_in };
+    if (send) send(&ack, sizeof ack);
+    else send_ch(ch, &ack, sizeof ack);
+}
+
+void shots_on_packet(const unsigned char *data, int size, void (*send)(const void *, int))
+{
+    packet_channel(g_ch[0], 0, data, size, send, 0);
+}
+
+void shots_on_packet_extra(int ch, const unsigned char *data, int size, void (*send)(int, const void *, int))
+{
+    if (ch < 1 || ch >= CHANNELS || !g_ch[ch].on) return;
+    packet_channel(g_ch[ch], ch, data, size, 0, send);
+}
+
+// Host: what an extra player's game sends on its channel - its orders, carried out for the side it commands
+// (session_set_order_sender); nothing else it says is taken (it decides nothing).
+static void extras_in(void)
+{
+    for (int c = 1; c < CHANNELS; c++) {
+        Channel &x = g_ch[c];
+        if (x.in.empty()) continue;
+        std::vector<ShotRec> in;
+        in.swap(x.in);
+        if (!x.on) continue;
+        session_set_order_sender(c);
+        for (const ShotRec &r : in)
+            if (r.kind == 11 || r.kind == 12 || r.kind == 15) orders_received(r);
+        session_set_order_sender(0);
+    }
+}
+
+// Host: a new extra player on channel ch: numbered from the start, told once what happened so far that is not
+// sent again anyway (trenches, stamps, craters, this game's numbers), and everything that is state sent once more
+// to all (seats, ground, objects, vehicle damage, guns, soldiers' condition).
+void shots_open_channel(int ch)
+{
+    if (ch < 1 || ch >= CHANNELS) return;
+    Channel &x = g_ch[ch];
+    x.in.clear();
+    x.out.clear();
+    x.seq = x.last_seq_in = x.epoch_in = 0;
+    x.epoch = (GetTickCount() ^ (GetCurrentProcessId() << 16) ^ (x.epoch * 2654435761u) ^ (u32)ch) | 1;
+    x.on = true;
+    trench_send_all_to(ch);
+    xlate_send_to(ch);
+    conditions_resend();
+    vdamage_reset();
+    guns_reset();
+    seats_reset();
+    cells_reset();
+    mapobj_reset();
+}
+
+void shots_close_channel(int ch)
+{
+    if (ch < 1 || ch >= CHANNELS) return;
+    g_ch[ch].on = false;
+    g_ch[ch].out.clear();
+    g_ch[ch].in.clear();
 }
 
 // A paused game takes no simulation steps, but a ceasefire offered or the battle ending in the other game
@@ -417,6 +548,7 @@ static DWORD g_last_step;
 
 void shots_idle(void)
 {
+    if (GetTickCount() - g_last_step >= 300) extras_in();
     if (g_in.empty() || GetTickCount() - g_last_step < 300) return;
     std::vector<ShotRec> rest;
     for (const ShotRec &s : g_in) {
@@ -436,6 +568,7 @@ void shots_reset(void)
     g_in.clear();
     g_out.clear();
     g_seq = 0;
+    net_rtt_reset();
     g_epoch = (GetTickCount() ^ (GetCurrentProcessId() << 16) ^ (g_epoch * 2654435761u)) | 1;
     trench_resend();
     xlate_resend();
@@ -584,6 +717,7 @@ void shots_sim_step(ObjMan *om)
     if (g_test_rounds) test_artillery(om);
     if (g_test_blowup) test_blowup(om);
     if (g_test_flares) test_flares(om);
+    extras_in();
     if (g_in.empty()) return;
     for (const ShotRec &s : g_in) {
         if (s.kind == 2) trench_received(s);
@@ -637,8 +771,8 @@ void shots_sim_step(ObjMan *om)
 void shots_report(void)
 {
     if (g_stat_own || g_stat_dropped || g_stat_injected || g_stat_refused)
-        mp_log("shots: 5 s: %llu fired by this game's units and sent (%.1f KB/s, %llu repeats, %zu waiting for an answer), %llu received and fired here, %llu local ones for the other player's units dropped, %llu refused (ammunition or unit not matched)",
-               g_stat_own, g_stat_sent_bytes / 5120.0, g_stat_repeats, g_out.size(), g_stat_injected, g_stat_dropped, g_stat_refused);
+        mp_log("shots: 5 s: %llu fired by this game's units and sent (%.1f KB/s, %llu repeats - after %u ms -, %zu waiting for an answer), %llu received and fired here, %llu local ones for the other player's units dropped, %llu refused (ammunition or unit not matched)",
+               g_stat_own, g_stat_sent_bytes / 5120.0, g_stat_repeats, (unsigned)shots_resend_ms(), g_out.size(), g_stat_injected, g_stat_dropped, g_stat_refused);
     g_stat_own = g_stat_dropped = g_stat_injected = g_stat_refused = g_stat_sent_bytes = g_stat_repeats = 0;
     if (g_stat_offmap || g_stat_x_own || g_stat_x_dropped || g_stat_x_in || g_stat_f_own || g_stat_f_dropped || g_stat_f_in)
         mp_log("shots: 5 s: %llu of this game's launches were off-map fire; explosions: %llu made here and sent, %llu received, %llu local ones dropped; flares: %llu fired here and sent, %llu received, %llu local ones dropped",

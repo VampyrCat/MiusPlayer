@@ -56,12 +56,51 @@ void mp_log(const char *fmt, ...)
     LeaveCriticalSection(&g_cs);
 }
 
+// Whether memory can be read: VirtualQuery, a call into the system - and one that takes as long as the region the
+// address lies in is large (the system walks the region's pages to tell its size): measured 55 microseconds a call
+// where the game keeps its units in one large region. The module asks it for every soldier and vehicle it looks at,
+// several times a step: with that layout the joining game spent two thirds of its time there (2.4: vehicle damage 2.3 s
+// in 5 s, animation 0.4 s, seats 0.25 s) and fell behind. So each thread keeps the last 16 regions it found readable,
+// for half a second (readable_new_step, every frame and step) or until the game's objects change
+// (readable_forget) - the game gives no memory back in between (its units and the map's objects stay until the
+// battle ends). MP_READABLE_CACHE=0: every call asks the system, as before.
+static volatile LONG g_readable_gen = 1;
+static DWORD g_readable_gen_at;
+struct ReadableRegion { const char *lo, *hi; LONG gen; };
+static thread_local ReadableRegion t_regions[16];
+static thread_local unsigned t_region_next;
+
 bool readable(const void *p, size_t n)
 {
+    if (!p) return false;
+    const char *a = (const char *)p, *b = a + n;
+    static int cache = -1;
+    if (cache < 0) { char v[8]; cache = GetEnvironmentVariableA("MP_READABLE_CACHE", v, sizeof v) ? atoi(v) != 0 : 1; }
+    LONG gen = cache ? g_readable_gen : 0;
+    if (cache)
+        for (const ReadableRegion &r : t_regions)
+            if (r.gen == gen && a >= r.lo && b <= r.hi && b >= a) return true;
     MEMORY_BASIC_INFORMATION mbi;
-    if (!p || !VirtualQuery(p, &mbi, sizeof mbi)) return false;
+    if (!VirtualQuery(p, &mbi, sizeof mbi)) return false;
     if (mbi.State != MEM_COMMIT || (mbi.Protect & (PAGE_NOACCESS | PAGE_GUARD))) return false;
-    return (const char *)p + n <= (const char *)mbi.BaseAddress + mbi.RegionSize;
+    const char *lo = (const char *)mbi.BaseAddress, *hi = lo + mbi.RegionSize;
+    if (b > hi || b < a) return false;
+    t_regions[t_region_next++ & 15] = { lo, hi, gen };
+    return true;
+}
+
+void readable_new_step(void)
+{
+    DWORD now = GetTickCount();
+    if (now - g_readable_gen_at < 500) return;
+    g_readable_gen_at = now;
+    InterlockedIncrement(&g_readable_gen);
+}
+
+void readable_forget(void)
+{
+    g_readable_gen_at = GetTickCount();
+    InterlockedIncrement(&g_readable_gen);
 }
 
 static const char *safe_str(const void *p, char *buf, size_t n)

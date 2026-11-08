@@ -403,8 +403,10 @@ static void carry_out(const Incoming &in)
 void orders_received(const ShotRec &s)
 {
     if (session_role() != ROLE_HOST || !session_host_auth()) return;
+    // (an order's pieces are kept apart by the player they came from: each numbers its own orders)
+    u64 serial = s.obj2 ^ ((u64)session_order_sender() << 56);
     if (s.kind == ORDER_HEAD || s.kind == AIM_ORDER) {
-        Incoming &in = g_incoming[s.obj2];
+        Incoming &in = g_incoming[serial];
         in.head = s;
         in.want = s.arg6 > 4096 ? 4096 : s.arg6;
         in.keys.assign(in.want, 0);
@@ -412,7 +414,7 @@ void orders_received(const ShotRec &s)
         memcpy(in.keys.data(), s.launch + 72, n * 8ull);
         in.want -= n;
     } else if (s.kind == ORDER_UNITS) {
-        auto it = g_incoming.find(s.obj2);
+        auto it = g_incoming.find(serial);
         if (it == g_incoming.end()) return;
         Incoming &in = it->second;
         u32 n = s.ammo > KEYS_IN_MORE ? KEYS_IN_MORE : s.ammo;
@@ -420,7 +422,7 @@ void orders_received(const ShotRec &s)
         memcpy(in.keys.data() + s.arg6, s.launch, n * 8ull);
         in.want = in.want > n ? in.want - n : 0;
     } else return;
-    auto it = g_incoming.find(s.obj2);
+    auto it = g_incoming.find(serial);
     if (it != g_incoming.end() && !it->second.want) {
         if (it->second.head.kind == AIM_ORDER) carry_out_aim(it->second);
         else carry_out(it->second);

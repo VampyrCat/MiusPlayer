@@ -4,10 +4,27 @@
 #include "engine.h"
 
 void mp_log(const char *fmt, ...);
+
+// Where the module's own time goes (milliseconds summed per part, reported by session.cpp every 5 s):
+//   double t = prof_now(); ...; t = prof_add(PROF_X, t); ...   (plain calls: usable in functions with __try)
+enum ProfPart { PROF_RECEIVE, PROF_STATE_SAVE, PROF_STATE_LOAD, PROF_SHOTS, PROF_HITS, PROF_TRENCH, PROF_ANIM, PROF_VDAMAGE,
+                PROF_SEATS, PROF_CELLS, PROF_MAPOBJ, PROF_FOLLOW, PROF_GUNS, PROF_TRANSFORMS, PROF_SIGHT, PROF_OTHER, PROF_UI, PROF_N };
+extern double g_prof_part[PROF_N];
+inline double prof_now(void)
+{
+    static double ms_per_tick;
+    LARGE_INTEGER t;
+    if (!ms_per_tick) { LARGE_INTEGER f; QueryPerformanceFrequency(&f); ms_per_tick = 1000.0 / (double)f.QuadPart; }
+    QueryPerformanceCounter(&t);
+    return (double)t.QuadPart * ms_per_tick;
+}
+inline double prof_add(int part, double since) { double now = prof_now(); g_prof_part[part] += now - since; return now; }
 extern char g_out_dir[MAX_PATH];     // <game>\out
 extern char g_program[32];           // "opgame" or "tacgame"
 HWND main_window(void);
 bool readable(const void *p, size_t n);
+void readable_new_step(void);        // a new frame or simulation step: what readable() found is looked at again after 0.5 s
+void readable_forget(void);          // the game's objects changed: everything is looked at again
 
 // Rigid-body state every unit (i_techn, i_human) carries, as offsets into the object:
 //   +0x0f0 rotation, 3 rows of 4 floats     +0x130 inverse rotation (transpose)
@@ -54,6 +71,16 @@ void session_note_phase(u32 phase);     // the engine announced a battle phase c
 int session_role(void);
 int session_host_mode(void);
 bool session_connected(void);
+bool session_resumable(void);            // a battle's connection is lost and still waited for (see session.cpp g_lost_at)
+void session_test_netcut(unsigned seconds);     // tests: throw away everything received for a while
+// The round trip to the other game, taken from acknowledgements (unit states, the ordered channel) of
+// what was sent only once: smoothed, how much it wanders, and the smallest of the last 30 s (the line's own
+// delay without anything queued on it). 0 before the first sample.
+void net_rtt_sample(u32 ms);
+float net_rtt_ms(void);
+float net_rtt_dev_ms(void);
+float net_rtt_min_ms(void);
+void net_rtt_reset(void);
 bool session_versus(void);
 bool session_state_wanted(Object *o);      // false: this unit is followed by position only
 void session_test_resign(void);     // tests: leave the battle the way the game's own "to the operation" box does
@@ -104,6 +131,10 @@ void statesync_owner_frame(ObjMan *om, DWORD now, bool (*owns)(Object *), void (
 void statesync_on_packet(const unsigned char *data, int size, void (*send)(const void *, int), bool versus);
 void statesync_apply(ObjMan *om);
 void statesync_reset(void);
+void statesync_owner_frame_extra(int ch, ObjMan *om, DWORD now, bool (*owns)(Object *), void (*send)(int, const void *, int));
+void statesync_on_packet_extra(int ch, const unsigned char *data, int size);
+void statesync_open_extra(int ch);
+void statesync_close_extra(int ch);
 void statesync_report(void);
 
 // ---- shell launches (shots.cpp)
@@ -112,6 +143,16 @@ void shots_frame(void (*send)(const void *, int));
 void shots_on_packet(const unsigned char *data, int size, void (*send)(const void *, int));
 void shots_sim_step(ObjMan *om);
 void shots_reset(void);
+// more players (a host's extra players, session.cpp): channels 1-3 of the reliable channel
+int shots_target(int ch);               // records queued from now on go to channel ch only (-1: to all); returns the last
+void shots_frame_extra(int ch, void (*send)(int, const void *, int));
+void shots_on_packet_extra(int ch, const unsigned char *data, int size, void (*send)(int, const void *, int));
+void shots_open_channel(int ch);
+void shots_close_channel(int ch);
+void trench_send_all_to(int ch);
+void xlate_send_to(int ch);
+void session_set_order_sender(int ch);  // the orders carried out now came from channel ch (0: the other player)
+int session_order_sender(void);
 void shots_report(void);
 #ifdef __cplusplus
 struct ShotRec;
@@ -287,7 +328,7 @@ void mapobj_test_list_all(void);          // tests: the same, and each damaged o
 void mapobj_test_demolish(int index);     // tests: the n-th destructible building collapses (the game's own hit)
 
 // ---- what each player sees of the enemy: the host's spotting (sight.cpp)
-void sight_frame(ObjMan *om, void (*send)(const void *, int));
+void sight_frame(ObjMan *om, void (*send)(const void *, int), void (*send_opposite)(const void *, int));
 void sight_on_packet(const unsigned char *data, int size);
 void sight_report(void);
 void sight_test_step(void);

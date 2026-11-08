@@ -439,6 +439,24 @@ static void stamps_step(ObjMan *om)
     g_stamp_wait.clear();
 }
 
+// Host: a new extra player (shots channel ch) is told once what this game's ground has had done to it so far: the
+// digs, the trenches stamped outside a dig and the craters.
+void trench_send_all_to(int ch)
+{
+    if (!g_enabled) return;
+    int was = shots_target(ch);
+    if (g_dig)
+        for (ShotRec s : g_mine) {
+            TrenchRec r;
+            memcpy(&r, s.launch, sizeof r);
+            if (session_owns_squad(r.squad)) shots_queue(s);
+        }
+    for (ShotRec s : g_stamp_log) shots_queue(s);
+    if (session_role() == ROLE_HOST && g_crater_sync)
+        for (ShotRec s : g_crater_log) shots_queue(s);
+    shots_target(was);
+}
+
 void trench_resend(void)
 {
     g_lists_due = true;

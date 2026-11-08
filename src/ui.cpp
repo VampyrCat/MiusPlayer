@@ -652,7 +652,7 @@ static void restore_slot(const SaveSlot &slot)
         } while (FindNextFileA(h, &fd));
         FindClose(h);
     }
-    sprintf_s(g_message, "Restored %s (%d files). Continue it from the Operations screen.", slot.name, n);
+    sprintf_s(g_message, "Restored %s - continue it on the Operations screen.", slot.name); (void)n;
     mp_log("ui: restored multiplayer operation save %s (%d files)", slot.name, n);
 }
 
@@ -735,10 +735,9 @@ static BOOL WINAPI start_battle_hook(LPCSTR app, LPSTR cmd, LPSECURITY_ATTRIBUTE
     force::count(b, side, &squads, &units);
     char note[200];
     if (!squads) {
-        strcpy_s(note, "Your force could not be read from the Skirmish screen. Press CHOOSE MY FORCE to try again.");
+        strcpy_s(note, "Your force could not be read - try CHOOSE MY FORCE again.");
     } else if (want && side != want) {
-        sprintf_s(note, "That force is of the %s; you command the %s in this battle. CHOOSE MY FORCE again with the %s as your side.",
-                  image::side_name(side), image::side_name(want), image::side_name(want));
+        sprintf_s(note, "That force is of the %s - choose one of the %s.", image::side_name(side), image::side_name(want));
     } else if (fopen_s(&f, keep, "wb") || !f) {
         strcpy_s(note, "Your force could not be kept (users folder).");
     } else {
@@ -795,14 +794,14 @@ static void skirmish_hook(void *c, u64 a, u64 b, char *d)
         unsigned cost = 0, side = 0, limit = g_joiner.force_limit, want = g_joiner.force_side;
         bool priced = skirmish_cost(g_om_ui, &cost, &side);
         g_pick_refusal[0] = 0;
-        if (!limit && g_joiner.host_in_battle) strcpy_s(g_pick_refusal, "The host's battle has begun - your own force can only go into the next one. Leave this screen and press READY to enter the battle.");
-        else if (!limit) strcpy_s(g_pick_refusal, "The host has not chosen his force yet - its cost is your limit. Wait for it, then press start again.");
+        if (!limit && g_joiner.host_in_battle) strcpy_s(g_pick_refusal, "The battle has begun - leave this screen and press READY to enter it.");
+        else if (!limit) strcpy_s(g_pick_refusal, "Wait for the host to choose his force, then press start again.");
         else if (!priced) strcpy_s(g_pick_refusal, "Your force could not be priced.");
-        else if (want && side != want) sprintf_s(g_pick_refusal, "You command the %s in this battle: set your own side to the %s.", image::side_name(want), image::side_name(want));
+        else if (want && side != want) sprintf_s(g_pick_refusal, "Set your side to the %s.", image::side_name(want));
         else if (readable(c, mc_date() + 0x10) && ((g_joiner.force_year && *(unsigned *)((char *)c + mc_date()) + 1 != g_joiner.force_year) ||
                                                    (g_joiner.force_period && *(unsigned *)((char *)c + mc_date() + 4) + 1 != g_joiner.force_period)))
-            strcpy_s(g_pick_refusal, "The battle is in the host's year and season: set YEAR AND SEASON back to what the screen opened with, then pick your units.");
-        else if (cost > limit) sprintf_s(g_pick_refusal, "Your force costs %u - the host's costs %u. Take something out.", cost, limit);
+            strcpy_s(g_pick_refusal, "Set YEAR AND SEASON back to the host's.");
+        else if (cost > limit) sprintf_s(g_pick_refusal, "Cost %u is over the limit of %u.", cost, limit);
         if (g_pick_refusal[0]) { mp_log("ui: CHOOSE MY FORCE - start refused: %s", g_pick_refusal); return; }
         g_joiner.force_cost = cost;
         mp_log("ui: CHOOSE MY FORCE - the force costs %u of %u allowed", cost, limit);
@@ -973,7 +972,7 @@ void ui_frame(ObjMan *om)
         g_button_hot = false;
         mp_log("ui: multiplayer menu opened");
     } else if ((act == ACT_HOST_SKIRMISH || act == ACT_HOST_MISSION || act == ACT_HOST_OPERATION) && !port_ok(g_host_port)) {
-        strcpy_s(g_message, "The port to host on has to be a number from 1 to 65535 (empty: 1943).");
+        strcpy_s(g_message, "The port must be 1 to 65535 (empty: 1943).");
     } else if (act == ACT_HOST_SKIRMISH || act == ACT_HOST_MISSION || act == ACT_HOST_OPERATION) {
         int mode = act == ACT_HOST_OPERATION ? HOST_MODE_OPERATION : act == ACT_HOST_MISSION ? HOST_MODE_MISSION : HOST_MODE_SKIRMISH;
         session_set_port((unsigned short)port_of(g_host_port));
@@ -1023,7 +1022,7 @@ void ui_frame(ObjMan *om)
         g_setup_restore_at = GetTickCount() + 1500;     // (once the screen has read it)
         mp_log("ui: CHOOSE MY FORCE - Skirmish screen open; its start button hands this player's force to the host (%s)", g_force_target);
     } else if (act == ACT_CONNECT && g_address[0] && !port_ok(g_join_port)) {
-        strcpy_s(g_message, "The port has to be a number from 1 to 65535 (empty: 1943).");
+        strcpy_s(g_message, "The port must be 1 to 65535 (empty: 1943).");
     } else if (act == ACT_CONNECT && g_address[0]) {
         save_address();
         g_message[0] = 0;
@@ -1123,13 +1122,12 @@ static void draw_map_wait(float cx, float py, float bw, float bh)
     (void)bw; (void)bh;
     text("OPERATIONAL MAP", cx, py + 34 * s, 40, k_ink, 1, true);
     if (session_map_mode()) {
-        text("Both players have ended the turn.", cx, py + 180 * s, 26, k_ink);
-        text("Your moves go to the host's game, which carries the turn out. The map reloads with the result -", cx, py + 236 * s, 17, k_edge);
-        text("or, if the host starts a battle of this turn, your game enters that battle.", cx, py + 262 * s, 17, k_edge);
+        text("Turn ended.", cx, py + 180 * s, 26, k_ink);
+        text("Your moves are with the host. The map reloads with the result.", cx, py + 236 * s, 17, k_edge);
     } else {
         sprintf_s(line, "Ending the turn with %s's moves...", peer);
         text(line, cx, py + 180 * s, 26, k_ink);
-        text("His moves are fetched and put into your operation; the map reloads and the turn ends.", cx, py + 236 * s, 17, k_edge);
+        text("The map reloads when the turn is done.", cx, py + 236 * s, 17, k_edge);
     }
 }
 
@@ -1163,31 +1161,46 @@ static void draw_lobby(float cx, float px, float py, float pw, float ph)
     bool mission = mode == HOST_MODE_MISSION;
     text("MULTIPLAYER LOBBY", cx, py + 30 * s, 40, k_ink, 1, true);
     if (g_lobby_host || peer_here) text(operation ? "Operation" : mission ? "Custom mission" : "Skirmish", cx, py + 88 * s, 22, k_edge);
+    // host, skirmish or mission: how many players the battle takes (MP_MAX_PLAYERS for the battle program, which
+    // starts with this program's environment): 2, or up to 5 - the players after the second join once it has begun
+    int players = 2;
+    if (g_lobby_host && !operation) {
+        char v[8];
+        if (GetEnvironmentVariableA("MP_MAX_PLAYERS", v, sizeof v)) players = atoi(v) < 2 ? 2 : atoi(v) > 5 ? 5 : atoi(v);
+        char label[24];
+        sprintf_s(label, "PLAYERS: %d", players);
+        if (button(label, px + pw - 120 * s, py + 74 * s, 180 * s, 36 * s, 15)) {
+            players = players >= 5 ? 2 : players + 1;
+            sprintf_s(v, "%d", players);
+            SetEnvironmentVariableA("MP_MAX_PLAYERS", players > 2 ? v : 0);
+            mp_log("ui: the battle takes %d players", players);
+        }
+    }
     if (g_lobby_host) {
         // what a player outside this network needs: the public address, and the port reaching this PC
         int upnp = session_upnp();
         const char *pub = session_public_ip();
-        if (upnp == 2) sprintf_s(line, "UPnP: the router passes UDP port %u on to this PC.%s%s", session_port(), pub[0] ? "  Your public address: " : "", pub);
-        else if (upnp == 1) sprintf_s(line, "UPnP: asking the router to pass UDP port %u on to this PC ...", session_port());
-        else if (upnp == 3) sprintf_s(line, "UPnP: the router did not open the port - forward UDP port %u to this PC by hand.", session_port());
-        else sprintf_s(line, "UPnP is off - players outside your network need UDP port %u forwarded to this PC.", session_port());
+        if (upnp == 2) sprintf_s(line, "UDP port %u open (UPnP)%s%s", session_port(), pub[0] ? "  -  public address " : "", pub);
+        else if (upnp == 1) sprintf_s(line, "Opening UDP port %u (UPnP)...", session_port());
+        else if (upnp == 3) sprintf_s(line, "UPnP failed - forward UDP port %u on your router.", session_port());
+        else sprintf_s(line, "Players outside your network need UDP port %u forwarded.", session_port());
         text(line, cx, py + 121 * s, 14, upnp == 2 ? good : upnp == 3 ? wait : k_edge);
     }
 
     // the two players: name, the force each commands, state
     float nx = px + 60 * s, fx = px + 300 * s, sx = px + pw - 60 * s, y1 = py + 150 * s, y2 = py + 204 * s;
-    const char *host_force = operation ? "the side of the operation" : mission ? (swap ? "the mission's ENEMY force" : "the mission's PLAYER force")
-                           : swap ? "ENEMY force of the battle setup" : "OWN force of the battle setup";
-    const char *join_force = operation ? "the opposing side" : mission ? (swap ? "the mission's PLAYER force" : "the mission's ENEMY force")
-                           : swap ? "OWN force of the battle setup" : "ENEMY force of the battle setup";
+    const char *host_force = operation ? "the operation's side" : mission ? (swap ? "ENEMY force" : "PLAYER force")
+                           : swap ? "ENEMY force" : "OWN force";
+    const char *join_force = operation ? "the opposing side" : mission ? (swap ? "PLAYER force" : "ENEMY force")
+                           : swap ? "OWN force" : "ENEMY force";
     char own_force[96];
     unsigned his_squads = 0, his_side = 0;
     if (!operation && !mission && g_lobby_host && session_peer_force(&his_squads, &his_side)) {
-        if (session_peer_force_cost()) sprintf_s(own_force, "his own force: %u squads of the %s, cost %u", his_squads, image::side_name(his_side), session_peer_force_cost());
-        else sprintf_s(own_force, "his own force: %u squads of the %s", his_squads, image::side_name(his_side));
+        if (session_peer_force_cost()) sprintf_s(own_force, "own force: %u squads, %s, cost %u", his_squads, image::side_name(his_side), session_peer_force_cost());
+        else sprintf_s(own_force, "own force: %u squads, %s", his_squads, image::side_name(his_side));
         join_force = own_force;
     } else if (!operation && !mission && !g_lobby_host && g_my_force_squads && g_joiner.force_have == g_joiner.force_hash) {
-        sprintf_s(own_force, "his own force: %u squads of the %s", g_my_force_squads, image::side_name(g_my_force_side));
+        sprintf_s(own_force, "own force: %u squads, %s", g_my_force_squads, image::side_name(g_my_force_side));
         join_force = own_force;
     }
     if (host_name) {
@@ -1198,8 +1211,8 @@ static void draw_lobby(float cx, float px, float py, float pw, float ph)
                                 g_joiner.host_in_battle || (g_joiner.host_ready && !operation && !mission) ? good : k_edge, 2);
         else if (!operation && !mission) text(session_host_ready() ? "READY" : "setting up", sx, y1 + 3 * s, 17, session_host_ready() ? good : k_edge, 2);
     } else {
-        if (g_joiner.steam) sprintf_s(line, "Looking for %s through Steam ...  (%u s)", g_steam_host_name[0] ? g_steam_host_name : "the host", g_joiner.waited_seconds());
-        else sprintf_s(line, "Looking for the host at %s ...  (%u s)", g_joiner.address, g_joiner.waited_seconds());
+        if (g_joiner.steam) sprintf_s(line, "Connecting to %s (Steam)...  %u s", g_steam_host_name[0] ? g_steam_host_name : "the host", g_joiner.waited_seconds());
+        else sprintf_s(line, "Connecting to %s...  %u s", g_joiner.address, g_joiner.waited_seconds());
         text(line, nx, y1, 20, wait, 0);
     }
     if (join_name) {
@@ -1207,62 +1220,59 @@ static void draw_lobby(float cx, float px, float py, float pw, float ph)
         text(join_force, fx, y2 + 3 * s, 17, k_ink, 0);
         text(peer_ready ? "READY" : "not ready", sx, y2 + 3 * s, 17, peer_ready ? good : wait, 2);
     } else {
-        sprintf_s(line, "Waiting for a player to join at  %s : %u", session_local_ip()[0] == '?' ? "your address" : session_local_ip(), session_port());
+        sprintf_s(line, "Waiting for a player at  %s : %u", session_local_ip()[0] == '?' ? "your address" : session_local_ip(), session_port());
         text(line, nx, y2 - 4 * s, 20, wait, 0);
-        if (steam_ready()) text("Your Steam friends find this game on their JOIN A GAME screen - they need no address and no open port.", nx, y2 + 25 * s, 14, k_edge, 0);
+        if (steam_ready()) text("Steam friends can join without an address.", nx, y2 + 25 * s, 14, k_edge, 0);
     }
     quad(px + 50 * s, py + 252 * s, pw - 100 * s, 2 * s, k_edge);
 
     float y = py + 266 * s;
     if (operation) {
-        text("The host opens the operation from the side he wants to play; modifiers are set on the Operations screen.", cx, y, 15, k_edge);
-        text("On the operational map both players move their own forces at the same time; the turn ends when both have pressed next turn.", cx, y + 24 * s, 15, k_edge);
+        text("Both players give orders at the same time; the turn ends when both press next turn.", cx, y, 15, k_edge);
     } else if (mission) {
-        text("The host picks a mission on the Missions screen: the prepared ones and those made in the battle editor.", cx, y, 15, k_edge);
-        text("The mission travels to the other player with the battle. SWAP SIDES exchanges who commands which force.", cx, y + 24 * s, 15, k_edge);
+        text("The host picks the mission. SWAP SIDES exchanges the forces.", cx, y, 15, k_edge);
+        if (players > 2) text("Players 3 and up join once the battle has begun (JOIN A GAME, on the side they pick).", cx, y + 26 * s, 14, k_edge);
     } else {
-        text("The host sets up the battle on the Skirmish screen. The other player may pick his own force with CHOOSE MY FORCE;", cx, y, 15, k_edge);
-        text("otherwise he commands the one the setup gives him. SWAP SIDES exchanges who commands which.", cx, y + 24 * s, 15, k_edge);
+        text("The host sets up the battle. The other player may CHOOSE MY FORCE. SWAP SIDES exchanges the forces.", cx, y, 15, k_edge);
         unsigned limit = g_lobby_host ? session_force_limit() : peer_here ? g_joiner.force_limit : 0;
         if (g_lobby_host) {
-            if (limit) sprintf_s(line, "Your force costs %u: the other player's own force may cost as much.", limit);
-            else strcpy_s(line, "Choose your force on the Skirmish screen: what it costs is the most the other player's own force may cost.");
-            text(line, cx, y + 62 * s, 17, limit ? good : wait);
-            text("The Skirmish screen's start makes you ready; the battle starts when the other player is ready too.", cx, y + 92 * s, 14, k_edge);
+            if (limit) sprintf_s(line, "Your force costs %u - the other player's may cost as much.", limit);
+            else strcpy_s(line, "Choose your force on the Skirmish screen; its cost limits the other player's.");
+            text(line, cx, y + 34 * s, 17, limit ? good : wait);
+            text("Press start there when ready.", cx, y + 60 * s, 14, k_edge);
+            if (players > 2) text("Players 3 and up join once the battle has begun (JOIN A GAME, on the side they pick).", cx, y + 86 * s, 14, k_edge);
         }
         if (!g_lobby_host && peer_here && !starting) {
             // where this player's own force stands
             unsigned want = g_joiner.force_side;
             if (g_my_force_squads) {
-                const char *state = g_joiner.force_have == g_joiner.force_hash ? "the host has it."
-                                  : g_joiner.force_refused == g_joiner.force_hash ? "the host cannot use it - it is not of your side."
-                                  : "being sent to the host...";
-                sprintf_s(line, "Your own force: %u squads of the %s - %s", g_my_force_squads, image::side_name(g_my_force_side), state);
-                text(line, cx, y + 62 * s, 17, g_joiner.force_have == g_joiner.force_hash ? good : wait);
+                const char *state = g_joiner.force_have == g_joiner.force_hash ? "with the host"
+                                  : g_joiner.force_refused == g_joiner.force_hash ? "refused: not your side"
+                                  : "sending...";
+                sprintf_s(line, "Your force: %u squads, %s - %s", g_my_force_squads, image::side_name(g_my_force_side), state);
+                text(line, cx, y + 34 * s, 17, g_joiner.force_have == g_joiner.force_hash ? good : wait);
             } else if (g_force_note[0]) {
-                text(g_force_note, cx, y + 62 * s, 17, wait);
+                text(g_force_note, cx, y + 34 * s, 17, wait);
             }
             if (want) {
-                if (limit) sprintf_s(line, "You command the %s. CHOOSE MY FORCE opens the Skirmish screen: the %s as your side, units costing up to %u (the host's force), then its start button.",
-                                     image::side_name(want), image::side_name(want), limit);
-                else sprintf_s(line, "You command the %s. Your own force may cost as much as the host's - he has not chosen his yet.", image::side_name(want));
+                if (limit) sprintf_s(line, "You command the %s. Your own force may cost up to %u.", image::side_name(want), limit);
+                else sprintf_s(line, "You command the %s. The host has not chosen his force yet.", image::side_name(want));
                 if (limit && g_joiner.host_in_battle)
-                    sprintf_s(line, "The host's battle is still in deployment: CHOOSE MY FORCE (the %s, up to %u) puts your own force in - his battle starts again with it.",
-                              image::side_name(want), limit);
-                text(line, cx, y + 92 * s, 14, k_edge);
+                    sprintf_s(line, "In deployment: CHOOSE MY FORCE (%s, up to %u) restarts the battle with yours.", image::side_name(want), limit);
+                text(line, cx, y + 60 * s, 14, k_edge);
             }
         }
     }
 
     if (starting) {
-        text(g_joiner.want_map ? "Operational map received. Opening it..." : "Battle received. Starting...", cx, r1 + 16 * s, 24, good);
+        text(g_joiner.want_map ? "Map received - opening..." : "Battle received - starting...", cx, r1 + 16 * s, 24, good);
         return;
     }
     if (g_lobby_host) {
         if (operation) {
             // multiplayer saves of earlier operation battles
             float sy = py + 322 * s;
-            if (g_slots.empty()) text("No multiplayer operation saves yet. One is written every time an operation battle starts.", cx, sy + 8 * s, 15, k_edge);
+            if (g_slots.empty()) text("No saved operations yet.", cx, sy + 8 * s, 15, k_edge);
             for (size_t i = 0; i < g_slots.size(); i++, sy += 34 * s) {
                 sprintf_s(line, "%s  -  %s", g_slots[i].name, g_slots[i].detail);
                 text(line, nx, sy, 16, k_ink, 0);
@@ -1276,7 +1286,7 @@ static void draw_lobby(float cx, float px, float py, float pw, float ph)
         text(g_message, cx, py + ph - 30 * s, 15, good);
     } else {
         if (g_joiner.state == Joiner::RECEIVING) {
-            sprintf_s(line, g_joiner.want_map ? "Receiving the operational map...  %d%%" : "Receiving the battle...  %d%%", (int)(g_joiner.progress() * 100));
+            sprintf_s(line, g_joiner.want_map ? "Receiving the map...  %d%%" : "Receiving the battle...  %d%%", (int)(g_joiner.progress() * 100));
             text(line, cx, r1 + 16 * s, 24, good);
         } else {
             bool choose = !operation && !mission && peer_here;
@@ -1288,15 +1298,14 @@ static void draw_lobby(float cx, float px, float py, float pw, float ph)
             }
             if (choose && button("CHOOSE MY FORCE", cx, r2, bw, bh)) g_action = ACT_CHOOSE_FORCE;
             char no_answer[120];
-            if (g_joiner.steam) strcpy_s(no_answer, "No answer yet. Steam is looking for a way to the host's game; that can take a moment.");
-            else sprintf_s(no_answer, "No answer yet. Check the address and the port, and that UDP port %u reaches the host.", port_of(g_join_port));
+            if (g_joiner.steam) strcpy_s(no_answer, "No answer yet - Steam is still connecting.");
+            else sprintf_s(no_answer, "No answer - check the address, and that UDP port %u is open at the host.", port_of(g_join_port));
             const char *hint = !peer_here ? (g_joiner.waited_seconds() >= 8 ? no_answer : "")
-                             : !g_joiner.lobby_ready ? (g_joiner.host_in_battle ? "The host is in the battle. Press READY to enter it."
-                                                        : !operation && !mission ? (g_joiner.host_ready ? "The host is ready. Press READY when you are - the battle starts then."
-                                                                                                         : "Press READY when you are; the battle starts when both players are ready.")
-                                                        : "Press READY when you are; the battle starts when the host starts it.")
-                             : !operation && !mission && !g_joiner.host_in_battle ? (g_joiner.host_ready ? "Ready. The battle is starting..." : "Ready. Waiting for the host to press start on his Skirmish screen...")
-                             : "Ready. Waiting for the host to start the battle...";
+                             : !g_joiner.lobby_ready ? (g_joiner.host_in_battle ? "The battle is on - press READY to enter it."
+                                                        : !operation && !mission && g_joiner.host_ready ? "The host is ready - press READY to start."
+                                                        : "Press READY when you are.")
+                             : !operation && !mission && !g_joiner.host_in_battle && g_joiner.host_ready ? "Starting..."
+                             : "Ready - waiting for the host.";
             text(hint, cx, choose ? r1 - 40 * s : r2 + 22 * s, 17, g_joiner.lobby_ready ? good : wait);
         }
         if (button("LEAVE THE LOBBY", cx, r3, bw, bh)) g_action = ACT_LEAVE;
@@ -1315,7 +1324,7 @@ static void draw_menu(void)
 
     if (g_screen == SCR_MAIN) {
         text("MULTIPLAYER", cx, py + 34 * s, 46, k_ink, 1, true);
-        text("Two players: one hosts, the other joins", cx, py + 100 * s, 20, k_edge);
+        text("One player hosts, the other joins", cx, py + 100 * s, 20, k_edge);
         if (button("HOST A SKIRMISH", cx, y, bw, bh)) g_action = ACT_HOST_SKIRMISH;
         if (button("HOST A CUSTOM MISSION", cx, y + gap, bw, bh)) g_action = ACT_HOST_MISSION;
         if (button("HOST AN OPERATION", cx, y + 2 * gap, bw, bh)) g_action = ACT_HOST_OPERATION;
@@ -1338,7 +1347,7 @@ static void draw_menu(void)
         text("JOIN A GAME", cx, py + 34 * s, 40, k_ink, 1, true);
         // two fields in the row of the old one: the host's address, and its port (empty: 1943, shown in grey)
         float fh = 70 * s, fy = y + 6 * s, aw = 400 * s, qw = 140 * s, ax = cx - bw / 2, qx = cx + bw / 2 - qw;
-        text("Host address (type it, or Ctrl+V to paste)", ax, py + 112 * s, 18, k_edge, 0);
+        text("Host address (Ctrl+V pastes)", ax, py + 112 * s, 18, k_edge, 0);
         text("Port", qx, py + 112 * s, 18, k_edge, 0);
         if (field(ax, fy, aw, fh, g_address, 0, g_focus == 0)) g_focus = 0;
         text(":", (ax + aw + qx) / 2, fy + fh / 2 - 21 * s, 26, k_ink, 1);
@@ -1350,10 +1359,9 @@ static void draw_menu(void)
         quad(ax, ly - 10 * s, bw, 2 * s, k_edge);
         text("STEAM FRIENDS HOSTING A GAME", ax, ly, 17, k_ink, 0, true);
         if (!steam_ready()) {
-            text("Steam is not available to this game.", ax, ly + 32 * s, 15, k_edge, 0);
+            text("Steam is not available.", ax, ly + 32 * s, 15, k_edge, 0);
         } else if (!g_nshosts) {
-            text("None of your Steam friends is hosting right now.", ax, ly + 32 * s, 15, k_edge, 0);
-            text("A friend who hosts shows up here; joining him needs no address and no port.", ax, ly + 54 * s, 14, k_edge, 0);
+            text("No friend is hosting right now.", ax, ly + 32 * s, 15, k_edge, 0);
         }
         for (int i = 0; i < g_nshosts; i++) {
             float ry = ly + 34 * s + i * 44 * s;
@@ -1383,16 +1391,16 @@ static void draw_ceasefire(void)
     session_peer(peer, sizeof peer, 0);
     if ((truce & 3) == 3) {
         strcpy_s(label, "CEASEFIRE AGREED");
-        sprintf_s(note, "The battle ends a few seconds after the menu is closed. Press again to take your word back.");
+        sprintf_s(note, "The battle ends when the menu closes. Press again to take it back.");
     } else if (truce & 1) {
         strcpy_s(label, "CEASEFIRE PROPOSED");
-        sprintf_s(note, "Waiting for %s to choose CEASEFIRE as well. Press again to take the proposal back.", peer);
+        sprintf_s(note, "Waiting for %s to agree. Press again to take it back.", peer);
     } else if (truce & 2) {
         strcpy_s(label, "ACCEPT CEASEFIRE");
-        sprintf_s(note, "%s proposes a ceasefire. The battle ends when you accept.", peer);
+        sprintf_s(note, "%s proposes a ceasefire.", peer);
     } else {
         strcpy_s(label, "CEASEFIRE");
-        sprintf_s(note, "Propose to end the battle now. It ends when %s chooses CEASEFIRE too.", peer);
+        sprintf_s(note, "Propose ending the battle - it ends if %s agrees.", peer);
     }
     float w = 250 * g_s, h = 40 * g_s, x = k_cease_left * g_s, y = g_h * k_cease_y;
     g_cease_hot = g_mx >= x && g_mx < x + w && g_my >= y && g_my < y + h;
@@ -1465,6 +1473,7 @@ static bool test_shot_request(char *name, size_t n)
     if (!strncmp(line, "tracks", 6)) { vdamage_test_tracks(); return false; }
     if (!strncmp(line, "breaktrack ", 11)) { vdamage_test_break(atoi(line + 11)); return false; }
     if (!strncmp(line, "repairtrack", 11)) { vdamage_test_repair(); return false; }
+    if (!strncmp(line, "netcut ", 7)) { session_test_netcut((unsigned)atoi(line + 7)); return false; }
     if (!strncmp(line, "objects all", 11)) { mapobj_test_list_all(); return false; }
     if (!strncmp(line, "objects", 7)) { mapobj_test_list(); return false; }
     if (!strncmp(line, "demolish ", 9)) { mapobj_test_demolish(atoi(line + 9)); return false; }
@@ -1518,12 +1527,12 @@ static void draw_pick_banner(void)
     unsigned limit = g_joiner.force_limit, want = g_joiner.force_side;
     char line[240];
     bool over = !limit || g_pick_cost > limit, wrong = (want && g_pick_side && g_pick_side != want) || g_pick_date_wrong;
-    if (limit) sprintf_s(line, "MULTIPLAYER - your own force: cost %u of %u allowed (what the host's force costs)%s%s%s", g_pick_cost, limit,
-                         want && g_pick_side && g_pick_side != want ? " - set your own side to the " : "",
+    if (limit) sprintf_s(line, "MULTIPLAYER - your force: cost %u of %u%s%s%s", g_pick_cost, limit,
+                         want && g_pick_side && g_pick_side != want ? " - set your side to the " : "",
                          want && g_pick_side && g_pick_side != want ? image::side_name(want) : "",
-                         g_pick_date_wrong ? " - set YEAR AND SEASON back to the host's" : "");
-    else if (g_joiner.host_in_battle) strcpy_s(line, "MULTIPLAYER - the host's battle has begun: your own force can only go into the next one");
-    else strcpy_s(line, "MULTIPLAYER - the host has not chosen his force yet: its cost will be your limit");
+                         g_pick_date_wrong ? " - set YEAR AND SEASON back" : "");
+    else if (g_joiner.host_in_battle) strcpy_s(line, "MULTIPLAYER - the battle has begun: your force goes into the next one");
+    else strcpy_s(line, "MULTIPLAYER - the host has not chosen his force yet (its cost is your limit)");
     TextTex *t = text_tex(g_draw, line, (int)(18 * g_s + 0.5f), false);
     // (at the foot of the screen: the top line is where the Skirmish screen shows its own messages)
     float w = (t ? t->w : 0) + 40 * g_s, h = g_pick_refusal[0] ? 64 * g_s : 36 * g_s, y = g_h - h - 60 * g_s;
@@ -1537,11 +1546,11 @@ static void draw_host_banner(void)
 {
     char line[240], peer[24];
     bool peer_ready = false, here = session_peer(peer, sizeof peer, &peer_ready), ready = session_host_ready();
-    if (!here) strcpy_s(line, ready ? "MULTIPLAYER - you are ready: the battle starts when a player has joined and is ready (start again: not ready)"
-                                    : "MULTIPLAYER - nobody has joined yet: press start when you are ready, the battle starts when the other player is too");
-    else if (ready && peer_ready) sprintf_s(line, "MULTIPLAYER - you and %s are ready: his own force is arriving, then the battle starts", peer);
-    else if (ready) sprintf_s(line, "MULTIPLAYER - you are ready: the battle starts when %s is ready (start again: not ready)", peer);
-    else sprintf_s(line, "MULTIPLAYER - %s is %s: press start when you are ready, the battle starts when both players are", peer, peer_ready ? "READY" : "not ready yet");
+    if (!here) strcpy_s(line, ready ? "MULTIPLAYER - ready, waiting for a player (start again: not ready)"
+                                    : "MULTIPLAYER - nobody has joined yet - press start when ready");
+    else if (ready && peer_ready) sprintf_s(line, "MULTIPLAYER - both ready - %s's force is arriving", peer);
+    else if (ready) sprintf_s(line, "MULTIPLAYER - ready, waiting for %s (start again: not ready)", peer);
+    else sprintf_s(line, "MULTIPLAYER - %s is %s - press start when ready", peer, peer_ready ? "READY" : "not ready");
     TextTex *t = text_tex(g_draw, line, (int)(18 * g_s + 0.5f), false);
     float w = (t ? t->w : 0) + 40 * g_s, h = 36 * g_s, y = g_h - h - 60 * g_s;
     quad(g_w / 2 - w / 2, y, w, h, 0xd0181410);
@@ -1591,7 +1600,9 @@ static void render_d3d11(Object *render, const char *status, bool hint, bool pic
     g_s = g_h / 1080.0f;
     g_draw = 0;
     g_d11 = true;
+    double prof_ui = prof_now();
     draw_overlays(status, hint, picking, host_wait);
+    prof_add(PROF_UI, prof_ui);
     ui11_flush();
     if (shot[0]) save_frame11(shot);
     ui11_end();
@@ -1660,7 +1671,9 @@ void ui_render(ObjMan *om)
     dev->SetSamplerState(0, D3DSAMP_ADDRESSV, D3DTADDRESS_CLAMP);
     dev->SetSamplerState(0, D3DSAMP_SRGBTEXTURE, FALSE);
 
+    double prof_ui = prof_now();
     draw_overlays(status, hint, picking, host_wait);
+    prof_add(PROF_UI, prof_ui);
 
     if (shot[0]) save_frame(dev, shot);
     if (began) dev->EndScene();

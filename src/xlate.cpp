@@ -187,6 +187,10 @@ static void *desc_by_num_hook(ObjMan *om, u32 num)
 
 void xlate_resend(void) { g_send_due = true; g_ready = false; g_their_desc.clear(); g_their_obj.clear(); g_expect_desc = g_expect_obj = 0; }
 
+// Host: a new extra player (shots channel ch) gets this game's tables once, on its channel only (the next frame).
+static bool g_send_to[4];
+void xlate_send_to(int ch) { if (ch >= 1 && ch < 4) g_send_to[ch] = true; }
+
 // Every frame of a connected battle: this game's tables go out once the battle stands, and again when
 // something new has been registered.
 void xlate_frame(ObjMan *om)
@@ -210,6 +214,16 @@ void xlate_frame(ObjMan *om)
             mp_log("numbers: unknown game build, the other game's numbers are taken as they are");
         }
         g_send_due = true;
+    }
+    for (int ch = 1; ch < 4; ch++) {
+        if (!g_send_to[ch]) continue;
+        g_send_to[ch] = false;
+        std::vector<std::pair<u32, u32>> desc, obj;
+        local_tables(om, desc, obj);
+        int was = shots_target(ch);
+        send_table(desc, 3);
+        send_table(obj, 4);
+        shots_target(was);
     }
     static DWORD last;
     DWORD now = GetTickCount();
