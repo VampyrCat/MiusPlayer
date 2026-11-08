@@ -96,6 +96,24 @@ static void to_extras(const ShotRec &s)
 
 int shots_target(int ch) { int was = g_only; g_only = ch; return was; }
 
+// A record for every channel but one (0 the first player, 1-3 an extra player): the host passing a line on.
+void shots_queue_except(ShotRec &s, int ch)
+{
+    if (ch != 0) {
+        if (!g_epoch) g_epoch = (GetTickCount() ^ (GetCurrentProcessId() << 16)) | 1;
+        ShotRec r = s;
+        r.seq = ++g_seq;
+        g_out.push_back({ r, 0 });
+    }
+    for (int c = 1; c < CHANNELS; c++) {
+        Channel &x = g_ch[c];
+        if (!x.on || c == ch) continue;
+        ShotPending p = { s, 0, 0 };
+        p.rec.seq = ++x.seq;
+        x.out.push_back(p);
+    }
+}
+
 // launch record: pointers at +0x38 (ammunition), +0x40 (weapon), +0x48 (firing object), +0x50 (object),
 // +0x60 (description); +0x68 the side's code
 enum { L_AMMO = 0x38, L_WEAPON = 0x40, L_SHOOTER = 0x48, L_OBJ2 = 0x50, L_DESC3 = 0x60, L_SIDE = 0x68, L_SIZE = 0x90 };
@@ -506,8 +524,10 @@ static void extras_in(void)
         in.swap(x.in);
         if (!x.on) continue;
         session_set_order_sender(c);
-        for (const ShotRec &r : in)
+        for (const ShotRec &r : in) {
             if (r.kind == 11 || r.kind == 12 || r.kind == 15) orders_received(r);
+            else if (r.kind == 20) chat_received(r, c);
+        }
         session_set_order_sender(0);
     }
 }
@@ -557,6 +577,7 @@ void shots_idle(void)
         else if (s.kind == 11 || s.kind == 12 || s.kind == 15) orders_received(s);      // (orders are given in a paused battle too)
         else if (s.kind == 13) stats_received(s, g_om);
         else if (s.kind == 17) cells_received(s);       // (the ground as the host holds it, before its end)
+        else if (s.kind == 20) chat_received(s, 0);     // (a chat line while paused)
         else rest.push_back(s);
     }
     g_in.swap(rest);
@@ -734,6 +755,7 @@ void shots_sim_step(ObjMan *om)
         else if (s.kind == 17) cells_received(s);
         else if (s.kind == 18) mapobj_received(s);
         else if (s.kind == 19) vdamage_track_received(s);
+        else if (s.kind == 20) chat_received(s, 0);
     }
     if (!g_launch || !g_enabled) { g_in.clear(); return; }
     if (!g_shellphys) g_shellphys = (char *)engine_find(om, "i_shellphys", "shellphys");

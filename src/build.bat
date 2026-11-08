@@ -10,7 +10,7 @@ if not defined VS set "VS=C:\Program Files\Microsoft Visual Studio\2022\Communit
 call "%VS%\VC\Auxiliary\Build\vcvars64.bat" >nul || (echo No Visual Studio C++ tools found & exit /b 1)
 cd /d "%~dp0"
 if not exist build mkdir build
-cl /nologo /LD /MD /O1 /EHa /W3 /Fo"build\\" basic_network.cpp build.cpp session.cpp ui.cpp ui_d3d11.cpp state.cpp statesync.cpp shots.cpp trench.cpp xlate.cpp anim.cpp hits.cpp endgame.cpp steam.cpp orders.cpp vdamage.cpp stats.cpp guns.cpp fires.cpp seats.cpp cells.cpp mapobj.cpp sight.cpp /link user32.lib gdi32.lib ws2_32.lib ole32.lib oleaut32.lib /OUT:build\basic_network.codelib /IMPLIB:build\basic_network.lib || exit /b 1
+cl /nologo /LD /MD /O1 /EHa /W3 /Fo"build\\" basic_network.cpp build.cpp session.cpp ui.cpp ui_d3d11.cpp state.cpp statesync.cpp shots.cpp trench.cpp xlate.cpp anim.cpp hits.cpp endgame.cpp steam.cpp orders.cpp vdamage.cpp stats.cpp guns.cpp fires.cpp seats.cpp cells.cpp mapobj.cpp sight.cpp chat.cpp /link user32.lib gdi32.lib ws2_32.lib ole32.lib oleaut32.lib /OUT:build\basic_network.codelib /IMPLIB:build\basic_network.lib || exit /b 1
 cl /nologo /MT /O1 /EHsc /W3 /Fo"build\\" mp_join.cpp /link ws2_32.lib /OUT:build\mp_join.exe || exit /b 1
 if not exist "..\dropin" exit /b 0
 if not exist "..\dropin\bin\rel\x64" mkdir "..\dropin\bin\rel\x64"

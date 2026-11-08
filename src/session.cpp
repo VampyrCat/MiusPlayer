@@ -70,6 +70,7 @@ static unsigned short g_upnp_port;         // the port the router has been asked
 static volatile LONG g_upnp_state;         // 1 asking, 2 the router has opened the port, 3 it has not
 static unsigned short g_port = k_default_port;
 static DWORD g_last_rx, g_last_hello, g_last_snapshot, g_last_report, g_last_bind_try;
+static DWORD g_hello_at;           // joining game: when the Hello the next Welcome answers was sent (the round trip)
 static char g_root[MAX_PATH], g_local_ip[64] = "?", g_external_ip[64], g_status[320];
 // lobby: who is playing, and whether the two players have exchanged forces (skirmish only)
 static char g_my_name[24] = "Player", g_peer_name[24], g_image_file[MAX_PATH];
@@ -476,7 +477,10 @@ const char *session_status(void)
         sprintf_s(state, "connected");
     else
         sprintf_s(state, "battle over");
-    sprintf_s(g_status, "MULTIPLAYER  -  %s  -  %s", who, state);
+    // (the round trip to the other game, when there is one: how good the connection is)
+    char ping[32] = "";
+    if (g_tactical && g_connected && net_rtt_ms() > 0) sprintf_s(ping, "  -  ping %.0f ms", net_rtt_ms());
+    sprintf_s(g_status, "MULTIPLAYER  -  %s  -  %s%s", who, state, ping);
     return g_status;
 }
 
@@ -4067,6 +4071,7 @@ static void on_packet(const sockaddr_in &from, const unsigned char *data, int si
     case PKT_WELCOME:
         if (g_role == ROLE_JOIN && size >= (int)sizeof(Welcome)) {
             const Welcome *w = (const Welcome *)data;
+            if (g_hello_at && now - g_hello_at < 2000) { net_rtt_sample(now - g_hello_at); g_hello_at = 0; }
             if ((w->map_flags & 16) && !g_connected) {          // (the host has all its players)
                 if (g_tactical && !g_host_lost) { mp_log("net: the host's game has all its players"); g_host_lost = now ? now : 1; }
                 break;
@@ -4342,6 +4347,7 @@ void session_frame(ObjMan *om)
     if (g_role == ROLE_JOIN) {
         if (now - g_last_hello > (g_connected ? 1000u : 500u)) {
             g_last_hello = now;
+            g_hello_at = now ? now : 1;
             // the hello doubles as keep-alive and carries the side wish, so a restarted host learns it again
             Hello hello = { make_head(PKT_HELLO) };
             memcpy(hello.proto, k_protocol, sizeof k_protocol);

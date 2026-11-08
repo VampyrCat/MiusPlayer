@@ -151,6 +151,18 @@ void shots_open_channel(int ch);
 void shots_close_channel(int ch);
 void trench_send_all_to(int ch);
 void xlate_send_to(int ch);
+struct ShotRec;
+void shots_queue_except(ShotRec &s, int ch);     // a record to every channel but ch (the host passing a chat line on)
+// chat in a battle (chat.cpp)
+bool chat_available(void);
+bool chat_is_open(void);
+void chat_key_open(void);
+void chat_raw_key(unsigned vk, bool make);      // a key from raw input while the line is open (basic_network.cpp)
+void chat_frame(bool focused);
+void chat_received(const ShotRec &s, int ch);
+void chat_test_say(const char *text);
+int chat_lines(const char **out, int max);
+const char *chat_typed(void);
 void session_set_order_sender(int ch);  // the orders carried out now came from channel ch (0: the other player)
 int session_order_sender(void);
 void shots_report(void);

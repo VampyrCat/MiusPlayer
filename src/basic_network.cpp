@@ -268,6 +268,11 @@ static LRESULT CALLBACK focus_wndproc(HWND w, UINT m, WPARAM wp, LPARAM lp)
 {
     if ((m == WM_ACTIVATEAPP && !wp) || (m == WM_ACTIVATE && LOWORD(wp) == WA_INACTIVE) || m == WM_KILLFOCUS)
         return 0;
+    // chat (chat.cpp): Enter in a battle with another player opens the line - the game does not see it
+    if ((m == WM_KEYDOWN || m == WM_KEYUP || m == WM_CHAR) && wp == VK_RETURN && chat_available()) {
+        if (m == WM_KEYDOWN) chat_key_open();
+        return 0;
+    }
     if (ui_blocks_input() && ((m >= WM_MOUSEFIRST && m <= WM_MOUSELAST) || (m >= WM_KEYFIRST && m <= WM_KEYLAST)))
         return 0;
     // (the map to look at: button presses go, moving and the wheel stay)
@@ -376,12 +381,27 @@ static BOOL (WINAPI *g_real_GetKeyboardState)(PBYTE);
 static UINT WINAPI hook_GetRawInputData(HRAWINPUT h, UINT cmd, LPVOID data, PUINT size, UINT header)
 {
     UINT r = g_real_GetRawInputData(h, cmd, data, size, header);
+    // chat (chat.cpp): Enter in a battle with another player opens the line on its press - the game does not see it
+    if (cmd == RID_INPUT && data && r != (UINT)-1 && r >= sizeof(RAWINPUTHEADER) && ((RAWINPUT *)data)->header.dwType == RIM_TYPEKEYBOARD &&
+        ((RAWINPUT *)data)->data.keyboard.VKey == VK_RETURN && chat_available()) {
+        RAWINPUT *in = (RAWINPUT *)data;
+        if (!(in->data.keyboard.Flags & RI_KEY_BREAK)) {
+            if (chat_is_open()) chat_raw_key(VK_RETURN, true);      // (sends the line)
+            else chat_key_open();
+        }
+        in->data.keyboard.VKey = 0xff;
+        in->data.keyboard.MakeCode = 0;
+        in->data.keyboard.Flags = RI_KEY_BREAK;
+        in->data.keyboard.Message = WM_KEYUP;
+        return r;
+    }
     if (cmd == RID_INPUT && data && r != (UINT)-1 && r >= sizeof(RAWINPUTHEADER) && ui_blocks_input()) {
         RAWINPUT *in = (RAWINPUT *)data;
         if (in->header.dwType == RIM_TYPEMOUSE) {
             in->data.mouse.usButtonFlags = 0;
             in->data.mouse.usButtonData = 0;
         } else if (in->header.dwType == RIM_TYPEKEYBOARD) {
+            if (chat_is_open()) chat_raw_key(in->data.keyboard.VKey, !(in->data.keyboard.Flags & RI_KEY_BREAK));
             in->data.keyboard.VKey = 0xff;
             in->data.keyboard.MakeCode = 0;
             in->data.keyboard.Flags = RI_KEY_BREAK;
@@ -400,13 +420,16 @@ static UINT WINAPI hook_GetRawInputData(HRAWINPUT h, UINT cmd, LPVOID data, PUIN
 }
 
 static bool mouse_button(int vk) { return vk == VK_LBUTTON || vk == VK_RBUTTON || vk == VK_MBUTTON || vk == VK_XBUTTON1 || vk == VK_XBUTTON2; }
-static SHORT WINAPI hook_GetAsyncKeyState(int vk) { return ui_blocks_input() || (mouse_button(vk) && ui_blocks_clicks()) ? 0 : g_real_GetAsyncKeyState(vk); }
-static SHORT WINAPI hook_GetKeyState(int vk) { return ui_blocks_input() || (mouse_button(vk) && ui_blocks_clicks()) ? 0 : g_real_GetKeyState(vk); }
+// (chat: in a battle with another player the game never sees Enter - it opens the chat line)
+static bool chat_key(int vk) { return vk == VK_RETURN && chat_available(); }
+static SHORT WINAPI hook_GetAsyncKeyState(int vk) { return ui_blocks_input() || chat_key(vk) || (mouse_button(vk) && ui_blocks_clicks()) ? 0 : g_real_GetAsyncKeyState(vk); }
+static SHORT WINAPI hook_GetKeyState(int vk) { return ui_blocks_input() || chat_key(vk) || (mouse_button(vk) && ui_blocks_clicks()) ? 0 : g_real_GetKeyState(vk); }
 
 static BOOL WINAPI hook_GetKeyboardState(PBYTE state)
 {
     BOOL r = g_real_GetKeyboardState(state);
     if (r && state && ui_blocks_input()) memset(state, 0, 256);
+    else if (r && state && chat_available()) state[VK_RETURN] = 0;
     else if (r && state && ui_blocks_clicks()) for (int vk : { VK_LBUTTON, VK_RBUTTON, VK_MBUTTON, VK_XBUTTON1, VK_XBUTTON2 }) state[vk] = 0;
     return r;
 }

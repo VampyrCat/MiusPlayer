@@ -18,7 +18,8 @@ static const unsigned k_magic = 0x504d5447;          // "GTMP"
 // 28: unit states carry the sender's epoch (ObjectFrag / ObjectAck): the receiver keeps a few versions and never
 //     goes back to an older one (a slow line's states overlap), the sender's rate follows the line (statesync.cpp);
 //     Hello.session: a battle's lost connection is taken back by the host when the same game returns; Hello.player
-static const unsigned k_version = 28;
+// 29: chat in a battle (ShotRec kind 20, chat.cpp); the round trip in the status line
+static const unsigned k_version = 29;
 static const char k_protocol[12] = "GTMF_TA_A1";     // the engine's own protocol id for this game
 static const unsigned k_chunk = 1000;
 static const unsigned short k_default_port = 1943;   // the port the engine's own network settings name
@@ -126,6 +127,7 @@ struct ShotAck { Head h; unsigned epoch, seq; };
 // kind 17: who holds which of the map's control cells in the host's game (cells.cpp; arg6 the first, ammo how many);
 // kind 18: map objects the host's game has damaged (mapobj.cpp; arg6 of them, 60 bytes each in launch);
 // kind 19: a track the host's game broke (vdamage.cpp; shooter the vehicle, ammo the track, arg6 the wheel);
+// kind 20: a chat line (chat.cpp; launch = the sender's name, 24 bytes, then the text, 112);
 // kind 7: a hit on a unit of the sending game (hits.cpp); kind 10: a soldier's condition (hits.cpp, launch = float); kind 8: a side leaving the battle, a ceasefire
 // proposed or taken back, the battle over (endgame.cpp; flags says which). launch: the engine's launch record with its pointers blanked - they travel as ammo / weapon /
 // desc3 (the engine's savegame ids of the descriptions, 0xffffffff: none) and shooter / obj2 / obj5 (unit

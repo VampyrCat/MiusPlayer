@@ -65,7 +65,7 @@ static bool key_pressed(int vk)
 }
 
 static bool g_cease_hot;         // the mouse is on the ESC menu's CEASEFIRE button
-bool ui_blocks_input(void) { return g_screen != SCR_NONE || g_button_hot || g_map_button_hot || g_map_busy || g_cease_hot || GetTickCount() < g_block_until; }
+bool ui_blocks_input(void) { return g_screen != SCR_NONE || chat_is_open() || g_button_hot || g_map_button_hot || g_map_busy || g_cease_hot || GetTickCount() < g_block_until; }
 // The operational map to look at (the host fights the turn's battles): the game gets no mouse clicks - no
 // orders, no battle started on this copy - but the view still moves (mouse, wheel, keys).
 bool ui_blocks_clicks(void) { return g_on_op_map && session_map_view(); }
@@ -890,6 +890,7 @@ void ui_frame(ObjMan *om)
     g_clicked = g_mouse_was_down && !g_mouse_down;      // act on release
 
     if (g_tactical) {
+        chat_frame(focused);
         if (g_action == ACT_CEASEFIRE) endgame_toggle_truce();
         g_action = ACT_NONE;
         return;
@@ -1474,6 +1475,7 @@ static bool test_shot_request(char *name, size_t n)
     if (!strncmp(line, "breaktrack ", 11)) { vdamage_test_break(atoi(line + 11)); return false; }
     if (!strncmp(line, "repairtrack", 11)) { vdamage_test_repair(); return false; }
     if (!strncmp(line, "netcut ", 7)) { session_test_netcut((unsigned)atoi(line + 7)); return false; }
+    if (!strncmp(line, "say ", 4)) { chat_test_say(line + 4); return false; }
     if (!strncmp(line, "objects all", 11)) { mapobj_test_list_all(); return false; }
     if (!strncmp(line, "objects", 7)) { mapobj_test_list(); return false; }
     if (!strncmp(line, "demolish ", 9)) { mapobj_test_demolish(atoi(line + 9)); return false; }
@@ -1558,6 +1560,28 @@ static void draw_host_banner(void)
 }
 
 // What a frame shows, drawn with either renderer.
+// Chat (chat.cpp): its last lines at the left, above the line being typed.
+static void draw_chat(void)
+{
+    const char *lines[8];
+    int n = chat_lines(lines, 8);
+    const char *typed = chat_typed();
+    if (!n && !typed) return;
+    float x = 24 * g_s, step = 26 * g_s, y = g_h * 0.62f - (n + (typed ? 1 : 0)) * step;
+    for (int i = 0; i < n; i++, y += step) {
+        TextTex *t = text_tex(g_draw, lines[i], (int)(16 * g_s + 0.5f), false);
+        quad(x - 8 * g_s, y, (t ? t->w : 0) + 16 * g_s, step - 2 * g_s, 0xa0181410);
+        text(lines[i], x, y + 2 * g_s, 16, 0xfff2e6c8, 0);
+    }
+    if (typed) {
+        char line[160];
+        sprintf_s(line, "Say: %s%s", typed, (GetTickCount() / 400) % 2 ? "_" : " ");
+        TextTex *t = text_tex(g_draw, line, (int)(16 * g_s + 0.5f), false);
+        quad(x - 8 * g_s, y, max((t ? t->w : 0) + 16 * g_s, 420 * g_s), step - 2 * g_s, 0xe0181410);
+        text(line, x, y + 2 * g_s, 16, 0xffa8f0a0, 0);
+    }
+}
+
 static void draw_overlays(const char *status, bool hint, bool picking, bool host_wait)
 {
     if (g_screen != SCR_NONE) {
@@ -1574,6 +1598,7 @@ static void draw_overlays(const char *status, bool hint, bool picking, bool host
             text(status, g_w / 2, 46 * g_s + 3 * g_s, 17, session_connected() ? 0xffa8f0a0 : 0xfff2e6c8);
         }
         draw_ceasefire();
+        draw_chat();
     }
 }
 
