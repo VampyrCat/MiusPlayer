@@ -1,5 +1,11 @@
 # Builds the mod and the launcher on every push to main and publishes a GitHub Release when release.json names
 # a version that has no release yet. The launcher installs and updates the mod from the latest release.
+#
+# Code signing (SignPath, free for open source: signpath.org). Off until the repository has
+#   variables  SIGNPATH_ORGANIZATION_ID, SIGNPATH_PROJECT_SLUG, SIGNPATH_SIGNING_POLICY_SLUG
+#   secret     SIGNPATH_API_TOKEN (a SignPath CI user with the Submitter role on that signing policy)
+# Then a new version's launcher is sent to SignPath, signed once the request is approved there (every release is
+# approved by hand, in SignPath's web page), checked and published signed. Without them it is published unsigned.
 name: release
 
 on:
@@ -9,10 +15,13 @@ on:
 
 permissions:
   contents: write
+  actions: read
 
 jobs:
   build:
     runs-on: windows-latest
+    env:
+      SIGNPATH_ORGANIZATION_ID: ${{ vars.SIGNPATH_ORGANIZATION_ID }}
     steps:
       - uses: actions/checkout@v4
 
@@ -23,6 +32,54 @@ jobs:
       - name: Build the launcher
         shell: cmd
         run: call launcher\build_launcher.bat
+
+      - name: A new version?
+        id: version
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          # (gh's "release not found" goes to stderr: it is the answer, not an error)
+          $ErrorActionPreference = "Continue"
+          $v = (Get-Content release.json -Raw | ConvertFrom-Json).version
+          gh release view "v$v" 2>&1 | Out-Null
+          $new = if ($LASTEXITCODE -eq 0) { "no" } else { "yes" }
+          "version=$v" >> $env:GITHUB_OUTPUT
+          "new=$new" >> $env:GITHUB_OUTPUT
+          "v$v - new version: $new"
+          exit 0
+
+      - name: Upload the launcher to be signed
+        id: unsigned
+        if: steps.version.outputs.new == 'yes' && env.SIGNPATH_ORGANIZATION_ID != ''
+        uses: actions/upload-artifact@v4
+        with:
+          name: launcher-unsigned
+          path: launcher/build/MiusPlayerLauncher.exe
+
+      - name: Sign the launcher (SignPath - waits for the request to be approved)
+        if: steps.unsigned.outcome == 'success'
+        uses: signpath/github-action-submit-signing-request@v3
+        with:
+          api-token: '${{ secrets.SIGNPATH_API_TOKEN }}'
+          organization-id: '${{ vars.SIGNPATH_ORGANIZATION_ID }}'
+          project-slug: '${{ vars.SIGNPATH_PROJECT_SLUG }}'
+          signing-policy-slug: '${{ vars.SIGNPATH_SIGNING_POLICY_SLUG }}'
+          github-artifact-id: '${{ steps.unsigned.outputs.artifact-id }}'
+          wait-for-completion: true
+          wait-for-completion-timeout-in-seconds: 14400
+          output-artifact-directory: 'launcher/signed'
+
+      - name: Use the signed launcher
+        if: steps.unsigned.outcome == 'success'
+        shell: pwsh
+        run: |
+          $s = Get-ChildItem launcher/signed -Recurse -Filter MiusPlayerLauncher.exe | Select-Object -First 1
+          if (-not $s) { throw "SignPath sent back no MiusPlayerLauncher.exe" }
+          $sig = Get-AuthenticodeSignature $s.FullName
+          "signature: $($sig.Status) - $($sig.SignerCertificate.Subject)"
+          if ($sig.Status -ne 'Valid') { throw "the signed launcher's signature is $($sig.Status)" }
+          Copy-Item $s.FullName launcher/build/MiusPlayerLauncher.exe -Force
 
       - name: Package
         shell: powershell
@@ -35,15 +92,19 @@ jobs:
           path: dist/
 
       - name: Publish the release (a new version only)
+        if: steps.version.outputs.new == 'yes'
         shell: pwsh
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          # (gh's "release not found" goes to stderr: it is the answer, not an error)
           $ErrorActionPreference = "Continue"
-          $v = (Get-Content release.json -Raw | ConvertFrom-Json).version
-          gh release view "v$v" 2>&1 | Out-Null
-          if ($LASTEXITCODE -eq 0) { "v$v is released already - nothing to publish"; exit 0 }
+          $v = "${{ steps.version.outputs.version }}"
           $builds = ((Get-Content release.json -Raw | ConvertFrom-Json).builds) -join ", "
-          gh release create "v$v" "dist\MiusPlayer-$v.zip" "dist\MiusPlayerLauncher.exe" --title "MiusPlayer $v" --notes "Game builds: $builds. Download MiusPlayerLauncher.exe and run it: it installs the mod into your game and keeps it up to date."
+          $shaExe = (Get-FileHash "dist\MiusPlayerLauncher.exe" -Algorithm SHA256).Hash
+          $shaZip = (Get-FileHash "dist\MiusPlayer-$v.zip" -Algorithm SHA256).Hash
+          $signed = (Get-AuthenticodeSignature "dist\MiusPlayerLauncher.exe").Status -eq 'Valid'
+          $notes = "Game builds: $builds. Download MiusPlayerLauncher.exe and run it: it installs the mod into your game and keeps it up to date."
+          if ($signed) { $notes += "`n`nThe launcher is signed. Free code signing provided by [SignPath.io](https://about.signpath.io), certificate by [SignPath Foundation](https://signpath.org) - see the code signing policy in the repository." }
+          $notes += "`n`nSHA-256 (built here by GitHub Actions from this commit):`n- MiusPlayerLauncher.exe: $shaExe`n- MiusPlayer-$v.zip: $shaZip"
+          gh release create "v$v" "dist\MiusPlayer-$v.zip" "dist\MiusPlayerLauncher.exe" --title "MiusPlayer $v" --notes $notes
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }

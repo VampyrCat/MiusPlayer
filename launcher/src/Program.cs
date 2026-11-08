@@ -18,8 +18,9 @@ using System.Windows.Forms;
 [assembly: AssemblyTitle("MiusPlayer Launcher")]
 [assembly: AssemblyProduct("MiusPlayer")]
 [assembly: AssemblyDescription("Installs, updates and removes the MiusPlayer multiplayer mod of Graviteam Tactics: Mius-Front")]
-[assembly: AssemblyVersion("1.0.0.0")]
-[assembly: AssemblyFileVersion("1.0.0.0")]
+[assembly: AssemblyCompany("MiusPlayer - github.com/VampyrCat/MiusPlayer")]
+[assembly: AssemblyCopyright("Copyright (C) 2026 VampyrCat - Zero-Clause BSD (0BSD)")]
+// (the version: build\Version.cs, made by build_launcher.bat from release.json)
 
 namespace MiusPlayer
 {
