@@ -3,9 +3,9 @@
 // count +0x190c) hold their soldier at +0xc8. The game changes them through two calls (adv_physic; the Mius Framework
 // research, kb/engine/mounting, checked in IDA in all three builds):
 //   board   soldier slot 195 (beta26 197): his three fields, then the vehicle's slot that seats him (evicting whoever
-//           held the station) - beta16 +0x6f9f0, public +0x6f980, beta26 +0xbc880
+//           held the station) - beta16 +0x6f9f0, public +0x6f980, beta26 +0xc4cc0 (11-06 beta +0xbc880)
 //   unseat  vehicle slot 185 (beta26 187): the station is emptied if it holds him - beta16 +0x85680, public
-//           +0x85610, beta26 +0xe3930
+//           +0x85610, beta26 +0xebf90 (11-06 beta +0xe3930)
 // The game whose simulation decides a soldier (session_owns) sends his seat whenever it changes, and all of them again
 // on a new connection: ShotRec kind 16, up to 7 seats a record (launch: u64 soldier, u64 vehicle or 0, int station).
 // The other game puts each soldier there with the same two calls, on its game thread, and again whenever its own
@@ -17,18 +17,18 @@
 #include <unordered_map>
 #include <vector>
 
-#define S_VEHICLE   BF(0x2388, 0x2b90)
+#define S_VEHICLE   BF(0x2388, 0x2c10)
 #define S_VEHICLE2  BF(0x7d0, 0x800)
 #define S_STATION   BF(0x1da4, 0x2204)
-#define S_LEAVING   BF(0x2297, 0x2a63)        // a leave is pending (+1: at once); the in-vehicle update carries it out
-#define V_STATIONS  BF(0x1900, 0x1e40)
-#define V_COUNT     BF(0x190c, 0x1e4c)
+#define S_LEAVING   BF(0x2297, 0x2ae3)        // a leave is pending (+1: at once); the in-vehicle update carries it out
+#define V_STATIONS  BF(0x1900, 0x1e60)
+#define V_COUNT     BF(0x190c, 0x1e6c)
 #define V_STATION   BF(0x140, 0x170)
 #define ST_SOLDIER  BF(0xc8, 0xe8)
 #define BOARD_SLOT  BF(195, 197)
 #define UNSEAT_SLOT BF(185, 187)
-#define BOARD_FN    BV(0x6f9f0, 0x6f980, 0xbc880)
-#define UNSEAT_FN   BV(0x85680, 0x85610, 0xe3930)
+#define BOARD_FN    BV(0x6f9f0, 0x6f980, 0xc4cc0)
+#define UNSEAT_FN   BV(0x85680, 0x85610, 0xebf90)
 
 namespace {
 enum { SEATS = 16, PER_REC = 7 };

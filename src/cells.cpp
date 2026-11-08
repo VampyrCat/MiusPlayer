@@ -22,8 +22,8 @@
 #include "protocol.h"
 #include <string.h>
 
-#define TM_VTABLE   BV(0x130640, 0x130640, 0x1c3628)
-#define CAPTURE_FN  BV(0xf4ff0, 0xf4ff0, 0x176640)
+#define TM_VTABLE   BV(0x130640, 0x130640, 0x1c9040)
+#define CAPTURE_FN  BV(0xf4ff0, 0xf4ff0, 0x17c050)
 enum {
     TM_CELLS = 0x240, TM_CELL_N = 0x24c, TM_CHANGES = 0x270,
     CELL_REC = 0x100, CELL_OWNER = 0x50, CELL_SHOWN = 0x54, CELL_TIMER = 0xe8, CELL_SIDE = 0xf0, CELL_UNIT = 0xf8,

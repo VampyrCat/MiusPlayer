@@ -252,7 +252,7 @@ static void install_part_guard(void)
     tried = true;
     bool b26 = g_bi == BUILD_BETA26;
     // the 2024 builds: one base load for every physical object; beta26: the soldier's, his carried object's, the vehicle's
-    const size_t loads[3] = { (size_t)BV(0x82090, 0x82020, 0xdbaa0), (size_t)BV(NP, NP, 0xdb020), (size_t)BV(NP, NP, 0xdc310) };
+    const size_t loads[3] = { (size_t)BV(0x82090, 0x82020, 0xe4080), (size_t)BV(NP, NP, 0xe3600), (size_t)BV(NP, NP, 0xe48f0) };
     void (*const hooks[3])(char *, void *) = { base_load_hook0, base_load_hook1, base_load_hook2 };
     char *load[3] = {};
     int found = 0, wanted = 0;
@@ -506,9 +506,12 @@ void state_translate_report(void)
 //     vehicle's models by it.
 // The vehicle's lists below come from its save (+0x121fc0; 2024 +0xa6f90), which writes them in the same
 // order as before.
+// The 2026-11-08 beta (26514238): the same base save and field tables (+0x186360 / +0x1865c0 / +0x186490); the
+// soldier's "is drawn" +0x2ad8, the vehicle's +0x306e; the vehicle's seats +0x1e60, fittings +0x1b50 / +0x1b68, crates
+// +0x1a88 (all 0x20 further on), its points and part list where they were.
 struct ViewFields { unsigned short view[7], view_bytes[2], human_drawn, techn_drawn, anim; };
 static const ViewFields k_view_old = { { 0x6b0, 0x6b4, 0x6e8, 0x6ec, 0x6f0, 0x714, 0x72c }, { 0x745, 0x749 }, 0x228c, 0x1e66, 0x1d60 };
-static const ViewFields k_view_b26 = { { 0x6e0, 0x6e4, 0x718, 0x71c, 0x720, 0x744, 0x75c }, { 0x775, 0x779 }, 0x2a58, 0x2efe, 0x21c0 };
+static const ViewFields k_view_b26 = { { 0x6e0, 0x6e4, 0x718, 0x71c, 0x720, 0x744, 0x75c }, { 0x775, 0x779 }, 0x2ad8, 0x306e, 0x21c0 };
 struct Fitted { unsigned short list, count, size, keep; };
 struct TechnLists {
     unsigned short points, points_n, points_room;       // model points, 0x20-byte records, node handle at +0x10
@@ -529,8 +532,8 @@ struct TechnLists {
 // uses +0x1a68 and +0x1b30 together, as +0x323a0 used +0x1530 and +0x15e8. Each list's room is its count + 4.
 static const TechnLists k_techn_old = { 0x1298, 0x12a4, 0x12a8, 0x1900, 0x190c, 0x1910, 0x140,
                                         { { 0x15e8, 0x15f4, 0x120, 8 }, { 0x1600, 0x160c, 0x1d0, 8 }, { 0x1530, 0x153c, 0x28, 0x28 } } };
-static const TechnLists k_techn_b26 = { 0x17b8, 0x17c4, 0x17c8, 0x1e40, 0x1e4c, 0x1e50, 0x170,
-                                        { { 0x1b30, 0x1b3c, 0x120, 8 }, { 0x1b48, 0x1b54, 0x1d0, 8 }, { 0x1a68, 0x1a74, 0x40, 0x40 } } };
+static const TechnLists k_techn_b26 = { 0x17b8, 0x17c4, 0x17c8, 0x1e60, 0x1e6c, 0x1e70, 0x170,
+                                        { { 0x1b50, 0x1b5c, 0x120, 8 }, { 0x1b68, 0x1b74, 0x1d0, 8 }, { 0x1a88, 0x1a94, 0x40, 0x40 } } };
 
 // A vehicle's wheels (+0x11e8: records of 0x2a0 bytes, count +0x11f4; beta26 +0x1708, 0x2e0, +0x1714) are saved
 // with their vectors and matrices (+0x00..+0x130 - where the wheel is in the world and how it moves; the field

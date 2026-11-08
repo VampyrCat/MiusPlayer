@@ -329,8 +329,8 @@ static void end_phase_hook(Object *tm, u32 result, u64 c, u64 d)
             *(t + TM_WON) = want > 3;
             // the two scores as +0x103ef0 (beta26 +0x1878b0) makes them: a table entry by result, times the side's
             // factor (the tables are filled by the first evaluation: zero on disk)
-            const u32 *own = base ? (const u32 *)(base + BV(0x15ca40, 0x15ca40, 0x204a08)) : 0;
-            const u32 *enemy = base ? (const u32 *)(base + BV(0x15ca70, 0x15ca70, 0x204a38)) : 0;
+            const u32 *own = base ? (const u32 *)(base + BV(0x15ca40, 0x15ca40, 0x20aa58)) : 0;
+            const u32 *enemy = base ? (const u32 *)(base + BV(0x15ca70, 0x15ca70, 0x20aa88)) : 0;
             if (readable(own, 28) && readable(enemy, 28)) {
                 *(float *)(t + TM_SCORE_OWN) = (float)own[want] * *(float *)(t + TM_OWN_K);
                 *(float *)(t + TM_SCORE_ENEMY) = (float)enemy[want] * *(float *)(t + TM_ENEMY_K);
@@ -424,18 +424,18 @@ static void install(ObjMan *om)
     void **vt = tm->vtbl;
     const unsigned char *esig = BV(end_sig, end_sig, end_sig26);
     size_t esig_n = BV(sizeof end_sig, sizeof end_sig, sizeof end_sig26);
-    char *evaluate = build_code(ag, BV(0x103ef0, 0x103ef0, 0x1878b0), esig, esig_n);
-    char *end = build_code(ag, BV(0xef670, 0xef670, 0x1705f0), phase_sig, sizeof phase_sig);
-    if (!readable(tm, TM_SIZE) || (char *)vt != base + BV(0x130640, 0x130640, 0x1c3628) ||
-        (char *)vt[TM_AI_TRUCE] != base + BV(0xeeb00, 0xeeb00, 0x16fa80) || (char *)vt[TM_USER_TRUCE] != base + BV(0xeef10, 0xeef10, 0x16fe90) ||
-        (char *)vt[TM_FLEE] != base + BV(0xef8a0, 0xef8a0, 0x170820) || !evaluate || !end || !sides(tm)) {
+    char *evaluate = build_code(ag, BV(0x103ef0, 0x103ef0, 0x18d2c0), esig, esig_n);
+    char *end = build_code(ag, BV(0xef670, 0xef670, 0x176000), phase_sig, sizeof phase_sig);
+    if (!readable(tm, TM_SIZE) || (char *)vt != base + BV(0x130640, 0x130640, 0x1c9040) ||
+        (char *)vt[TM_AI_TRUCE] != base + BV(0xeeb00, 0xeeb00, 0x175490) || (char *)vt[TM_USER_TRUCE] != base + BV(0xeef10, 0xeef10, 0x1758a0) ||
+        (char *)vt[TM_FLEE] != base + BV(0xef8a0, 0xef8a0, 0x176230) || !evaluate || !end || !sides(tm)) {
         mp_log("end: unknown game build, each game ends its own battle");
         return;
     }
     g_end_battle = (EndBattle)install_detour(evaluate, esig_n, end_battle_hook);
     g_end_phase = (EndPhase)install_detour(end, sizeof phase_sig, end_phase_hook);
     if (!g_end_battle || !g_end_phase) { mp_log("end: could not be hooked, each game ends its own battle"); return; }
-    if (char *sums = build_code(ag, BV(0x104b20, 0x104b20, 0x1885e0), recalc_sig, sizeof recalc_sig))
+    if (char *sums = build_code(ag, BV(0x104b20, 0x104b20, 0x18dff0), recalc_sig, sizeof recalc_sig))
         g_recalc = (Recalc)install_detour(sums, sizeof recalc_sig, recalc_hook);
     // a private copy of the class's function table for this one object (with the type information pointer
     // that sits just before it): the trigger manager and the interface both call these through it

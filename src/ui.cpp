@@ -131,7 +131,7 @@ static bool on_main_menu(ObjMan *om)
 static const unsigned char k_no_event[16] = {};
 static u64 skirmish_event(void) { return g_bi == BUILD_BETA26 ? (u64)k_no_event : 0; }
 
-static size_t skirmish_rva(void) { return BV(0x627f0, 0x624f0, 0x6daf0); }
+static size_t skirmish_rva(void) { return BV(0x627f0, 0x624f0, 0x6dea0); }
 
 static bool skirmish_stub_ok(void)
 {
@@ -162,8 +162,8 @@ static bool skirmish_cost(ObjMan *om, unsigned *cost, unsigned *side, unsigned *
     static const unsigned char sig26[] = { 0x40, 0x55, 0x41, 0x54, 0x41, 0x56, 0x41, 0x57, 0x48, 0x83, 0xec, 0x78, 0x66, 0x83, 0x3a, 0x00 };
     static const unsigned table_sig[] = { 6, 10, 14, 18 };
     bool b26 = g_bi == BUILD_BETA26;
-    char *fn = build_code("adv_opgame.codelib", BV(0x66650, 0x66350, 0x725a0), b26 ? sig26 : sig, b26 ? sizeof sig26 : sizeof sig);
-    const unsigned *table = (const unsigned *)build_code("adv_opgame.codelib", BV(0x134698, 0x133698, 0x15ec98), table_sig, sizeof table_sig);
+    char *fn = build_code("adv_opgame.codelib", BV(0x66650, 0x66350, 0x72950), b26 ? sig26 : sig, b26 ? sizeof sig26 : sizeof sig);
+    const unsigned *table = (const unsigned *)build_code("adv_opgame.codelib", BV(0x134698, 0x133698, 0x1631c8), table_sig, sizeof table_sig);
     char *c = (char *)menu_controller(om);
     if (!fn || !table || !c || !readable(c, mc_picks() + 0xf78 + 2 * 0x84)) return false;
     int size = *(int *)(c + mc_size());
@@ -195,9 +195,10 @@ static void open_stock_screen(ObjMan *om, int mode)
         // user-made missions) are stubs of the same shape: xor r8d,r8d / mov edx,<screen> / jmp switch
         // (beta26 +0x2b110 / +0x2b150, registered under those names in +0x2e5f0; their jumps, checked too
         // there, lead to its screen switch +0x847c0)
-        size_t at = mode == HOST_MODE_OPERATION ? BV(0x2b210, 0x2b210, 0x2b110) : BV(0x2b250, 0x2b250, 0x2b150);
+        size_t at = mode == HOST_MODE_OPERATION ? BV(0x2b210, 0x2b210, 0x2b3c0) : BV(0x2b250, 0x2b250, 0x2b400);
+        // (the 2026-11-08 beta's jumps: +0x59743 / +0x59703 to the switch +0x84b10; the 11-06 beta's were +0x596a3 / +0x59663)
         const unsigned char stub[] = { 0x45, 0x33, 0xc0, 0xba, (unsigned char)(mode == HOST_MODE_OPERATION ? 2 : 3), 0x00, 0x00, 0x00, 0xe9,
-                                       (unsigned char)(mode == HOST_MODE_OPERATION ? 0xa3 : 0x63), 0x96, 0x05, 0x00 };
+                                       (unsigned char)(mode == HOST_MODE_OPERATION ? 0x43 : 0x03), 0x97, 0x05, 0x00 };
         char *fn = build_code("adv_opgame.codelib", at, stub, g_bi == BUILD_BETA26 ? sizeof stub : 9);
         if (!fn) { mp_log("ui: unknown game build, open the %s screen yourself", name); return; }
         ((void (*)(void *))fn)(c);
@@ -232,7 +233,7 @@ template <class T> static IDirect3DDevice9 *device_of(IUnknown *u)
 static bool render_is_d3d11(Object *render)
 {
     char *m = build_module("basic_render.codelib");
-    size_t vt = BV(NP, NP, 0xeca00);
+    size_t vt = BV(NP, NP, 0xeecf0);
     return m && vt && *(char **)render == m + vt;
 }
 

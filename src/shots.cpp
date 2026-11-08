@@ -381,16 +381,17 @@ void shots_install(ObjMan *om)
     if (!g_enabled && !g_file) { mp_log("shots: each game fires for itself (MP_SYNC_SHOTS=0)"); return; }
     const unsigned char *lsig = BV(launch_sig, launch_sig, launch_sig26), *xsig = BV(explode_sig, explode_sig, explode_sig26);
     size_t lsig_n = BV(sizeof launch_sig, sizeof launch_sig, sizeof launch_sig26), xsig_n = sizeof explode_sig;
-    char *launch = build_code("basic_physic.codelib", BV(0x18430, 0x18430, 0x2a030), lsig, lsig_n);
-    char *explode = build_code("basic_physic.codelib", BV(0x19260, 0x19260, 0x2b4c0), xsig, xsig_n);
+    char *launch = build_code("basic_physic.codelib", BV(0x18430, 0x18430, 0x2a520), lsig, lsig_n);
+    char *explode = build_code("basic_physic.codelib", BV(0x19260, 0x19260, 0x2b9e0), xsig, xsig_n);
     if (!launch) { mp_log("shots: unknown game build, each game fires for itself"); g_enabled = false; return; }
     g_launch = (Launch)install_detour(launch, lsig_n, launch_hook);
     if (explode) g_explode = (Explode)install_detour(explode, xsig_n, explode_hook);
     // the crew blowing up their vehicle: adv_physic+0x9b520 (mov rax,rsp; mov [rax+10h],rbx; push rbp/rsi/rdi; sub rsp,0e0h)
     static const unsigned char detonate_sig[] = { 0x48, 0x8b, 0xc4, 0x48, 0x89, 0x58, 0x10, 0x55, 0x56, 0x57, 0x48, 0x81, 0xec, 0xe0, 0x00, 0x00, 0x00 };
-    // beta26 +0x111a30 (mov rax,rsp; push rbp/rbx; lea rbp,[rax-5fh]; sub rsp,0d8h; cmp byte [rcx+2eb4h],0 - the charges set)
+    // beta26 +0x11c650 (mov rax,rsp; push rbp/rbx; lea rbp,[rax-5fh]; sub rsp,0d8h; cmp byte [rcx+3024h],0 - the charges set;
+    // the 11-06 beta: +0x111a30, +0x2eb4)
     static const unsigned char detonate_sig26[] = { 0x48, 0x8b, 0xc4, 0x55, 0x53, 0x48, 0x8d, 0x68, 0xa1, 0x48, 0x81, 0xec, 0xd8, 0x00, 0x00, 0x00,
-                                                    0x80, 0xb9, 0xb4, 0x2e, 0x00, 0x00, 0x00 };
+                                                    0x80, 0xb9, 0x24, 0x30, 0x00, 0x00, 0x00 };
     // flares: adv_game+0x44c40 (push rbx/rbp/r13/r15; sub rsp,128h)
     static const unsigned char flare_sig[] = { 0x40, 0x53, 0x55, 0x41, 0x55, 0x41, 0x57, 0x48, 0x81, 0xec, 0x28, 0x01, 0x00, 0x00 };
     // beta26 +0x660e0 (mov [rsp+10h],rdx; push rbp/rbx/rsi/rdi/r13/r14; lea rbp,[rsp-68h]; sub rsp,168h)
@@ -398,8 +399,8 @@ void shots_install(ObjMan *om)
                                                  0x24, 0x98, 0x48, 0x81, 0xec, 0x68, 0x01, 0x00, 0x00 };
     const unsigned char *dsig = BV(detonate_sig, detonate_sig, detonate_sig26), *fsig = BV(flare_sig, flare_sig, flare_sig26);
     size_t dsig_n = BV(sizeof detonate_sig, sizeof detonate_sig, sizeof detonate_sig26), fsig_n = BV(sizeof flare_sig, sizeof flare_sig, sizeof flare_sig26);
-    char *detonate = build_code("adv_physic.codelib", BV(0x9b520, 0x9b4b0, 0x111a30), dsig, dsig_n);
-    char *flare = build_code("adv_game.codelib", BV(0x44c40, 0x44c40, 0x660e0), fsig, fsig_n);
+    char *detonate = build_code("adv_physic.codelib", BV(0x9b520, 0x9b4b0, 0x11c650), dsig, dsig_n);
+    char *flare = build_code("adv_game.codelib", BV(0x44c40, 0x44c40, 0x67720), fsig, fsig_n);
     if (g_explode && detonate) g_detonate = (Detonate)install_detour(detonate, dsig_n, detonate_hook);
     if (flare) g_flare = (Flare)install_detour(flare, fsig_n, flare_hook);
     mp_log("shots: %s%s; explosions %s (vehicles blown up by their crews: %s), flares %s; off-map fire goes by the side it is fired for",
@@ -682,7 +683,7 @@ static void test_artillery(ObjMan *om)
 
 // Tests: the crews of this player's first n vehicles set their charges - the countdown the vehicle's own
 // update (adv_physic+0x9b520) runs: +0x1e1c charges set, +0x117c charges left, +0x1184 seconds to go
-// (beta26 +0x111a30: +0x2eb4, +0x169c, +0x16a4).
+// (beta26 +0x11c650: +0x3024, +0x169c, +0x16a4; the 11-06 beta +0x111a30: +0x2eb4).
 void shots_test_blowup(int n) { g_test_blowup = n > 0 ? n : 1; }
 
 static void test_blowup(ObjMan *om)
@@ -693,9 +694,9 @@ static void test_blowup(ObjMan *om)
     Object **all = all_objects(om, &count);
     for (u32 i = 0; i < count && done < n; i++) {
         Object *o = all[i];
-        if (!readable(o, BF(0x1e60, 0x2ec0)) || strncmp(o->full, "i_techn:", 8) || !session_owns(o)) continue;
+        if (!readable(o, BF(0x1e60, 0x3030)) || strncmp(o->full, "i_techn:", 8) || !session_owns(o)) continue;
         char *v = (char *)o;
-        v[BF(0x1e1c, 0x2eb4)] = 1;
+        v[BF(0x1e1c, 0x3024)] = 1;
         *(u32 *)(v + BF(0x117c, 0x169c)) = 1;
         *(float *)(v + BF(0x1184, 0x16a4)) = 1.0f;
         mp_log("test: blowup - the crew of %s will blow it up in 1 s", o->full);

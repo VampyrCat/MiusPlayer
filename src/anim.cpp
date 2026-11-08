@@ -70,14 +70,15 @@ static u64 g_stat_dropped, g_stat_sent, g_stat_received, g_stat_groups;
 // The records (manager +0x140) and the soldier's fields: his instance number, the direction he lies in (0..7), his
 // lying body's three angles and his two headings. beta26: adv_physic i_human slot 233 (+0xa97f0) reads the number
 // at +0x21c0; the on-foot update (+0x69ff0) steps the direction at +0x22d0, turns the angles at +0x1290..+0x1298
-// and takes the second heading from +0x2458; slot 52 (+0xa8ac0) reads the heading at +0x2330.
+// and takes the second heading from +0x2458; slot 52 (+0xa8ac0) reads the heading at +0x2330. The 2026-11-08 beta
+// (26514238): the second heading +0x24a0, the rest where they were (the manager's code is the same).
 #define ANIM_RECORDS BF(0x140, 0x1c0)
 #define S_HANDLE BF(0x1d60, 0x21c0)
 #define S_DIR8 BF(0x1e70, 0x22d0)
 #define S_LIE BF(0x1210, 0x1290)
 #define S_HEADING1 BF(0x1eac, 0x2330)
-#define S_HEADING2 BF(0x1ef8, 0x2458)
-#define S_END BF(0x1f00, 0x2460)               // (all of them lie below this)
+#define S_HEADING2 BF(0x1ef8, 0x24a0)
+#define S_END BF(0x1f00, 0x24a8)               // (all of them lie below this)
 
 static bool active(void) { return g_on && g_hooked && session_connected() && session_simulating() && session_versus_or_coop(); }
 static inline bool held(u32 h) { return h < g_followed.size() && g_followed[h] && active(); }
@@ -183,11 +184,11 @@ static void install(ObjMan *om)
     char *m = build_module("adv_game.codelib");
     // the setters' slots and addresses (adv_game is the same code in both 2024 builds); beta26 read in IDA
     static const unsigned rva_old[] = { 0xa4040, 0xa1350, 0xa13b0, 0xa4ec0, 0xa4ff0, 0xa13d0, 0xa5030, 0xa1420, 0xa1440, 0xa1460, 0xa14c0 };
-    static const unsigned rva_26[] = { 0xeaf00, 0xe7c40, 0xe7ca0, 0xec9d0, 0xecb10, 0xe7cc0, 0xecb50, 0xe7d10, 0xe7d30, 0xe7d50, 0xe7db0 };
+    static const unsigned rva_26[] = { 0xed9f0, 0xea730, 0xea790, 0xef4c0, 0xef600, 0xea7b0, 0xef640, 0xea800, 0xea820, 0xea840, 0xea8a0 };
     static const int slot_old[] = { 4, 8, 10, 11, 12, 13, 14, 16, 20, 21, 26 }, slot_26[] = { 4, 8, 10, 11, 12, 13, 14, 16, 21, 22, 27 };
     const unsigned *rva = BV(rva_old, rva_old, rva_26);
     const int *slot = BV(slot_old, slot_old, slot_26);
-    bool known = mgr && m && (char *)mgr->vtbl == m + BV(0x12f128, 0x12f128, 0x1bd7f8);
+    bool known = mgr && m && (char *)mgr->vtbl == m + BV(0x12f128, 0x12f128, 0x1c2d78);
     for (int i = 0; known && i < _countof(slot_old); i++) known = (char *)mgr->vtbl[slot[i]] == m + rva[i];
     if (!known) { mp_log("anim: unknown game build, each game animates every soldier for itself"); return; }
     void **vt = mgr->vtbl;

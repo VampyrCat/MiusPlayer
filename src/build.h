@@ -8,12 +8,17 @@
 //
 //   BUILD_BETA16  public_beta-16070931  Steam's beta branch of October 2024 - the modding copy
 //   BUILD_PUBLIC  public-15814271       Steam's default branch (September 2024)
-//   BUILD_BETA26  public_beta-26494568  Steam's beta branch of 2026-11-06
+//   BUILD_BETA26  public_beta-26514238  Steam's beta branch of 2026-11-08
 //
 // The two 2024 builds lay out every object alike; only the code of six modules moved (adv_opgame, adv_interf,
 // adv_physic, basic_game, adv_qbattle, one call in basic_physic). The 2026 beta rebuilt everything: fields,
 // record sizes and vtable slots moved too. Values were mapped with IDA through REA, with the symbol maps of
 // the Mius Framework research's per-build symbol maps as a guide.
+// The BUILD_BETA26 column was first made for the beta of 2026-11-06 (public_beta-26494568, no longer served) and
+// moved on to 2026-11-08's (26514238) by matching every function of the two in IDA (NOTES.md, 2026-11-08): most
+// code is the same, only moved; the soldier's fields from about +0x2440 on, the vehicle's from about +0x1a00 on,
+// i_intereff's from about +0x1000, the AI commander's and the battle timer's pause moved again. Addresses named
+// "beta26" in this source's comments are mostly the 11-06 build's; the values in BV / BF are 11-08's.
 #pragma once
 #define WIN32_LEAN_AND_MEAN
 #include <windows.h>

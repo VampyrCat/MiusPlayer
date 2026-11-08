@@ -159,8 +159,8 @@ static double g_stat_err_sum;
 static float g_stat_err_max;
 static u64 g_sim_ms;
 // A soldier (i_human): the vehicle he rides in (0 on foot) and his seat on it (-1 none) - the two fields
-// adv_physic's boarding routine writes (beta16 +0x6f9f0: +0x2388 and +0x1da4; 2026 beta +0xbc880: +0x2b90 and +0x2204).
-#define SEAT_VEHICLE BF(0x2388, 0x2b90)
+// adv_physic's boarding routine writes (beta16 +0x6f9f0: +0x2388 and +0x1da4; 2026 beta +0xc4cc0: +0x2c10 and +0x2204).
+#define SEAT_VEHICLE BF(0x2388, 0x2c10)
 #define SEAT_STATION BF(0x1da4, 0x2204)
 // The units this game had to move furthest from where its own engine had put them (5 s report): which, how
 // often, and - for a soldier - whether he sits on a vehicle here (SEAT_VEHICLE vehicle, SEAT_STATION seat).
@@ -368,8 +368,8 @@ void session_note_phase(u32 phase)
 
 // The game's own ESC menu (the column of buttons at the left edge, with the COMBAT panel) is open while the
 // battle's interface, i_intereff, has +0xed5 set (adv_interf+0x229c0 sets it and shows the panels; 2026 beta:
-// +0x1145, set by adv_interf+0x242a0).
-#define IE_MENU_OPEN BF(0xed5, 0x1145)
+// +0x1425, set by adv_interf+0x246c0; the 11-06 beta had +0x1145 / +0x242a0).
+#define IE_MENU_OPEN BF(0xed5, 0x1425)
 static Object *g_interface;
 bool session_menu_open(void)
 {
@@ -378,13 +378,13 @@ bool session_menu_open(void)
 
 // The battle's interface switched off with Ctrl+Backspace. That key is the game's do_switch_interf (its input table,
 // data\common\shared\config\proxy_temp.cfgpack: BACK with CTRL; do_hide_interf is Ctrl+Delete). Its handler
-// (adv_interf+0x3aa90, public +0x3aa00, beta26 +0x3da50) flips i_intereff +0xe00 (beta26 +0x106c) between 2, the
+// (adv_interf+0x3aa90, public +0x3aa00, beta26 +0x3dea0) flips i_intereff +0xe00 (beta26 +0x134c) between 2, the
 // interface shown (as its constructor sets it), and 0, switched off; Ctrl+Delete's hide routine sets it to 0 as well
 // and the ESC menu to 2 while it is open. The interface's own "shown" test (2024 beta +0x47180) is that field not 0.
 // (Up to the 2026-11-08 afternoon build the module followed do_hide_interf's flag +0xef3, which Ctrl+Backspace never sets.)
 // The handler reads it with mov ecx, [rbx+0e00h] at +0x70: those bytes are checked before the field is read.
 // 1 hidden, 0 shown, -1 not known here (no battle, another build): the player panel keeps its own switch then.
-#define IE_UI_MODE BF(0xe00, 0x106c)
+#define IE_UI_MODE BF(0xe00, 0x134c)
 int session_interface_hidden(void)
 {
     static int ok = -1;
@@ -392,7 +392,7 @@ int session_interface_hidden(void)
     if (ok < 0) {
         const unsigned char sig[] = { 0x8b, 0x8b, (unsigned char)(IE_UI_MODE & 0xff), (unsigned char)(IE_UI_MODE >> 8), 0x00, 0x00,
                                       0x85, 0xc9, 0x74, 0x1a, 0x83, 0xe9, 0x01, 0x74, 0x05, 0x83, 0xf9, 0x01 };
-        ok = build_code("adv_interf.codelib", BV(0x3ab00, 0x3aa70, 0x3dac0), sig, sizeof sig) != 0;
+        ok = build_code("adv_interf.codelib", BV(0x3ab00, 0x3aa70, 0x3df10), sig, sizeof sig) != 0;
         if (!ok) mp_log("ui: unknown game build - the battle's interface switch is not followed (Ctrl+Backspace hides the player panel by itself)");
     }
     if (!ok || !readable((char *)g_interface + IE_UI_MODE, 4)) return -1;
@@ -1042,9 +1042,10 @@ static void load_battle_description(void)
 //     in every other versus battle.
 // 2026 beta: the commander's step (+0x1110e0, called by its ctrl_tick handler +0x129a40) calls the same four
 // routines in the same order - housekeeping +0x49490, enemy formations +0x318f0, and per record +0x112190 /
-// +0x47220 - over the list at +0x478 (count +0x484; records still 0x630 bytes, +4 the side).
-#define AIC_GROUPS BF(0x398, 0x478)
-#define AIC_GROUP_COUNT BF(0x3a4, 0x484)
+// +0x47220 - over the list at +0x478 (count +0x484; records still 0x630 bytes, +4 the side). The 2026-11-08 beta: the
+// same code at +0x1163f0 (+0x4a380, +0x31a50, +0x1174a0, +0x48110), the list at +0x4c8 (count +0x4d4).
+#define AIC_GROUPS BF(0x398, 0x4c8)
+#define AIC_GROUP_COUNT BF(0x3a4, 0x4d4)
 typedef void (*GroupStepA)(char *, char *, float, u64);
 typedef void (*GroupStepB)(char *, char *, float);
 typedef void (*ColonelStep)(char *, float);
@@ -1098,10 +1099,10 @@ static bool install_own_side_filter(HMODULE m)
     (void)m;
     const char *ag = "adv_game.codelib";
     bool b26 = g_bi == BUILD_BETA26;
-    char *fa = build_code(ag, BV(0xbbe20, 0xbbe20, 0x112190), b26 ? a_b26 : a_old, b26 ? sizeof a_b26 : sizeof a_old);
-    char *fb = build_code(ag, BV(0x35be0, 0x35be0, 0x47220), b, sizeof b);
-    char *fe = build_code(ag, BV(0x2a670, 0x2a670, 0x318f0), b26 ? e_b26 : e_old, b26 ? sizeof e_b26 : sizeof e_old);
-    char *fh = build_code(ag, BV(0x37db0, 0x37db0, 0x49490), h, sizeof h);
+    char *fa = build_code(ag, BV(0xbbe20, 0xbbe20, 0x1174a0), b26 ? a_b26 : a_old, b26 ? sizeof a_b26 : sizeof a_old);
+    char *fb = build_code(ag, BV(0x35be0, 0x35be0, 0x48110), b, sizeof b);
+    char *fe = build_code(ag, BV(0x2a670, 0x2a670, 0x31a50), b26 ? e_b26 : e_old, b26 ? sizeof e_b26 : sizeof e_old);
+    char *fh = build_code(ag, BV(0x37db0, 0x37db0, 0x4a380), h, sizeof h);
     if (!fa || !fb || !fe || !fh) {
         done = 0;
         return false;
@@ -1151,8 +1152,8 @@ static void update_ai_commander(ObjMan *om)
     if (state == (int)off) return;
     char *m = build_module("adv_game.codelib");
     if (!m) return;
-    unsigned char *fn = (unsigned char *)m + BV(0xbec30, 0xbec30, 0x1110e0);
-    if (!BV(0xbec30, 0xbec30, 0x1110e0) || !readable(fn, 1 + sig_n) || (*fn != on && *fn != 0xc3) || memcmp(fn + 1, sig, sig_n)) {
+    unsigned char *fn = (unsigned char *)m + BV(0xbec30, 0xbec30, 0x1163f0);
+    if (!BV(0xbec30, 0xbec30, 0x1163f0) || !readable(fn, 1 + sig_n) || (*fn != on && *fn != 0xc3) || memcmp(fn + 1, sig, sig_n)) {
         state = 2;
         mp_log("net: unknown game build, the AI commander stays active");
         return;
@@ -1945,7 +1946,7 @@ static void joiner_scouting(ObjMan *om)
     static const unsigned char sig_old[] = { 0x40, 0x53, 0x55, 0x56, 0x41, 0x55, 0x41, 0x56, 0x48, 0x81, 0xec, 0x80, 0x00, 0x00, 0x00, 0x48, 0x8b, 0x91, 0xd8, 0x01, 0x00, 0x00 };
     static const unsigned char sig_b26[] = { 0x40, 0x53, 0x55, 0x56, 0x41, 0x55, 0x41, 0x57, 0x48, 0x81, 0xec, 0x90, 0x00, 0x00, 0x00, 0x48, 0x8b, 0x91, 0xd8, 0x01, 0x00, 0x00 };
     const unsigned char *sig = g_bi == BUILD_BETA26 ? sig_b26 : sig_old;
-    char *pass = build_code("adv_opgame.codelib", BV(0x35540, 0x353e0, 0x35540), sig, sizeof sig_old);
+    char *pass = build_code("adv_opgame.codelib", BV(0x35540, 0x353e0, 0x358a0), sig, sizeof sig_old);
     char *c = (char *)menu_controller_of(om), *op = (char *)operation_on_screen(om);
     if (!pass || !c || !op) { mp_log("map: unknown game build, scouting not worked out for this side"); return; }
     char *data = operation_data(op);
@@ -2005,7 +2006,7 @@ static bool save_operation(ObjMan *om, std::vector<unsigned char> &out, char *fi
     const unsigned char *sig = g_bi == BUILD_BETA26 ? sig_b26 : sig_old;
     void *op = operation_on_screen(om);
     if (!op) return false;
-    char *save = build_code("adv_opgame.codelib", BV(0xd6660, 0xd6080, 0xf7ba0), sig, sizeof sig_old);
+    char *save = build_code("adv_opgame.codelib", BV(0xd6660, 0xd6080, 0xfbaa0), sig, sizeof sig_old);
     if (!save) { mp_log("map: unknown game build, the operation cannot be saved from here"); return false; }
     FILETIME before;
     GetSystemTimeAsFileTime(&before);
@@ -2360,16 +2361,16 @@ static void install_map_detours(void)
     size_t worker_n = b26 ? sizeof worker_b26 : sizeof worker_old;
     const unsigned char *sig = BV(sig_old, sig_pub, sig_old);
     size_t sig_n = BV(sizeof sig_old, sizeof sig_pub, sizeof sig_old);
-    char *control = build_code("adv_opgame.codelib", BV(0x36b40, 0x369e0, 0x370a0), sig, sig_n);
+    char *control = build_code("adv_opgame.codelib", BV(0x36b40, 0x369e0, 0x37400), sig, sig_n);
     if (!control) { mp_log("map: unknown game build, ending the turn is not coordinated between the players"); return; }
     g_next_turn = (NextTurn)install_detour(control, sig_n, next_turn_hook);
-    if (char *worker = host ? build_code("adv_opgame.codelib", BV(0x76810, 0x76510, 0x84d00), worker_sig, worker_n) : 0)
+    if (char *worker = host ? build_code("adv_opgame.codelib", BV(0x76810, 0x76510, 0x85050), worker_sig, worker_n) : 0)
         g_turn_worker = (TurnWorker)install_detour(worker, worker_n, turn_worker_hook);
     static const unsigned char pass_old[] = { 0x40, 0x53, 0x55, 0x56, 0x57, 0x41, 0x54, 0x41, 0x56, 0x41, 0x57, 0x48, 0x83, 0xec, 0x30, 0x48, 0x8b, 0xe9 };
     static const unsigned char pass_b26[] = { 0x40, 0x53, 0x55, 0x56, 0x41, 0x56, 0x41, 0x57, 0x48, 0x83, 0xec, 0x30, 0x48, 0x8b, 0xe9, 0x4c, 0x89, 0x64, 0x24, 0x70 };
     const unsigned char *pass_sig = b26 ? pass_b26 : pass_old;
     size_t pass_n = b26 ? sizeof pass_b26 : sizeof pass_old;
-    if (char *pass = host ? build_code("adv_opgame.codelib", BV(0x44120, 0x43f50, 0x468b0), pass_sig, pass_n) : 0)
+    if (char *pass = host ? build_code("adv_opgame.codelib", BV(0x44120, 0x43f50, 0x46c10), pass_sig, pass_n) : 0)
         g_ability_pass = (AbilityPass)install_detour(pass, pass_n, ability_pass_hook);
     else if (host) mp_log("map: unknown game build, what the other player's intelligence finds out is not kept for him");
     if (g_map_mode) mp_log("map: this player's side of the operational map; the turn ends when both players have pressed next turn");
@@ -2384,7 +2385,7 @@ static void end_turn_here(ObjMan *om)
     bool b26 = g_bi == BUILD_BETA26;
     void *c = menu_controller_of(om);
     // (with the worker detoured its first bytes are our jump; they were checked when the detour went in)
-    char *worker = g_turn_worker ? 0 : build_code("adv_opgame.codelib", BV(0x76810, 0x76510, 0x84d00), b26 ? sig_b26 : sig_old,
+    char *worker = g_turn_worker ? 0 : build_code("adv_opgame.codelib", BV(0x76810, 0x76510, 0x85050), b26 ? sig_b26 : sig_old,
                                                   b26 ? sizeof sig_b26 : sizeof sig_old);
     if (!c || !operation_on_screen(om) || (!g_turn_worker && !worker)) {
         mp_log("map: the turn could not be ended from here");
@@ -2675,8 +2676,8 @@ void session_stop(void)
 #define CT_CAP BF(0x10c, 0x114)        // float, the automatically reduced speed (moves towards the frame-rate table's)
 #define CT_QUANT BF(0x114, 0x11c)      // float f:max_quant: no call takes more real time than this
 #define CT_SAMPLES BF(0x158, 0x164)    // u32: frame times in its 16-frame history
-#define CT_PAUSE BF(0x15c, 0x1dc)      // byte b:pause (slots 5 / 6 set and read it)
-#define CT_AUTO BF(0x15d, 0x1dd)       // byte b:auto_tm_ctrl, the automatic speed control
+#define CT_PAUSE BF(0x15c, 0x1e0)      // byte b:pause (slots 5 / 6 set and read it)
+#define CT_AUTO BF(0x15d, 0x1e1)       // byte b:auto_tm_ctrl, the automatic speed control
 #define CT_RENDER BF(NP, 0x108)        // 2026 beta: i_render, told "paused" by every call that runs at no speed
 
 // ---------------------------------------------------------------- owned units: send transforms
@@ -3327,9 +3328,10 @@ void session_sim_step(ObjMan *om)
 //             its result when confirmations are off), in the initial orders it starts the battle
 //   +0x41700  message box results; box 3 answered yes = end deployment
 // advance_phase() below calls the original +0x3b3b0 when the time has come.
-// 2026 beta: the same three, at +0x3e340, +0x3e480 and +0x489b0, on the moved fields (deployment +0x1149 and
+// 2026-11-08 beta: at +0x3e790, +0x3e8d0 and +0x4cf10, deployment +0x1429 / +0x142a, the box +0x1334.
+// 2026-11-06 beta: the same three, at +0x3e340, +0x3e480 and +0x489b0, on the moved fields (deployment +0x1149 and
 // +0x114a, the open box +0x1054 instead of +0xed9, +0xeda, +0xde8).
-#define IE_BOX BF(0xde8, 0x1054)
+#define IE_BOX BF(0xde8, 0x1334)
 static bool gate_active(void)
 {
     return g_tactical && g_role != ROLE_NONE && g_connected && g_phase < 2;
@@ -3409,7 +3411,7 @@ static void box_result_hook(Object *ui, int result, u64 c, u64 d)
 void session_game_menu(ObjMan *om, bool show)
 {
     static const unsigned char sig[] = { 0x48, 0x89, 0x5c, 0x24, 0x08, 0x56, 0x48, 0x83, 0xec, 0x20, 0x48, 0x8b, 0x01, 0x0f, 0xb6, 0xf2 };
-    char *fn = build_code("adv_interf.codelib", BV(0x228c0, 0x228c0, 0x241a0), sig, sizeof sig);
+    char *fn = build_code("adv_interf.codelib", BV(0x228c0, 0x228c0, 0x245c0), sig, sizeof sig);
     Object *ui = engine_find(om, "i_intereff", "intereff");
     if (!fn || !ui || !g_tactical || (*((char *)ui + IE_MENU_OPEN) != 0) == show) return;
     ((void (*)(Object *, char))fn)(ui, show);
@@ -3573,8 +3575,8 @@ static void set_pause_hook(char *ct, unsigned char paused)
 {
     if (!shared_clock()) { g_set_pause(ct, follows_host_clock() ? g_host_paused : paused); return; }
     void *ret = _ReturnAddress();
-    bool nobodys = g_stepping_phase || called_from(ret, BV(0x229c0, 0x229c0, 0x242a0), BV(0x22bb0, 0x22bb0, 0x24490)) ||
-                   called_from(ret, BV(0x19d00, 0x19d00, 0x1b650), BV(0x19fb0, 0x19fb0, 0x1b930));
+    bool nobodys = g_stepping_phase || called_from(ret, BV(0x229c0, 0x229c0, 0x246c0), BV(0x22bb0, 0x22bb0, 0x248b0)) ||
+                   called_from(ret, BV(0x19d00, 0x19d00, 0x1b740), BV(0x19fb0, 0x19fb0, 0x1ba20));
     if (!nobodys && (paused != 0) != g_my_pause) {
         g_my_pause = paused != 0;
         mp_log("clock: this player %s", g_my_pause ? "asks for a pause" : "no longer asks for a pause");
@@ -3584,7 +3586,7 @@ static void set_pause_hook(char *ct, unsigned char paused)
 
 static unsigned char get_pause_hook(char *ct)
 {
-    if (shared_clock() && !g_stepping_phase && called_from(_ReturnAddress(), BV(0x3b3b0, 0x3b320, 0x3e340), BV(0x3ba00, 0x3b960, 0x3e990)))
+    if (shared_clock() && !g_stepping_phase && called_from(_ReturnAddress(), BV(0x3b3b0, 0x3b320, 0x3e790), BV(0x3ba00, 0x3b960, 0x3ede0)))
         return g_my_pause;
     return g_get_pause(ct);
 }
@@ -3599,8 +3601,10 @@ static void replace_timer_setters(ObjMan *om)
     done = true;
     void **vt = *(void ***)timer;
     // (2026 beta: the class's table at base_main+0x36558, still 8 slots; set_mult +0x9230, set_pause +0x7d20 and
-    //  is_paused +0x7d30 write and read b:pause at +0x1dc. Slot 3 returns whether the clock had stood - nobody reads it.)
-    if (!BV(0x23bc8, 0x23bc8, 0x36558) || (char *)vt != base + BV(0x23bc8, 0x23bc8, 0x36558) || (char *)vt[3] != base + BV(0x4680, 0x4680, 0x9230) ||
+    //  is_paused +0x7d30 write and read b:pause at +0x1dc. Slot 3 returns whether the clock had stood - nobody reads it.
+    //  The 2026-11-08 beta: the same table, set_mult +0x9260; b:pause +0x1e0, b:auto_tm_ctrl +0x1e1 - a float was put
+    //  in at +0x1dc.)
+    if (!BV(0x23bc8, 0x23bc8, 0x36558) || (char *)vt != base + BV(0x23bc8, 0x23bc8, 0x36558) || (char *)vt[3] != base + BV(0x4680, 0x4680, 0x9260) ||
         (char *)vt[5] != base + BV(0x3db0, 0x3db0, 0x7d20) || (char *)vt[6] != base + BV(0x3dc0, 0x3dc0, 0x7d30)) {
         mp_log("net: unknown game build, speed and pause stay local");
         return;
@@ -3837,9 +3841,10 @@ static void install_detours(void)
     // 2026 beta (adv_interf +0x3e340, +0x3e480, +0x489b0, +0x611f0; base_main +0x8390): each signature is the
     // detour's length, all whole instructions - moves, pushes, a sub rsp and (start, box) a compare / load of
     // an interface field; none of them relative to rip.
-    static const unsigned char start_b26[] = { 0x40, 0x53, 0x48, 0x83, 0xec, 0x40, 0x48, 0x8b, 0xd9, 0x80, 0xb9, 0x4a, 0x11, 0x00, 0x00, 0x00 };
+    static const unsigned char start_b26[] = { 0x40, 0x53, 0x48, 0x83, 0xec, 0x40, 0x48, 0x8b, 0xd9, 0x80, 0xb9, 0x2a, 0x14, 0x00, 0x00, 0x00 };
     static const unsigned char input_b26[] = { 0x48, 0x89, 0x5c, 0x24, 0x08, 0x48, 0x89, 0x74, 0x24, 0x18, 0x57, 0x48, 0x83, 0xec, 0x50, 0x49, 0x8b, 0xd8, 0x48, 0x8b, 0xf1 };
-    static const unsigned char box_b26[] = { 0x48, 0x89, 0x6c, 0x24, 0x18, 0x57, 0x48, 0x83, 0xec, 0x30, 0x8b, 0x81, 0x54, 0x10, 0x00, 0x00, 0x48, 0x8b, 0xe9 };
+    // (2026-11-08 beta: push rsi / sub rsp,30h / mov eax,[rcx+1334h] / mov rsi,rcx - the 2024 builds' shape again)
+    static const unsigned char box_b26[] = { 0x40, 0x56, 0x48, 0x83, 0xec, 0x30, 0x8b, 0x81, 0x34, 0x13, 0x00, 0x00, 0x48, 0x8b, 0xf1 };
     static const unsigned char select_b26[] = { 0x44, 0x89, 0x4c, 0x24, 0x20, 0x44, 0x88, 0x44, 0x24, 0x18, 0x48, 0x89, 0x54, 0x24, 0x10, 0x53, 0x57, 0x41, 0x55, 0x48, 0x83, 0xec, 0x60 };
     static const unsigned char timer_b26[] = { 0x48, 0x8b, 0xc4, 0x44, 0x89, 0x40, 0x18, 0x55, 0x53, 0x56, 0x57, 0x41, 0x54, 0x41, 0x55, 0x41, 0x56, 0x41, 0x57 };
     static bool done;
@@ -3852,11 +3857,11 @@ static void install_detours(void)
     const unsigned char *timer_s = b26 ? timer_b26 : timer_sig, *select_s = b26 ? select_b26 : select_sig;
     size_t start_n = b26 ? sizeof start_b26 : sizeof start_sig, input_n = b26 ? sizeof input_b26 : sizeof input_old, box_n = b26 ? sizeof box_b26 : sizeof box_sig;
     size_t timer_n = b26 ? sizeof timer_b26 : sizeof timer_sig, select_n = b26 ? sizeof select_b26 : sizeof select_sig;
-    char *start = build_code(ai, BV(0x3b3b0, 0x3b320, 0x3e340), start_s, start_n);
-    char *input = build_code(ai, BV(0x3b4f0, 0x3b460, 0x3e480), input_s, input_n);
-    char *box = build_code(ai, BV(0x41700, 0x41630, 0x489b0), box_s, box_n);
+    char *start = build_code(ai, BV(0x3b3b0, 0x3b320, 0x3e790), start_s, start_n);
+    char *input = build_code(ai, BV(0x3b4f0, 0x3b460, 0x3e8d0), input_s, input_n);
+    char *box = build_code(ai, BV(0x41700, 0x41630, 0x4cf10), box_s, box_n);
     char *timer = build_code("base_main.codelib", BV(0x4200, 0x4200, 0x8390), timer_s, timer_n);
-    char *select = build_code(ai, BV(0x57470, 0x57310, 0x611f0), select_s, select_n);
+    char *select = build_code(ai, BV(0x57470, 0x57310, 0x65910), select_s, select_n);
     // all three or none: a half-gated Start button would let one player skip the other
     if (start && input && box) {
         g_input_action = (InputAction)install_detour(input, input_n, input_action_hook);

@@ -56,9 +56,9 @@ static_assert(sizeof(HitRec) <= sizeof(((ShotRec *)0)->launch), "a hit has to fi
 
 enum { H_AMMO = 0x68, H_DESC2 = 0x70, H_SHOOTER = 0x78, H_SIZE = 0x80 };
 // The unit's random state the routine draws from (beta26: the vehicle's module damage +0x580c0 steps +0xb94, the
-// soldier's hit +0x9d8c0 +0x3610).
+// soldier's hit +0x9d8c0 +0x3610; the 2026-11-08 beta: +0x5aa80 / +0xb94 and +0xa4630 / +0x36e0).
 #define SEED_VEHICLE BF(0xb64, 0xb94)
-#define SEED_SOLDIER BF(0x2768, 0x3610)
+#define SEED_SOLDIER BF(0x2768, 0x36e0)
 
 // The hit's place (+0x00), the shell's direction (+0x10) and the surface's normal (+0x20; the vehicle's
 // hit routine turns place and normal into a mark, and the direction into an angle). They are in the
@@ -216,8 +216,8 @@ static void install(ObjMan *om)
     InitializeCriticalSection(&g_lock);
     // the classes' tables, their hit slot and what it holds (beta26: i_techn::vftable +0x15bda8 and i_human::vftable
     // +0x156768, read in IDA; their only references besides the tables are the unwind data, no direct calls)
-    size_t techn_vt = BV(0xc7790, 0xc7750, 0x15bda8), human_vt = BV(0xc6518, 0xc64d8, 0x156768), slot = BF(81, 82);
-    char *techn_fn = base + BV(0x43230, 0x43230, 0x646f0), *human_fn = base + BV(0x66cc0, 0x66c90, 0x9d8c0);
+    size_t techn_vt = BV(0xc7790, 0xc7750, 0x167c68), human_vt = BV(0xc6518, 0xc64d8, 0x1625c8), slot = BF(81, 82);
+    char *techn_fn = base + BV(0x43230, 0x43230, 0x67b50), *human_fn = base + BV(0x66cc0, 0x66c90, 0xa4630);
     void **techn = (void **)(base + techn_vt) + slot, **human = (void **)(base + human_vt) + slot;
     if (!techn_vt || !human_vt || !slot || !readable(techn, 8) || !readable(human, 8) || *techn != techn_fn || *human != human_fn) {
         g_enabled = false;

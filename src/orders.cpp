@@ -58,9 +58,9 @@ static size_t g_interf_base, g_interf_size;
 enum { ORDER_HEAD = 11, ORDER_UNITS = 12, KEYS_IN_HEAD = 9, KEYS_IN_MORE = 18 };
 enum { O_SETTINGS = 1, O_QUEUE = 2, O_REVERSE = 4 };
 // adv_interf: where the order worker and the reverse routine come back from the order call, and the worker itself
-#define WORKER_RETURN  BV(0x13fa6, 0x13fa6, 0x144a3)
-#define REVERSE_RETURN BV(0x13eb2, 0x13eb2, 0x143a7)
-#define ORDER_WORKER   BV(0x13f20, 0x13f20, 0x14420)
+#define WORKER_RETURN  BV(0x13fa6, 0x13fa6, 0x14593)
+#define REVERSE_RETURN BV(0x13eb2, 0x13eb2, 0x14497)
+#define ORDER_WORKER   BV(0x13f20, 0x13f20, 0x14510)
 // unit vtable: put into reverse (arg 1; beta26 from the reverse routine), alive enough to be selected,
 // "this player commands the squad" (beta26 from the box selection +0x139020)
 #define ORD_VT_REVERSE    BF(0x590, 0x5a0)
@@ -68,7 +68,7 @@ enum { O_SETTINGS = 1, O_QUEUE = 2, O_REVERSE = 4 };
 #define ORD_VT_COMMANDED  BF(0x550, 0x558)
 // soldier (adv_physic): the vehicle he sits in (0 on foot), his station in it (-1 none) - as the soldier's slot 182
 // (+0x62730) returns them, beta26 slot 184 (+0xa9130)
-#define ORD_HUMAN_VEHICLE BF(0x2388, 0x2b90)
+#define ORD_HUMAN_VEHICLE BF(0x2388, 0x2c10)
 #define ORD_HUMAN_STATION BF(0x1da4, 0x2204)
 
 static const char *const k_kinds[] = {
@@ -92,7 +92,7 @@ struct Incoming { ShotRec head; std::vector<u64> keys; u32 want; };
 // slot, pos = the point, launch +0 the vector, +16 the angle, +20 the tag, +72 the first unit numbers as in kind 11
 // (more in kind 12 records); the host makes the same call for those of the units that are the joining player's.
 enum { AIM_ORDER = 15, AIM_FIRST = 21, AIM_SLOTS = 4 };
-#define FORMATION_VT BV(0x12f930, 0x12f930, 0x1c13a0)          // i_formation's vtable (adv_game)
+#define FORMATION_VT BV(0x12f930, 0x12f930, 0x1c6da8)          // i_formation's vtable (adv_game)
 typedef u64 (*AimSector)(char *, const float *, float, EngList *);
 typedef u64 (*AimClear)(char *, EngList *);
 typedef void (*AimGround)(char *, const float *, const float *, EngList *, int);
@@ -282,7 +282,7 @@ static u64 aim24_hook(char *f, EngList *units)
 static void install_aim_hooks(char *ag)
 {
     static const size_t old[AIM_SLOTS] = { 0xcd6a0, 0xcd850, 0xcd920, 0xcdaf0 };
-    static const size_t b26[AIM_SLOTS] = { 0x139860, 0x139a20, 0x139b00, 0x139ce0 };
+    static const size_t b26[AIM_SLOTS] = { 0x13f270, 0x13f430, 0x13f510, 0x13f6f0 };
     void *hooks[AIM_SLOTS] = { (void *)aim21_hook, (void *)aim22_hook, (void *)aim23_hook, (void *)aim24_hook };
     void **vt = (void **)(ag + FORMATION_VT);
     for (int i = 0; i < AIM_SLOTS; i++)
@@ -312,7 +312,7 @@ void orders_install(ObjMan *om)
     g_interf_base = (size_t)ai;
     g_interf_size = nt->OptionalHeader.SizeOfImage;
     // i_formation slot 16 (beta26 +0x144d10: the same first bytes)
-    char *fn = build_code("adv_game.codelib", BV(0xd3910, 0xd3910, 0x144d10), sig, sizeof sig);
+    char *fn = build_code("adv_game.codelib", BV(0xd3910, 0xd3910, 0x14a720), sig, sizeof sig);
     if (!fn) { mp_log("orders: unknown game build - the joining player's orders cannot reach the host"); return; }
     g_issue = (Issue)install_detour(fn, sizeof sig, issue_hook);
     mp_log("orders: %s%s", g_issue ? "the order call is hooked - a joining player's orders are carried out by the host's game" : "could not be hooked",

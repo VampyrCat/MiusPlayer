@@ -167,7 +167,8 @@ namespace MiusPlayer
         public static readonly KnownBuild[] Known = {
             new KnownBuild("public_beta-16070931", "older Steam beta build", 0x670d5899, 0x670d5943),
             new KnownBuild("public-15814271", "Steam default branch", 0x66ed7c47, 0x66f2d70e),
-            new KnownBuild("public_beta-26494568", "Steam beta branch", 0x6aee3958, 0x6aee394a),
+            // Steam's beta branch since 2026-11-08 (it replaced public_beta-26494568, 0x6aee3958 / 0x6aee394a)
+            new KnownBuild("public_beta-26514238", "Steam beta branch", 0x6aefc0ff, 0x6aefc0f2),
         };
 
         public static KnownBuild Find(uint shell, uint main)

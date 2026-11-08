@@ -17,10 +17,11 @@ inline DWORD buildid_file_stamp(const char *path)
     return ok ? nt.FileHeader.TimeDateStamp : 0;
 }
 
-// 0 public_beta-16070931, 1 public-15814271, 2 public_beta-26494568 (the BUILD_* numbers), -1 another build
+// 0 public_beta-16070931, 1 public-15814271, 2 public_beta-26514238 (the BUILD_* numbers), -1 another build
+// (2 was public_beta-26494568 until 2026-11-08: base_shell 0x6aee3958, base_main 0x6aee394a)
 inline int buildid_of_folder(const char *root)
 {
-    static const DWORD shell[3] = { 0x670d5899, 0x66ed7c47, 0x6aee3958 }, main[3] = { 0x670d5943, 0x66f2d70e, 0x6aee394a };
+    static const DWORD shell[3] = { 0x670d5899, 0x66ed7c47, 0x6aefc0ff }, main[3] = { 0x670d5943, 0x66f2d70e, 0x6aefc0f2 };
     char path[MAX_PATH];
     sprintf_s(path, "%s\\bin\\rel\\x64\\base_shell.codelib", root);
     DWORD s = buildid_file_stamp(path);
