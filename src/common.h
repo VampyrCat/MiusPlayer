@@ -320,6 +320,8 @@ void orders_reset(void);
 void orders_report(void);
 void orders_test_move(int index, float dx, float dz);   // tests: this player's n-th squad moves by dx, dz
 void orders_test_where(u32 squad);        // tests: where a squad stands here
+void orders_test_place_vehicle(int index, float dx, float dz);   // tests: the n-th squad with a vehicle, wheels and all
+void orders_test_wheel_gap(ObjMan *om, u32 squad);               // tests: how far vehicles' wheels are from their bodies (0: all)
 void orders_test_place(int index, float dx, float dz);  // tests: this player's n-th squad put elsewhere at once (deployment)
 void orders_test_aim(int slot, int index, float dx, float dz, float deg);   // tests: an i_formation slot 21-24 order for this player's n-th squad
 void orders_test_attack(void);            // tests: all of this player's squads move against the other side

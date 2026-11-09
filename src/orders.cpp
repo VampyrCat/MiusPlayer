@@ -578,6 +578,79 @@ void orders_test_place(int index, float dx, float dz)
     mp_log("test: place - squad %08x (%zu units) put from %.2f %.2f %.2f to %.2f %.2f %.2f", squad, units.size(), c[0], c[1], c[2], c[0] + dx, c[1], c[2] + dz);
 }
 
+// Tests: "placev <n> <dx> <dz>" - this player's n-th squad that has a vehicle (and nobody seated) put dx, dz metres
+// away at once, as the deployment screen does: each unit's body, and each vehicle's wheels with it (their world
+// places, wheel +0x30). "wheelgap" logs, for every vehicle in this game, how far its wheels are from where they belong
+// - the largest change of a wheel's distance from the body since the battle description put it there is not known, so
+// the largest distance of a wheel from its vehicle's body is given, per vehicle over 6 m (a wheel left behind).
+#define PV_WHEELS BF(0x11e8, 0x1708)
+#define PV_WHEEL_SIZE BF(0x2a0, 0x2e0)
+void orders_test_place_vehicle(int index, float dx, float dz)
+{
+    std::vector<u32> squads, all = session_own_squads();
+    for (u32 sq : all) {
+        std::vector<Object *> us = squad_units(sq);
+        bool vehicle = false;
+        for (Object *o : us) if (!strcmp(o->iface, "i_techn")) vehicle = true;
+        if (vehicle) squads.push_back(sq);
+    }
+    if (index < 0 || index >= (int)squads.size()) { mp_log("test: placev - this player has no vehicle squad %d (%zu of %zu squads)", index, squads.size(), all.size()); return; }
+    u32 squad = squads[index];
+    std::vector<Object *> units = squad_units(squad);
+    int vehicles = 0, wheels = 0;
+    for (Object *o : units) {
+        float *p = (float *)((char *)o + UNIT_POS);
+        if (!readable(p, 12) || (!strcmp(o->iface, "i_human") && seated(o))) continue;     // (a crew rides with its vehicle)
+        p[0] += dx;
+        p[2] += dz;
+        if (strcmp(o->iface, "i_techn")) continue;
+        vehicles++;
+        char *w = *(char **)((char *)o + PV_WHEELS);
+        u32 n = *(u32 *)((char *)o + PV_WHEELS + 0xc);
+        if (n && n <= 64 && readable(w, (size_t)n * PV_WHEEL_SIZE))
+            for (u32 i = 0; i < n; i++) {
+                float *wp = (float *)(w + (size_t)i * PV_WHEEL_SIZE + 0x30);
+                wp[0] += dx;
+                wp[2] += dz;
+                wheels++;
+            }
+    }
+    int order_index = -1;           // (its place among this player's squads: what "order <n>" takes)
+    for (size_t i = 0; i < all.size(); i++) if (all[i] == squad) order_index = (int)i;
+    mp_log("test: placev - squad %08x (%zu units, %d vehicles, %d wheels) put %.1f %.1f away (order index %d)", squad, units.size(), vehicles, wheels, dx, dz, order_index);
+}
+
+void orders_test_wheel_gap(ObjMan *om, u32 squad)
+{
+    if (!om) om = g_om;             // (in a battle the interface's own is not set)
+    if (!om) { mp_log("test: wheelgap - no object manager yet"); return; }
+    u32 count;
+    Object **all = all_objects(om, &count);
+    std::vector<Object *> only;
+    if (squad) { only = squad_units(squad); all = only.data(); count = (u32)only.size(); }      // (just that squad's vehicles)
+    int n = 0, off = 0;
+    float worst = 0;
+    const char *worst_name = "";
+    for (u32 i = 0; i < count; i++) {
+        Object *o = all[i];
+        if (strcmp(o->iface, "i_techn")) continue;
+        const float *b = (const float *)((char *)o + UNIT_POS);
+        char *w = *(char **)((char *)o + PV_WHEELS);
+        u32 k = *(u32 *)((char *)o + PV_WHEELS + 0xc);
+        if (!readable(b, 12) || !k || k > 64 || !readable(w, (size_t)k * PV_WHEEL_SIZE)) continue;
+        float most = 0;
+        for (u32 j = 0; j < k; j++) {
+            const float *wp = (const float *)(w + (size_t)j * PV_WHEEL_SIZE + 0x30);
+            float d = sqrtf((wp[0] - b[0]) * (wp[0] - b[0]) + (wp[1] - b[1]) * (wp[1] - b[1]) + (wp[2] - b[2]) * (wp[2] - b[2]));
+            if (d == d && d > most) most = d;
+        }
+        n++;
+        if (most > 6) off++;
+        if (most > worst) { worst = most; worst_name = o->full; }
+    }
+    mp_log("test: wheelgap - %d vehicles, %d with a wheel more than 6 m from the body; the farthest %.2f m (%s)", n, off, worst, worst_name);
+}
+
 // Tests: "squadpos <squad id>" - where a squad stands in this game.
 void orders_test_where(u32 squad)
 {

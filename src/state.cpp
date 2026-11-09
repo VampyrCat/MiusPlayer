@@ -635,12 +635,19 @@ int state_load_keep_motion(Object *o, const unsigned char *data, size_t size, bo
         }
 
     static int keep_wheels = -1;
-    if (keep_wheels < 0) { char v[8]; keep_wheels = !GetEnvironmentVariableA("MP_STATE_KEEP_WHEELS", v, sizeof v) || atoi(v) != 0; }
+    if (keep_wheels < 0) { char v[8]; keep_wheels = GetEnvironmentVariableA("MP_STATE_KEEP_WHEELS", v, sizeof v) ? atoi(v) : 1; }
     char *wheels_at = 0, *tracks_at = 0;
     u32 wheels_n = 0, tracks_n = 0;
     std::vector<unsigned char> wheel_copy;
     std::vector<float> track_run;
-    if (techn && keep_wheels) {
+    // (Only in the battle, where vehicles drive and a state is older than the body it is loaded into. In deployment
+    // and the initial orders nothing drives, but a vehicle the owner places on the deployment screen goes there body
+    // and wheels at once: kept, this game's wheels stayed where the vehicle had stood - the body where its owner put
+    // it, the wheels up to 3.8 m away. When its physics woke in the battle the vehicle sank into the ground or was
+    // thrown: anti-tank guns a player had placed sank and were destroyed in the host's game, and one flew 2.4 km
+    // (the user's two-PC Saur-Mogila battle, 2026-11-09). MP_STATE_KEEP_WHEELS=2: kept in every phase, as in 2.7-2.8.)
+    bool keep_now = keep_wheels == 2 || (keep_wheels && session_phase() == 2);
+    if (techn && keep_now) {
         wheels_at = *(char **)((char *)o + ST_WHEELS);
         wheels_n = *(u32 *)((char *)o + ST_WHEELS + 0xc);
         if (wheels_n && wheels_n <= 64 && readable(wheels_at, (size_t)wheels_n * ST_WHEEL_SIZE))

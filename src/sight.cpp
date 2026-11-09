@@ -76,7 +76,7 @@ static char *g_vm, *g_ag;
 static bool g_tried, g_ok, g_enabled = true;
 // host: the list last built for the other player's side, its number, when it went out
 static std::vector<SightEntry> g_list;
-static std::unordered_map<u64, bool> g_list_keys;      // (the same units, for sight_other_sees)
+static std::unordered_map<u64, DWORD> g_list_keys;     // (the same units, for sight_other_sees: when each was last in it)
 static unsigned g_seq, g_list_side;
 // more players (session.cpp): extra players on the side opposite the other player's get that side's list
 static std::vector<SightEntry> g_list2;
@@ -331,8 +331,10 @@ void sight_frame(ObjMan *om, void (*send)(const void *, int), void (*send_opposi
             std::vector<SightEntry> list;
             build_list(side, list);
             g_list.swap(list);
-            g_list_keys.clear();
-            for (const SightEntry &e : g_list) g_list_keys[e.key] = true;
+            {
+                DWORD now = GetTickCount();
+                for (const SightEntry &e : g_list) g_list_keys[e.key] = now ? now : 1;
+            }
             g_list_side = side;
             g_seq++;
             g_stat_built++;
@@ -367,7 +369,11 @@ void sight_frame(ObjMan *om, void (*send)(const void *, int), void (*send_opposi
 int sight_other_sees(u64 key)
 {
     if (!ready() || session_role() != ROLE_HOST || !g_seq) return -1;
-    return g_list_keys.count(key) ? 1 : 0;
+    // (seen: in the list now or in the last 20 s - the game goes on drawing an enemy for a while after its units lost
+    // sight of it, and such a soldier sent as one nobody sees moved in steps and stood in his animation: the user saw
+    // infantry "animated as if on 2 fps", 2026-11-09)
+    auto it = g_list_keys.find(key);
+    return it != g_list_keys.end() && GetTickCount() - it->second < 20000 ? 1 : 0;
 }
 
 void sight_on_packet(const unsigned char *data, int size)

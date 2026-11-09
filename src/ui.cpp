@@ -1494,6 +1494,8 @@ static bool test_shot_request(char *name, size_t n)
     if (!strncmp(line, "selectable", 10)) { orders_test_selectable(); return false; }
     if (!strncmp(line, "aim ", 4)) { int s = 0, n = 0; float dx = 0, dz = 0, deg = 40; if (sscanf_s(line + 4, "%d %d %f %f %f", &s, &n, &dx, &dz, &deg) >= 2) orders_test_aim(s, n, dx, dz, deg); return false; }
     if (!strncmp(line, "place ", 6)) { int n = 0; float dx = 0, dz = 0; if (sscanf_s(line + 6, "%d %f %f", &n, &dx, &dz) == 3) orders_test_place(n, dx, dz); return false; }
+    if (!strncmp(line, "placev ", 7)) { int n = 0; float dx = 0, dz = 0; if (sscanf_s(line + 7, "%d %f %f", &n, &dx, &dz) == 3) orders_test_place_vehicle(n, dx, dz); return false; }
+    if (!strncmp(line, "wheelgap", 8)) { orders_test_wheel_gap(g_om_ui, strtoul(line + 8, 0, 16)); return false; }
     if (!strncmp(line, "squadpos ", 9)) { orders_test_where(strtoul(line + 9, 0, 16)); return false; }
     if (!strncmp(line, "seats", 5)) { seats_test_list(); return false; }
     if (!strncmp(line, "unseat ", 7)) { seats_test_move(atoi(line + 7)); return false; }

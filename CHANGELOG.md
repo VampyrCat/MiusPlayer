@@ -2,6 +2,14 @@
 
 Every release of MiusPlayer. Both players need the same network version; the launcher keeps the mod up to date.
 
+## 2.8.1 - 2026-11-09 (network 31)
+- Fixed: guns and vehicles a player placed on the deployment screen could sink into the ground and be destroyed
+  (or be thrown far away) once the battle had begun - in the host's game his units kept their wheels where they had
+  stood before he moved them. Since 2.7.0; seen with anti-tank guns in a two-PC operation battle.
+- Fixed: enemy soldiers that had just gone out of sight could move and animate in jerks (as if at 2 frames a second)
+  on the joining player's screen - the host sent them as units nobody sees while his game still drew them. A unit
+  now counts as seen for 20 s after the host's spotting last had it. (Since 2.8.0.)
+
 ## 2.8.0 - 2026-11-08 (network 31)
 - Less traffic from the host in big battles (Stepanovka, 1280 units: 1.1 MB/s down to about 0.8 MB/s):
   - a moving unit is left out while the other game, running it on from what it last got, has it within a few centimetres;
