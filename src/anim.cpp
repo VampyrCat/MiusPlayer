@@ -48,7 +48,7 @@ typedef void (*Set14)(char *, u32, unsigned char, float, float, float);
 typedef void (*SetB)(char *, u32, unsigned char);
 
 static char *g_mgr;
-static void *g_copy[42];
+static void *g_copy[45];              // (42 entries copied as before; the 2026-11-14 beta: its RTTI pointer and 44 slots)
 static SetU g_o4, g_o10, g_o12, g_o21;
 static SetF g_o8, g_o16, g_o20;
 static Pick g_o11;
@@ -72,14 +72,18 @@ static u64 g_stat_dropped, g_stat_sent, g_stat_received, g_stat_groups;
 // lying body's three angles and his two headings. beta26: adv_physic i_human slot 233 (+0xa97f0) reads the number
 // at +0x21c0; the on-foot update (+0x69ff0) steps the direction at +0x22d0, turns the angles at +0x1290..+0x1298
 // and takes the second heading from +0x2458; slot 52 (+0xa8ac0) reads the heading at +0x2330. The 2026-11-08 beta
-// (26514238): the second heading +0x24a0, the rest where they were (the manager's code is the same).
+// (26514238): the second heading +0x24a0, the rest where they were (the manager's code is the same). The 2026-11-14
+// beta (26665733): the number +0x2518, the direction +0x2628, the headings +0x2688 / +0x2820, the angles where they
+// were (on-foot update +0x76f40); the manager's vtable has 44 slots (5 added at the end) and its records are 0x150
+// bytes (0x10 added at the end, every field above where it was).
 #define ANIM_RECORDS BF(0x140, 0x1c0)
-#define S_HANDLE BF(0x1d60, 0x21c0)
-#define S_DIR8 BF(0x1e70, 0x22d0)
+#define ANIM_REC_SIZE BF(0x140, 0x150)   // a record (2026-11-14 beta: 0x10 added at its end)
+#define S_HANDLE BF(0x1d60, 0x2518)
+#define S_DIR8 BF(0x1e70, 0x2628)
 #define S_LIE BF(0x1210, 0x1290)
-#define S_HEADING1 BF(0x1eac, 0x2330)
-#define S_HEADING2 BF(0x1ef8, 0x24a0)
-#define S_END BF(0x1f00, 0x24a8)               // (all of them lie below this)
+#define S_HEADING1 BF(0x1eac, 0x2688)
+#define S_HEADING2 BF(0x1ef8, 0x2820)
+#define S_END BF(0x1f00, 0x2828)               // (all of them lie below this)
 
 static bool active(void) { return g_on && g_hooked && session_connected() && session_simulating() && session_versus_or_coop(); }
 static inline bool held(u32 h) { return h < g_followed.size() && g_followed[h] && active(); }
@@ -98,8 +102,8 @@ static void h26(char *m, u32 h, unsigned char v) { if (held(h)) { g_stat_dropped
 static char *record(u32 handle)
 {
     char *base = *(char **)(g_mgr + ANIM_RECORDS);
-    char *r = base + (size_t)handle * 0x140;
-    return handle < 100000 && readable(r, 0x140) ? r : 0;
+    char *r = base + (size_t)handle * ANIM_REC_SIZE;
+    return handle < 100000 && readable(r, ANIM_REC_SIZE) ? r : 0;
 }
 
 // The name of the group a record has chosen: the key of the map node the group sits in, 0x3e bytes before it.
@@ -185,15 +189,15 @@ static void install(ObjMan *om)
     char *m = build_module("adv_game.codelib");
     // the setters' slots and addresses (adv_game is the same code in both 2024 builds); beta26 read in IDA
     static const unsigned rva_old[] = { 0xa4040, 0xa1350, 0xa13b0, 0xa4ec0, 0xa4ff0, 0xa13d0, 0xa5030, 0xa1420, 0xa1440, 0xa1460, 0xa14c0 };
-    static const unsigned rva_26[] = { 0xed9f0, 0xea730, 0xea790, 0xef4c0, 0xef600, 0xea7b0, 0xef640, 0xea800, 0xea820, 0xea840, 0xea8a0 };
+    static const unsigned rva_26[] = { 0x100890, 0xfd470, 0xfd4d0, 0x102500, 0x102640, 0xfd4f0, 0x102680, 0xfd540, 0xfd560, 0xfd580, 0xfd5e0 };
     static const int slot_old[] = { 4, 8, 10, 11, 12, 13, 14, 16, 20, 21, 26 }, slot_26[] = { 4, 8, 10, 11, 12, 13, 14, 16, 21, 22, 27 };
     const unsigned *rva = BV(rva_old, rva_old, rva_26);
     const int *slot = BV(slot_old, slot_old, slot_26);
-    bool known = mgr && m && (char *)mgr->vtbl == m + BV(0x12f128, 0x12f128, 0x1c2d78);
+    bool known = mgr && m && (char *)mgr->vtbl == m + BV(0x12f128, 0x12f128, 0x1e4e40);
     for (int i = 0; known && i < _countof(slot_old); i++) known = (char *)mgr->vtbl[slot[i]] == m + rva[i];
     if (!known) { mp_log("anim: unknown game build, each game animates every soldier for itself"); return; }
     void **vt = mgr->vtbl;
-    memcpy(g_copy, vt - 1, sizeof g_copy);
+    memcpy(g_copy, vt - 1, BF(42, 45) * sizeof(void *));
     g_o4 = (SetU)vt[slot[0]]; g_o8 = (SetF)vt[slot[1]]; g_o10 = (SetU)vt[slot[2]]; g_o11 = (Pick)vt[slot[3]]; g_o12 = (SetU)vt[slot[4]];
     g_o13 = (Set0)vt[slot[5]]; g_o14 = (Set14)vt[slot[6]]; g_o16 = (SetF)vt[slot[7]]; g_o20 = (SetF)vt[slot[8]]; g_o21 = (SetU)vt[slot[9]];
     g_o26 = (SetB)vt[slot[10]];

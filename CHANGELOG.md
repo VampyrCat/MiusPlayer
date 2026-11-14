@@ -2,6 +2,10 @@
 
 Every release of MiusPlayer. Both players need the same network version; the launcher keeps the mod up to date.
 
+## 2.8.2 - 2026-11-14 (network 31)
+- Steam's new beta build, public_beta-26665733 (it replaced public_beta-26514238, which Steam no longer serves).
+  The launcher recognises it and installs the mod for it; players on the other builds can keep playing with 2.8.1.
+
 ## 2.8.1 - 2026-11-09 (network 31)
 - Fixed: guns and vehicles a player placed on the deployment screen could sink into the ground and be destroyed
   (or be thrown far away) once the battle had begun - in the host's game his units kept their wheels where they had

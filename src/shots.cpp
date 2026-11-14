@@ -116,7 +116,7 @@ void shots_queue_except(ShotRec &s, int ch)
 
 // launch record: pointers at +0x38 (ammunition), +0x40 (weapon), +0x48 (firing object), +0x50 (object),
 // +0x60 (description); +0x68 the side's code
-enum { L_AMMO = 0x38, L_WEAPON = 0x40, L_SHOOTER = 0x48, L_OBJ2 = 0x50, L_DESC3 = 0x60, L_SIDE = 0x68, L_SIZE = 0x90 };
+enum { L_AMMO = 0x38, L_WEAPON = 0x40, L_SHOOTER = 0x48, L_OBJ2 = 0x50, L_DESC3 = 0x60, L_SIDE = 0x68, L_SIZE = 0x90, L_ROOM = 0xb0 };
 // explosion record: place at +0, two description pointers at +0x40 / +0x48 (the only things slot 4 reads),
 // 0x58 bytes as the engine builds it
 enum { X_DESC1 = 0x40, X_DESC2 = 0x48, X_SIZE = 0x58 };
@@ -360,11 +360,13 @@ void shots_install(ObjMan *om)
     static const unsigned char launch_sig[] = { 0x48, 0x89, 0x54, 0x24, 0x10, 0x55, 0x53, 0x56, 0x57, 0x41, 0x54, 0x41, 0x56,
                                                 0x48, 0x8d, 0xac, 0x24, 0xe8, 0xfd, 0xff, 0xff };
     // beta26 +0x2a030: push rbp/rbx/rsi/rdi/r14/r15; lea rbp,[rsp-268h]; sub rsp,368h
-    static const unsigned char launch_sig26[] = { 0x40, 0x55, 0x53, 0x56, 0x57, 0x41, 0x56, 0x41, 0x57, 0x48, 0x8d, 0xac, 0x24, 0x98,
-                                                  0xfd, 0xff, 0xff, 0x48, 0x81, 0xec, 0x68, 0x03, 0x00, 0x00 };
+    // (2026-11-14 beta +0x2d200: push rbp/rbx/rsi/rdi/r12/r14/r15; lea rbp,[rsp-2a0h]; sub rsp,3a0h)
+    static const unsigned char launch_sig26[] = { 0x40, 0x55, 0x53, 0x56, 0x57, 0x41, 0x54, 0x41, 0x56, 0x41, 0x57, 0x48, 0x8d, 0xac, 0x24,
+                                                  0x60, 0xfd, 0xff, 0xff, 0x48, 0x81, 0xec, 0xa0, 0x03, 0x00, 0x00 };
     static const unsigned char explode_sig[] = { 0x48, 0x89, 0x5c, 0x24, 0x08, 0x57, 0x48, 0x81, 0xec, 0x70, 0x02, 0x00, 0x00, 0x48, 0x8b, 0xf9 };
     // beta26 +0x2b4c0: the same with sub rsp,290h
-    static const unsigned char explode_sig26[] = { 0x48, 0x89, 0x5c, 0x24, 0x08, 0x57, 0x48, 0x81, 0xec, 0x90, 0x02, 0x00, 0x00, 0x48, 0x8b, 0xf9 };
+    // (2026-11-14 beta +0x2e720: sub rsp,2c0h)
+    static const unsigned char explode_sig26[] = { 0x48, 0x89, 0x5c, 0x24, 0x08, 0x57, 0x48, 0x81, 0xec, 0xc0, 0x02, 0x00, 0x00, 0x48, 0x8b, 0xf9 };
     static bool done;
     if (done) return;
     if (!build_module("basic_physic.codelib")) return;
@@ -381,8 +383,8 @@ void shots_install(ObjMan *om)
     if (!g_enabled && !g_file) { mp_log("shots: each game fires for itself (MP_SYNC_SHOTS=0)"); return; }
     const unsigned char *lsig = BV(launch_sig, launch_sig, launch_sig26), *xsig = BV(explode_sig, explode_sig, explode_sig26);
     size_t lsig_n = BV(sizeof launch_sig, sizeof launch_sig, sizeof launch_sig26), xsig_n = sizeof explode_sig;
-    char *launch = build_code("basic_physic.codelib", BV(0x18430, 0x18430, 0x2a520), lsig, lsig_n);
-    char *explode = build_code("basic_physic.codelib", BV(0x19260, 0x19260, 0x2b9e0), xsig, xsig_n);
+    char *launch = build_code("basic_physic.codelib", BV(0x18430, 0x18430, 0x2d200), lsig, lsig_n);
+    char *explode = build_code("basic_physic.codelib", BV(0x19260, 0x19260, 0x2e720), xsig, xsig_n);
     if (!launch) { mp_log("shots: unknown game build, each game fires for itself"); g_enabled = false; return; }
     g_launch = (Launch)install_detour(launch, lsig_n, launch_hook);
     if (explode) g_explode = (Explode)install_detour(explode, xsig_n, explode_hook);
@@ -390,8 +392,10 @@ void shots_install(ObjMan *om)
     static const unsigned char detonate_sig[] = { 0x48, 0x8b, 0xc4, 0x48, 0x89, 0x58, 0x10, 0x55, 0x56, 0x57, 0x48, 0x81, 0xec, 0xe0, 0x00, 0x00, 0x00 };
     // beta26 +0x11c650 (mov rax,rsp; push rbp/rbx; lea rbp,[rax-5fh]; sub rsp,0d8h; cmp byte [rcx+3024h],0 - the charges set;
     // the 11-06 beta: +0x111a30, +0x2eb4)
-    static const unsigned char detonate_sig26[] = { 0x48, 0x8b, 0xc4, 0x55, 0x53, 0x48, 0x8d, 0x68, 0xa1, 0x48, 0x81, 0xec, 0xd8, 0x00, 0x00, 0x00,
-                                                    0x80, 0xb9, 0x24, 0x30, 0x00, 0x00, 0x00 };
+    // (2026-11-14 beta +0x13a6f0: mov rax,rsp; mov [rax+10h],rbx; push rbp/rsi/rdi/r12-r15; lea rbp,[rax-5fh]; sub rsp,0c0h -
+    // the charges test +0x329c comes later; the function is the one that names "DETONATE" / "DET4")
+    static const unsigned char detonate_sig26[] = { 0x48, 0x8b, 0xc4, 0x48, 0x89, 0x58, 0x10, 0x55, 0x56, 0x57, 0x41, 0x54, 0x41, 0x55, 0x41, 0x56,
+                                                    0x41, 0x57, 0x48, 0x8d, 0x68, 0xa1, 0x48, 0x81, 0xec, 0xc0, 0x00, 0x00, 0x00 };
     // flares: adv_game+0x44c40 (push rbx/rbp/r13/r15; sub rsp,128h)
     static const unsigned char flare_sig[] = { 0x40, 0x53, 0x55, 0x41, 0x55, 0x41, 0x57, 0x48, 0x81, 0xec, 0x28, 0x01, 0x00, 0x00 };
     // beta26 +0x660e0 (mov [rsp+10h],rdx; push rbp/rbx/rsi/rdi/r13/r14; lea rbp,[rsp-68h]; sub rsp,168h)
@@ -399,8 +403,8 @@ void shots_install(ObjMan *om)
                                                  0x24, 0x98, 0x48, 0x81, 0xec, 0x68, 0x01, 0x00, 0x00 };
     const unsigned char *dsig = BV(detonate_sig, detonate_sig, detonate_sig26), *fsig = BV(flare_sig, flare_sig, flare_sig26);
     size_t dsig_n = BV(sizeof detonate_sig, sizeof detonate_sig, sizeof detonate_sig26), fsig_n = BV(sizeof flare_sig, sizeof flare_sig, sizeof flare_sig26);
-    char *detonate = build_code("adv_physic.codelib", BV(0x9b520, 0x9b4b0, 0x11c650), dsig, dsig_n);
-    char *flare = build_code("adv_game.codelib", BV(0x44c40, 0x44c40, 0x67720), fsig, fsig_n);
+    char *detonate = build_code("adv_physic.codelib", BV(0x9b520, 0x9b4b0, 0x13a6f0), dsig, dsig_n);
+    char *flare = build_code("adv_game.codelib", BV(0x44c40, 0x44c40, 0x72010), fsig, fsig_n);
     if (g_explode && detonate) g_detonate = (Detonate)install_detour(detonate, dsig_n, detonate_hook);
     if (flare) g_flare = (Flare)install_detour(flare, fsig_n, flare_hook);
     mp_log("shots: %s%s; explosions %s (vehicles blown up by their crews: %s), flares %s; off-map fire goes by the side it is fired for",
@@ -662,7 +666,7 @@ static void test_artillery(ObjMan *om)
     void **vt = *(void ***)g_divisions;
     for (u32 squad : session_own_squads()) {
         char *sq = ((char *(*)(void *, u32))vt[11])(g_divisions, squad);
-        if (!readable(sq, BF(0x440, 0x4e0))) continue;
+        if (!readable(sq, BF(0x440, 0x540))) continue;
         u32 support = *(u32 *)(sq + BF(0x2b0, 0x318));
         if (!sq[BF(0x3e0, 0x448)] || support == 0xffffffffu) continue;
         able++;
@@ -694,11 +698,11 @@ static void test_blowup(ObjMan *om)
     Object **all = all_objects(om, &count);
     for (u32 i = 0; i < count && done < n; i++) {
         Object *o = all[i];
-        if (!readable(o, BF(0x1e60, 0x3030)) || strncmp(o->full, "i_techn:", 8) || !session_owns(o)) continue;
+        if (!readable(o, BF(0x1e60, 0x32ab)) || strncmp(o->full, "i_techn:", 8) || !session_owns(o)) continue;
         char *v = (char *)o;
-        v[BF(0x1e1c, 0x3024)] = 1;
-        *(u32 *)(v + BF(0x117c, 0x169c)) = 1;
-        *(float *)(v + BF(0x1184, 0x16a4)) = 1.0f;
+        v[BF(0x1e1c, 0x329c)] = 1;
+        *(u32 *)(v + BF(0x117c, 0x171c)) = 1;
+        *(float *)(v + BF(0x1184, 0x1724)) = 1.0f;
         mp_log("test: blowup - the crew of %s will blow it up in 1 s", o->full);
         done++;
     }
@@ -719,7 +723,7 @@ static void test_flares(ObjMan *om)
     void **vt = *(void ***)g_divisions;
     for (u32 squad : session_own_squads()) {
         char *sq = ((char *(*)(void *, u32))vt[11])(g_divisions, squad);
-        if (!readable(sq, BF(0x440, 0x4e0))) continue;
+        if (!readable(sq, BF(0x440, 0x540))) continue;
         u32 side = *(u32 *)(sq + 0x60);
         for (int i = 0; i < n; i++) {
             alignas(16) float pos[4] = { centre[0] + 20.0f * i, centre[1] + 1, centre[2], 0 }, dir[4] = { 4.0f + i, 35, 6.0f - i, 0 };
@@ -773,7 +777,7 @@ void shots_sim_step(ObjMan *om)
         Object *shooter = s.shooter ? session_unit(s.shooter) : 0;
         // not the same ammunition here, or a unit this game does not have: no shot rather than a wrong one
         if (!ammo || !weapon || memcmp(two, s.ammo_check, 8) || code != s.ammo_code || (s.shooter && !shooter)) { g_stat_refused++; continue; }
-        char rec[L_SIZE];
+        alignas(16) char rec[L_ROOM] = {};       // (the 2026-11-14 beta reads +0x90..+0xaf too: zero, its ordinary shots')
         memcpy(rec, s.launch, L_SIZE);
         *(void **)(rec + L_AMMO) = ammo;
         *(void **)(rec + L_WEAPON) = weapon;

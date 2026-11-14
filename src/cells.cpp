@@ -1,6 +1,7 @@
 // Who holds the ground (mpmod2): the map's control cells are the host's.
 //
-// The trigger manager (i_trigman) divides the map into cells (+0x240, records of 0x100 bytes, count +0x24c), each with
+// The trigger manager (i_trigman) divides the map into cells (+0x240, records of 0x100 bytes, count +0x24c; the
+// 2026-11-14 beta +0x260 / +0x26c, read in IDA at adv_game +0x198110), each with
 // the side that holds it (+0x50, a four-letter side code; +0x54 the owner this player is shown). Every 5.31 s the game
 // adds the cells up into zones and into each side's ground in i_gamespec - what the end of the battle scores as
 // "control" and, in an operation, who holds the battlefield. A cell changes hands only through one routine, the
@@ -22,10 +23,13 @@
 #include "protocol.h"
 #include <string.h>
 
-#define TM_VTABLE   BV(0x130640, 0x130640, 0x1c9040)
-#define CAPTURE_FN  BV(0xf4ff0, 0xf4ff0, 0x17c050)
+#define TM_VTABLE   BV(0x130640, 0x130640, 0x1ec0e8)
+#define CAPTURE_FN  BV(0xf4ff0, 0xf4ff0, 0x19aff0)
+// the trigger manager's cell table, its count and its change counter (the capture's ++[tm+0x290] in the 2026-11-14 beta)
+#define TM_CELLS    BF(0x240, 0x260)
+#define TM_CELL_N   BF(0x24c, 0x26c)
+#define TM_CHANGES  BF(0x270, 0x290)
 enum {
-    TM_CELLS = 0x240, TM_CELL_N = 0x24c, TM_CHANGES = 0x270,
     CELL_REC = 0x100, CELL_OWNER = 0x50, CELL_SHOWN = 0x54, CELL_TIMER = 0xe8, CELL_SIDE = 0xf0, CELL_UNIT = 0xf8,
     CELLS = 17, PER_REC = 32, CELLS_MAX = 8192, NEUT = 0x5455454e
 };

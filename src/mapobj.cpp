@@ -35,11 +35,11 @@
 #include <unordered_map>
 #include <vector>
 
-#define OR_VTABLE  BV(0xe5110, 0xe5108, 0x158f48)
-#define OBJ_HIT_FN BV(0xaea00, 0xae910, 0xeae10)
-#define OBJ_BOUNDS BV(0xb5580, 0xb5490, 0xf2110)
+#define OR_VTABLE  BV(0xe5110, 0xe5108, 0x1624b8)
+#define OBJ_HIT_FN BV(0xaea00, 0xae910, 0xf4360)
+#define OBJ_BOUNDS BV(0xb5580, 0xb5490, 0xfb660)
 #define OR_POOL    BF(792, 880)
-#define OR_STORED  BF(2624, 2792)
+#define OR_STORED  BF(2624, 2808)
 enum {
     OR_SCENE = 256, OR_ELEM = 272, OR_SLOT_ACTIVE = 4, OR_SLOT_DESTROYED = 15, STORED_SIZE = 48,
     OE_MATRIX = 16, OE_OWNER = 128, OE_HITFN = 136, OE_TYPE = 144, OE_BODY = 152, OE_INDEX = 168, OE_ID = 216, OE_LEVEL = 220,
