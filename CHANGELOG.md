@@ -2,6 +2,18 @@
 
 Every release of MiusPlayer. Both players need the same network version; the launcher keeps the mod up to date.
 
+## 2.8.3 - 2026-11-19 (network 31)
+- Steam's new beta build, public_beta-26779327 of 2026-11-19. Steam's beta has changed five times since 2.8.2
+  (which was made for public_beta-26665733 - Steam no longer serves that one, nor the four after it), so 2.8.2
+  keeps multiplayer off there. This release is 2.8.2 with the mod moved to the new build and the one fix below. The
+  launcher recognises the new build and installs the mod for it; players on the two 2024 builds can keep playing
+  with 2.8.2.
+- Fixed, on Steam's beta: in the joining player's game soldiers stood frozen, or moved their limbs in jerks - one
+  pose a second - even with the camera right on them. The game works a figure's pose out more seldom the farther
+  the camera is from him, and the mod took that from the host's game along with the rest of a soldier's animation:
+  it was the host's camera that counted, wherever it stood. Each game now goes by its own camera. (In every release
+  before, on that beta. Nothing changes on the wire - the network version stays 31.)
+
 ## 2.8.2 - 2026-11-14 (network 31)
 - Steam's new beta build, public_beta-26665733 (it replaced public_beta-26514238, which Steam no longer serves).
   The launcher recognises it and installs the mod for it; players on the other builds can keep playing with 2.8.1.

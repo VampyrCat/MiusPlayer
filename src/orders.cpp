@@ -68,8 +68,8 @@ enum { O_SETTINGS = 1, O_QUEUE = 2, O_REVERSE = 4 };
 #define ORD_VT_COMMANDED  BF(0x550, 0x558)
 // soldier (adv_physic): the vehicle he sits in (0 on foot), his station in it (-1 none) - as the soldier's slot 182
 // (+0x62730) returns them, beta26 slot 184 (+0xa9130)
-#define ORD_HUMAN_VEHICLE BF(0x2388, 0x3080)
-#define ORD_HUMAN_STATION BF(0x1da4, 0x255c)
+#define ORD_HUMAN_VEHICLE BF(0x2388, 0x30c0)
+#define ORD_HUMAN_STATION BF(0x1da4, 0x2568)
 
 static const char *const k_kinds[] = {
     "move", "defence", "targets", "sector", "rotate", "trg_gnd", "stop", "wait", "enter", "leave", "crew", "shot",
@@ -92,7 +92,7 @@ struct Incoming { ShotRec head; std::vector<u64> keys; u32 want; };
 // slot, pos = the point, launch +0 the vector, +16 the angle, +20 the tag, +72 the first unit numbers as in kind 11
 // (more in kind 12 records); the host makes the same call for those of the units that are the joining player's.
 enum { AIM_ORDER = 15, AIM_FIRST = 21, AIM_SLOTS = 4 };
-#define FORMATION_VT BV(0x12f930, 0x12f930, 0x1ea6f8)          // i_formation's vtable (adv_game)
+#define FORMATION_VT BV(0x12f930, 0x12f930, 0x205508)          // i_formation's vtable (adv_game)
 typedef u64 (*AimSector)(char *, const float *, float, EngList *);
 typedef u64 (*AimClear)(char *, EngList *);
 typedef void (*AimGround)(char *, const float *, const float *, EngList *, int);
@@ -282,7 +282,7 @@ static u64 aim24_hook(char *f, EngList *units)
 static void install_aim_hooks(char *ag)
 {
     static const size_t old[AIM_SLOTS] = { 0xcd6a0, 0xcd850, 0xcd920, 0xcdaf0 };
-    static const size_t b26[AIM_SLOTS] = { 0x156200, 0x1563c0, 0x1564a0, 0x156680 };
+    static const size_t b26[AIM_SLOTS] = { 0x16b660, 0x16b820, 0x16b900, 0x16bae0 };
     void *hooks[AIM_SLOTS] = { (void *)aim21_hook, (void *)aim22_hook, (void *)aim23_hook, (void *)aim24_hook };
     void **vt = (void **)(ag + FORMATION_VT);
     for (int i = 0; i < AIM_SLOTS; i++)
@@ -317,7 +317,7 @@ void orders_install(ObjMan *om)
     // i_formation slot 16 (beta26 +0x144d10: the same first bytes)
     const unsigned char *osig = BV(sig, sig, sig26);
     size_t osig_n = BV(sizeof sig, sizeof sig, sizeof sig26);
-    char *fn = build_code("adv_game.codelib", BV(0xd3910, 0xd3910, 0x1618f0), osig, osig_n);
+    char *fn = build_code("adv_game.codelib", BV(0xd3910, 0xd3910, 0x176c00), osig, osig_n);
     if (!fn) { mp_log("orders: unknown game build - the joining player's orders cannot reach the host"); return; }
     g_issue = (Issue)install_detour(fn, osig_n, issue_hook);
     mp_log("orders: %s%s", g_issue ? "the order call is hooked - a joining player's orders are carried out by the host's game" : "could not be hooked",
@@ -588,8 +588,8 @@ void orders_test_place(int index, float dx, float dz)
 // places, wheel +0x30). "wheelgap" logs, for every vehicle in this game, how far its wheels are from where they belong
 // - the largest change of a wheel's distance from the body since the battle description put it there is not known, so
 // the largest distance of a wheel from its vehicle's body is given, per vehicle over 6 m (a wheel left behind).
-#define PV_WHEELS BF(0x11e8, 0x1788)
-#define PV_WHEEL_SIZE BF(0x2a0, 0x2e0)
+#define PV_WHEELS BF(0x11e8, 0x1798)
+#define PV_WHEEL_SIZE BF(0x2a0, 0x2f0)
 void orders_test_place_vehicle(int index, float dx, float dz)
 {
     std::vector<u32> squads, all = session_own_squads();

@@ -8,7 +8,7 @@
 //
 //   BUILD_BETA16  public_beta-16070931  Steam's beta branch of October 2024 - the modding copy
 //   BUILD_PUBLIC  public-15814271       Steam's default branch (September 2024)
-//   BUILD_BETA26  public_beta-26665733  Steam's beta branch of 2026-11-14
+//   BUILD_BETA26  public_beta-26779327  Steam's beta branch of 2026-11-19 (11:05)
 //
 // The two 2024 builds lay out every object alike; only the code of six modules moved (adv_opgame, adv_interf,
 // adv_physic, basic_game, adv_qbattle, one call in basic_physic). The 2026 beta rebuilt everything: fields,
@@ -20,8 +20,18 @@
 // i_intereff's from about +0x1000, the AI commander's and the battle timer's pause moved again. On 2026-11-14 it moved
 // on to 26665733 (26514238 no longer served) the same way (NOTES.md, 2026-11-14): the soldier's fields from +0x20a0
 // on, the vehicle's from +0xab8 on, i_intereff's +0x50, the trigger manager's, the squad record's, the battle group
-// record and several record sizes moved. Addresses named "beta26" in this source's comments are mostly the 11-06 or
-// 11-08 build's; the values in BV / BF are 11-14's.
+// record and several record sizes moved. On 2026-11-18 it moved on to 26744384 (26665733 no longer served; NOTES.md,
+// 2026-11-18): the soldier's fields from +0x2558 on, the vehicle's from +0x187c on, the wheel, station, squad and
+// animation records, the trigger manager's timer and evaluation block, the AI commander's list and the saved
+// state's fourth list moved or grew. On 2026-11-19 it moved on to 26768241 (26744384 no longer served; NOTES.md,
+// 2026-11-19): adv_opgame, adv_interf and base_shell kept their code where it was; in the other modules the code
+// moved, the vehicle's fields from about +0x2230 on are 0x10 further on, i_orender has a slot more (31) and its
+// object 0x20 bytes more. The same day (11:05) it moved on to 26779327 (26768241 no longer served; ops\ports.md,
+// "26779327"): adv_opgame, base_shell and base_main kept their code where it was, most of adv_interf's is 0xd0
+// further on, the other modules' code moved; the vehicle's fields from about +0x1100 on are 0x10 further on and
+// from about +0x2238 on 0x1b0 (the object 0x39a0 bytes), i_orender's stored hits are at +0xb10, i_animch has a
+// slot more (50) and the AI commander's group step begins otherwise. Addresses named "beta26" in this source's
+// comments are mostly the 11-06, 11-08, 11-14, 11-18 or first 11-19 build's; the values in BV / BF are 26779327's.
 #pragma once
 #define WIN32_LEAN_AND_MEAN
 #include <windows.h>

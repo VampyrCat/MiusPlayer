@@ -17,7 +17,9 @@
 // public_beta-26494568 (IDA): the part damage is i_techn slot 340, adv_physic+0x580c0 - modules map +0x1658 (the same
 // nodes and 0x78-byte records), the second list +0x2e50 (count +0x2e5c, the same 0x24-byte records; the 2026-11-08
 // beta +0x2fc0 / +0x2fcc, its track flags +0x2e38 / +0x3043, repair time +0x1b20; the 2026-11-14 beta +0x3220 /
-// +0x322c, +0x3098 / +0x32be, +0x1ba0, modules +0x16d8, tracks +0x17a0 of 0x410 bytes, buttoned +0xd7b); buttoned is
+// +0x322c, +0x3098 / +0x32be, +0x1ba0, modules +0x16d8, tracks +0x17a0 of 0x410 bytes, buttoned +0xd7b; the 2026-11-18
+// beta +0x3430 / +0x343c, +0x32a8 / +0x34d2, +0x1ba8, the modules, tracks and buttoned where they were; the 2026-11-19
+// beta +0x3440 / +0x344c, +0x32b8 / +0x34e2, the rest as on 11-18); buttoned is
 // +0xd3b (i_techn slot 99, +0x3b310, flag 21). That build has new track code (thrown tracks, wheels torn off, a
 // repair by men and time: adv_physic+0xe62b0, +0xf7f20, +0x102b80) and no 0x2c0-byte track records any more (not
 // mapped): no tracks travel there.
@@ -59,11 +61,11 @@ static DWORD g_last_scan;
 #define TRK_REPAIR BF(0x19c, 0x190)          // repair progress (s of work)
 enum { MAX_TRK = 8, MOD_SIZE = 0x78, MOD_DAMAGE = 0x5c, SEC_SIZE = 0x24, SEC_LEFT = 0x1c, SEC_GONE = 0x20, MAX_MOD = 250, MAX_SEC = 230, ROOM = 1150 };      // (one part of either fits a 1200-byte datagram)
 // the vehicle's fields (above); NP: not in that build
-#define V_MODULES BF(0x1138, 0x16d8)
-#define V_TRACKS BF(0x1200, 0x17a0)
-#define V_SECOND BF(0x1db8, 0x3220)
+#define V_MODULES BF(0x1138, 0x16e8)
+#define V_TRACKS BF(0x1200, 0x17b0)
+#define V_SECOND BF(0x1db8, 0x35f0)
 #define V_BUTTONED BF(0xd0b, 0xd7b)
-#define V_END BF(0x1e40, 0x32c8)               // (all of them lie below this)
+#define V_END BF(0x1e40, 0x369c)               // (all of them lie below this)
 
 static bool on(void)
 {
@@ -122,14 +124,14 @@ static bool track_list(char *v, char **recs, u32 *count)
 // no track itself and makes the host's breaks through the same function at the same wheel; it takes the host's repair
 // progress every step, so that its own step repairs the track when the host's does; a track the host has whole again
 // that is still broken here is repaired with the step's own writes.
-#define TRK_BREAK      BV(0x34270, 0x34270, 0x56f70)
-#define LINK_MGR       BV(0xd9d20, 0xd9d20, 0x1c6b48)
+#define TRK_BREAK      BV(0x34270, 0x34270, 0x594c0)
+#define LINK_MGR       BV(0xd9d20, 0xd9d20, 0x1e4058)
 #define TRK_WHEELS     BF(0x200, 0x350)    // the track's wheels: 16-byte entries {wheel, u8 its links on it +8}, count +0xc
 #define TRK_LINKSET    BF(0xd8, 0xe0)
 #define WHEEL_LINKS_ON BF(0x289, 0x2c1)
-#define V_TRACK_FLAG1  BF(0x1c30, 0x3098)  // (cleared by a break's callers and by a repair)
-#define V_TRACK_FLAG2  BF(0x1e3b, 0x32be)  // (cleared by a repair)
-#define V_REPAIR_TIME  BV(0x15c8, 0x15c8, 0x1ba0)    // the work a repair takes (s; beta26: the repair +0xf7f20)
+#define V_TRACK_FLAG1  BF(0x1c30, 0x3468)  // (cleared by a break's callers and by a repair)
+#define V_TRACK_FLAG2  BF(0x1e3b, 0x3692)  // (cleared by a repair)
+#define V_REPAIR_TIME  BV(0x15c8, 0x15c8, 0x1bb8)    // the work a repair takes (s; beta26: the repair +0xf7f20)
 enum { TRACK_KIND = 19 };
 typedef u64 (*TrackBreak)(char *track, char *wheel, void *contacts);
 static TrackBreak g_break;

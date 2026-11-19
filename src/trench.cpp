@@ -47,8 +47,8 @@
 #define SQ_COVER BF(0x3c0, 0x428)
 #define SQ_B3E3  BF(0x3e3, 0x44b)
 #define SQ_B3E4  BF(0x3e4, 0x44c)
-#define SQ_USER  BF(0x3ef, 0x53c)
-#define SQ_SIZE  BF(0x400, 0x540)
+#define SQ_USER  BF(0x3ef, 0x55c)
+#define SQ_SIZE  BF(0x400, 0x560)
 
 typedef u64 (*Dig)(char *trencher, int squad, float *pos);
 typedef u64 (*Gen)(char *trencher, void *ctx, u32 tile, u64 cell, u32 type, u32 dir, int variant, u32 flags, char *squad, char own);
@@ -504,7 +504,7 @@ static void apply(const TrenchRec &r)
         // done here all the same - with the template pack the dig has just made sure is loaded (the pack's
         // one-slot vtable the dig puts before it: adv_game+0x12d048, beta26 +0x1b8ac8)
         char *ag = build_module("adv_game.codelib");
-        void *ctx[2] = { ag ? ag + BV(0x12d048, 0x12d048, 0x1df640) : 0, *(void **)(g_trencher + 0x240) };
+        void *ctx[2] = { ag ? ag + BV(0x12d048, 0x12d048, 0x1f9738) : 0, *(void **)(g_trencher + 0x240) };
         if (ctx[0] && ctx[1]) {
             g_gen(g_trencher, ctx, his.tile, his.cell, his.type, his.dir, his.variant, his.flags, his.with_squad ? sq : 0, (char)his.own);
             g_stat_stamp_added++;
@@ -601,30 +601,33 @@ void trench_install(void)
         // beta26 +0x15cd80: mov r11,rsp; mov [r11+20h],rbx; push rbp/rdi/r14; sub rsp,0a0h | movups xmm2,[rcx+180h]
         static const unsigned char add_sig26[] = { 0x4c, 0x8b, 0xdc, 0x49, 0x89, 0x5b, 0x20, 0x55, 0x57, 0x41, 0x56, 0x48, 0x81, 0xec, 0xa0, 0x00, 0x00, 0x00,
                                                    0x0f, 0x10, 0x91, 0x80, 0x01, 0x00, 0x00 };
-        char *add = build_code(ag, BV(0xe0990, 0xe0990, 0x17ff10), BV(add_sig, add_sig, add_sig26), BV(sizeof add_sig, sizeof add_sig, sizeof add_sig26));
+        char *add = build_code(ag, BV(0xe0990, 0xe0990, 0x196160), BV(add_sig, add_sig, add_sig26), BV(sizeof add_sig, sizeof add_sig, sizeof add_sig26));
         if (add) g_add_place = (AddPlace)install_detour(add, BV(19, 19, 18), add_place_hook);
         mp_log("places: %s", g_add_place ? "counted by where they come from" : "could not be traced");
     }
     // the dig: the same first bytes in beta26 (+0x154f70)
-    char *dig = build_code(ag, BV(0xdbc20, 0xdbc20, 0x1735b0), sig, sizeof sig);
+    char *dig = build_code(ag, BV(0xdbc20, 0xdbc20, 0x188c90), sig, sizeof sig);
     if (!dig) { mp_log("trench: unknown game build, each game digs for itself"); g_enabled = false; return; }
     g_dig = (Dig)install_detour(dig, 14, dig_hook);
     static const unsigned char gen_sig[] = { 0x44, 0x89, 0x4c, 0x24, 0x20, 0x48, 0x89, 0x4c, 0x24, 0x08, 0x55, 0x53, 0x57, 0x41, 0x55, 0x41, 0x57,
                                              0x48, 0x8d, 0xac, 0x24 };
     // beta26 +0x155e50: mov [rsp+20h],r9d; mov [rsp+8],rcx; push rbp/rbx/rsi/rdi/r13 | lea rbp,[rsp-1130h]
+    // (2026-11-19 beta +0x188450: the same 16 bytes | lea rbp,[rsp-1150h] - the frame 0x20 bigger)
     static const unsigned char gen_sig26[] = { 0x44, 0x89, 0x4c, 0x24, 0x20, 0x48, 0x89, 0x4c, 0x24, 0x08, 0x55, 0x53, 0x56, 0x57, 0x41, 0x55,
-                                               0x48, 0x8d, 0xac, 0x24, 0xd0, 0xee, 0xff, 0xff };
-    char *gen = build_code(ag, BV(0xdc9a0, 0xdc9a0, 0x174490), BV(gen_sig, gen_sig, gen_sig26), BV(sizeof gen_sig, sizeof gen_sig, sizeof gen_sig26));
+                                               0x48, 0x8d, 0xac, 0x24, 0xb0, 0xee, 0xff, 0xff };
+    char *gen = build_code(ag, BV(0xdc9a0, 0xdc9a0, 0x189bb0), BV(gen_sig, gen_sig, gen_sig26), BV(sizeof gen_sig, sizeof gen_sig, sizeof gen_sig26));
     if (g_dig && g_enabled && gen) g_gen = (Gen)install_detour(gen, BV(17, 17, 16), gen_hook);
     static const unsigned char crater_sig[] = { 0x4c, 0x89, 0x44, 0x24, 0x18, 0x48, 0x89, 0x4c, 0x24, 0x08, 0x55, 0x57, 0x41, 0x54, 0x41, 0x55, 0x41, 0x57,
                                                 0x48, 0x8d, 0xac, 0x24 };
-    // 2026-11-14 beta +0x176370: mov [rsp+20h],r9d; mov [rsp+18h],r8; mov [rsp+8],rcx; push rbp/r12/r13/r15 | lea rbp,[rsp-968h]
-    static const unsigned char crater_sig26[] = { 0x44, 0x89, 0x4c, 0x24, 0x20, 0x4c, 0x89, 0x44, 0x24, 0x18, 0x48, 0x89, 0x4c, 0x24, 0x08, 0x55, 0x41,
-                                                  0x54, 0x41, 0x55, 0x41, 0x57, 0x48, 0x8d, 0xac, 0x24, 0x98, 0xf6, 0xff, 0xff };
-    char *crater = build_code(ag, BV(0xde720, 0xde720, 0x176370), BV(crater_sig, crater_sig, crater_sig26),
+    // 2026-11-19 beta +0x18a220: mov [rsp+20h],r9d; mov [rsp+18h],r8; mov [rsp+8],rcx; push rbp/rsi/rdi/r13 (20 bytes) |
+    // lea rbp,[rsp-0b88h] (the same eight arguments and random draws from +0x2d0; the 11-18 beta, +0x186c10: push
+    // rbp/rsi/r12/r14, 21 bytes | lea rbp,[rsp-0b68h]; the 11-14 beta, +0x176370: push rbp/r12/r13/r15, 22 bytes)
+    static const unsigned char crater_sig26[] = { 0x44, 0x89, 0x4c, 0x24, 0x20, 0x4c, 0x89, 0x44, 0x24, 0x18, 0x48, 0x89, 0x4c, 0x24, 0x08, 0x55, 0x56,
+                                                  0x57, 0x41, 0x55, 0x48, 0x8d, 0xac, 0x24, 0x78, 0xf4, 0xff, 0xff };
+    char *crater = build_code(ag, BV(0xde720, 0xde720, 0x18b980), BV(crater_sig, crater_sig, crater_sig26),
                               BV(sizeof crater_sig, sizeof crater_sig, sizeof crater_sig26));
     if (GetEnvironmentVariableA("MP_SYNC_CRATERS", v, sizeof v)) g_crater_sync = atoi(v) != 0;
-    if (g_enabled && crater) g_crater = (Crater)install_detour(crater, BV(18, 18, 22), crater_hook);
+    if (g_enabled && crater) g_crater = (Crater)install_detour(crater, BV(18, 18, 20), crater_hook);
     mp_log("crater: %s", !g_crater ? "each game makes its own" : g_crater_sync ? "the ground is the host's: its craters are sent and made the same here"
                                                                              : "each game makes its own (MP_SYNC_CRATERS=0)");
     mp_log("trench: %s", !g_dig ? "could not be hooked" : g_enabled ? "a squad's trenches are its owner's: dug there, sent, and dug the same here"

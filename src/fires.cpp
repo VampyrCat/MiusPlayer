@@ -86,7 +86,7 @@ static void install(ObjMan *om)
     if (!g_enabled) { mp_log("fires: each game burns its own fires (MP_SYNC_FIRES=0)"); return; }
     Object *fm = engine_find(om, "i_fireman", "fireman");
     char *m = build_module("adv_game.codelib");
-    if (!fm || !m || (char *)fm->vtbl != m + BV(0x12eca0, 0x12eca0, 0x1e44b8) || (char *)fm->vtbl[3] != m + BV(0x90730, 0x90730, 0xe9d50)) {
+    if (!fm || !m || (char *)fm->vtbl != m + BV(0x12eca0, 0x12eca0, 0x1fe990) || (char *)fm->vtbl[3] != m + BV(0x90730, 0x90730, 0xf6fb0)) {
         mp_log("fires: unknown game build (or no fire manager) - each game burns its own fires");
         return;
     }

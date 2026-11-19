@@ -4,7 +4,7 @@
 //
 // A vehicle's weapons: an array at vehicle +0x1600 (pointer; count at +0x160c), 0x1d0 bytes each; the two angles
 // (radians: traverse, elevation) at +0x12c and +0x130 (the 2026-11-08 beta: the array at +0x1b68, count +0x1b74;
-// the 2026-11-14 beta: +0x1bf8, count +0x1c04).
+// the 2026-11-14 beta: +0x1bf8, count +0x1c04; the 2026-11-18 beta: +0x1c00, count +0x1c0c).
 // public_beta-26494568 (IDA): the array is at +0x1b48, count
 // +0x1b54 (i_techn slots 92, 93 and 317, adv_physic+0xdd4e0 / +0xdd500 / +0xde130), the records the same - its
 // slot 193 (+0x12c7b0, slot 191 +0xada20 before) writes each head's weapons +0x12c..+0x13c as it always did.
@@ -50,7 +50,7 @@ static bool on(void)
 static bool weapons(Object *o, char **arr, unsigned *n)
 {
     char *v = (char *)o;
-    size_t list = BF(0x1600, 0x1bf8);           // the array; its count 12 bytes on
+    size_t list = BF(0x1600, 0x1c10);           // the array; its count 12 bytes on
     if (!readable(v + list, 16)) return false;
     *arr = *(char **)(v + list);
     *n = *(u32 *)(v + list + 0xc);

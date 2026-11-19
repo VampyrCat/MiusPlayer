@@ -53,6 +53,12 @@
 // countdown +0x2a8 ... the end mode +0x2c8), the timer to +0xd10, the evaluation block to +0xd20 (+0xc0, and
 // +0xdec..+0xdf2 with it); the score tables +0x230ce8 / +0x230d18. Flee (slot 16) now also works out a retreat time
 // of its own when +0xeb3 is set - called as before, it changes nothing here.
+// The 2026-11-18 beta (26744384): vtable +0x2017d0, still 49 slots; slots 13 / 14 / 16 +0x1a5640 / +0x1a5ac0 /
+// +0x1a6b10, evaluate +0x1bebe0, end +0x1a6740, side sums +0x1bf8d0; the fields up to +0x2c8 where they were, the
+// timer +0xd28 (the countdown reset +0x1a99d0 clears it), the evaluation block +0xd30 (0x10 further on, and
+// +0xeac..+0xeb3 with it; the object is 0xed0 bytes); the score tables +0x246da8 / +0x246dd8.
+// The 2026-11-19 beta (26768241): vtable +0x205ec0 (49 slots), slots 13 / 14 / 16 +0x1a90f0 / +0x1a9570 / +0x1aa5c0,
+// evaluate +0x1c2690, end +0x1aa1f0, side sums +0x1c3380, score tables +0x24bda8 / +0x24bdd8; every field as on 11-18.
 #include "common.h"
 #include "build.h"
 #include "detour.h"
@@ -73,19 +79,19 @@ enum { TM_SLOTS_MAX = 49, TM_AI_TRUCE = 13, TM_USER_TRUCE = 14, TM_FLEE = 16 };
 #define TM_TRUCE_MASK      BF(0x294, 0x2b4)
 #define TM_TIME_LEFT       BF(0x29c, 0x2bc)
 #define TM_END_MODE        BF(0x2a8, 0x2c8)
-#define TM_COOLDOWN        BF(0x2ac, 0xd10)
-#define TM_OWN_K           BF(0x30c, 0xd7c)
-#define TM_ENEMY_K         BF(0x310, 0xd80)
-#define TM_LEVEL           BF(0x320, 0xd90)
-#define TM_RESULT          BF(0x324, 0xd94)
-#define TM_SCORE_OWN       BF(0x32c, 0xd9c)
-#define TM_SCORE_ENEMY     BF(0x330, 0xda0)
-#define TM_WON             BF(0x370, 0xde0)
-#define TM_DONE            BF(0x372, 0xde2)
-#define TM_TRIG_SIDE       BF(0x43c, 0xeac)
-#define TM_TRIG_FLAG       BF(0x440, 0xeb0)
-#define TM_TRUCE_COUNTDOWN BF(0x442, 0xeb2)
-#define TM_SIZE            BF(0x448, 0xeb8)
+#define TM_COOLDOWN        BF(0x2ac, 0xd28)
+#define TM_OWN_K           BF(0x30c, 0xd8c)
+#define TM_ENEMY_K         BF(0x310, 0xd90)
+#define TM_LEVEL           BF(0x320, 0xda0)
+#define TM_RESULT          BF(0x324, 0xda4)
+#define TM_SCORE_OWN       BF(0x32c, 0xdac)
+#define TM_SCORE_ENEMY     BF(0x330, 0xdb0)
+#define TM_WON             BF(0x370, 0xdf0)
+#define TM_DONE            BF(0x372, 0xdf2)
+#define TM_TRIG_SIDE       BF(0x43c, 0xebc)
+#define TM_TRIG_FLAG       BF(0x440, 0xec0)
+#define TM_TRUCE_COUNTDOWN BF(0x442, 0xec2)
+#define TM_SIZE            BF(0x448, 0xec8)
 // the two sides as i_gamespec keeps them (vtable slot 5): two records of 0x30 bytes - the player's side
 // first - with flags at +0x20 (bit 25: has left the battle), then the two side codes (the same in beta26: its flee,
 // truce and end check read them so)
@@ -334,8 +340,8 @@ static void end_phase_hook(Object *tm, u32 result, u64 c, u64 d)
             *(t + TM_WON) = want > 3;
             // the two scores as +0x103ef0 (beta26 +0x1878b0) makes them: a table entry by result, times the side's
             // factor (the tables are filled by the first evaluation: zero on disk)
-            const u32 *own = base ? (const u32 *)(base + BV(0x15ca40, 0x15ca40, 0x230ce8)) : 0;
-            const u32 *enemy = base ? (const u32 *)(base + BV(0x15ca70, 0x15ca70, 0x230d18)) : 0;
+            const u32 *own = base ? (const u32 *)(base + BV(0x15ca40, 0x15ca40, 0x24cda8)) : 0;
+            const u32 *enemy = base ? (const u32 *)(base + BV(0x15ca70, 0x15ca70, 0x24cdd8)) : 0;
             if (readable(own, 28) && readable(enemy, 28)) {
                 *(float *)(t + TM_SCORE_OWN) = (float)own[want] * *(float *)(t + TM_OWN_K);
                 *(float *)(t + TM_SCORE_ENEMY) = (float)enemy[want] * *(float *)(t + TM_ENEMY_K);
@@ -429,18 +435,18 @@ static void install(ObjMan *om)
     void **vt = tm->vtbl;
     const unsigned char *esig = BV(end_sig, end_sig, end_sig26);
     size_t esig_n = BV(sizeof end_sig, sizeof end_sig, sizeof end_sig26);
-    char *evaluate = build_code(ag, BV(0x103ef0, 0x103ef0, 0x1ac5f0), esig, esig_n);
-    char *end = build_code(ag, BV(0xef670, 0xef670, 0x1947f0), phase_sig, sizeof phase_sig);
-    if (!readable(tm, TM_SIZE) || (char *)vt != base + BV(0x130640, 0x130640, 0x1ec0e8) ||
-        (char *)vt[TM_AI_TRUCE] != base + BV(0xeeb00, 0xeeb00, 0x1936f0) || (char *)vt[TM_USER_TRUCE] != base + BV(0xeef10, 0xeef10, 0x193b70) ||
-        (char *)vt[TM_FLEE] != base + BV(0xef8a0, 0xef8a0, 0x194bc0) || !evaluate || !end || !sides(tm)) {
+    char *evaluate = build_code(ag, BV(0x103ef0, 0x103ef0, 0x1c3c60), esig, esig_n);
+    char *end = build_code(ag, BV(0xef670, 0xef670, 0x1aba20), phase_sig, sizeof phase_sig);
+    if (!readable(tm, TM_SIZE) || (char *)vt != base + BV(0x130640, 0x130640, 0x2070e8) ||
+        (char *)vt[TM_AI_TRUCE] != base + BV(0xeeb00, 0xeeb00, 0x1aa920) || (char *)vt[TM_USER_TRUCE] != base + BV(0xeef10, 0xeef10, 0x1aada0) ||
+        (char *)vt[TM_FLEE] != base + BV(0xef8a0, 0xef8a0, 0x1abdf0) || !evaluate || !end || !sides(tm)) {
         mp_log("end: unknown game build, each game ends its own battle");
         return;
     }
     g_end_battle = (EndBattle)install_detour(evaluate, esig_n, end_battle_hook);
     g_end_phase = (EndPhase)install_detour(end, sizeof phase_sig, end_phase_hook);
     if (!g_end_battle || !g_end_phase) { mp_log("end: could not be hooked, each game ends its own battle"); return; }
-    if (char *sums = build_code(ag, BV(0x104b20, 0x104b20, 0x1ad2e0), recalc_sig, sizeof recalc_sig))
+    if (char *sums = build_code(ag, BV(0x104b20, 0x104b20, 0x1c4950), recalc_sig, sizeof recalc_sig))
         g_recalc = (Recalc)install_detour(sums, sizeof recalc_sig, recalc_hook);
     // a private copy of the class's function table for this one object (with the type information pointer
     // that sits just before it): the trigger manager and the interface both call these through it

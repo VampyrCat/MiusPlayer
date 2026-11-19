@@ -48,7 +48,8 @@ typedef void (*Set14)(char *, u32, unsigned char, float, float, float);
 typedef void (*SetB)(char *, u32, unsigned char);
 
 static char *g_mgr;
-static void *g_copy[45];              // (42 entries copied as before; the 2026-11-14 beta: its RTTI pointer and 44 slots)
+static void *g_copy[51];              // (42 entries copied in the 2024 builds; the 2026-11-18 beta: its RTTI pointer and 49 slots;
+                                      //  beta 26779327 of 2026-11-19: 50 slots - one more at the end, +0x10cc40)
 static SetU g_o4, g_o10, g_o12, g_o21;
 static SetF g_o8, g_o16, g_o20;
 static Pick g_o11;
@@ -75,24 +76,50 @@ static u64 g_stat_dropped, g_stat_sent, g_stat_received, g_stat_groups;
 // (26514238): the second heading +0x24a0, the rest where they were (the manager's code is the same). The 2026-11-14
 // beta (26665733): the number +0x2518, the direction +0x2628, the headings +0x2688 / +0x2820, the angles where they
 // were (on-foot update +0x76f40); the manager's vtable has 44 slots (5 added at the end) and its records are 0x150
-// bytes (0x10 added at the end, every field above where it was).
+// bytes (0x10 added at the end, every field above where it was). The 2026-11-18 beta (26744384): the number where it
+// was, the direction +0x2634, the headings +0x2694 / +0x2830 (the soldier's fields from +0x2558 on are 0xc further on,
+// from +0x27e8 on 0x10); the manager's vtable +0x1f9d08 has 49 slots (5 more at the end) and its records are 0x210
+// bytes - each of the eleven setters differs from the 11-14 build's in that multiplier alone, so every field of a
+// record this file reads is where it was. The 2026-11-19 beta (26768241): the vtable +0x1fe438 (49 slots), the eleven
+// setters the same code at other places, the records and the soldier's fields where they were.
 #define ANIM_RECORDS BF(0x140, 0x1c0)
-#define ANIM_REC_SIZE BF(0x140, 0x150)   // a record (2026-11-14 beta: 0x10 added at its end)
+#define ANIM_REC_SIZE BF(0x140, 0x210)   // a record (2026-11-14 beta 0x150; 2026-11-18 beta: 0xc0 more, beyond +0x139)
 #define S_HANDLE BF(0x1d60, 0x2518)
-#define S_DIR8 BF(0x1e70, 0x2628)
+#define S_DIR8 BF(0x1e70, 0x2634)
 #define S_LIE BF(0x1210, 0x1290)
-#define S_HEADING1 BF(0x1eac, 0x2688)
-#define S_HEADING2 BF(0x1ef8, 0x2820)
-#define S_END BF(0x1f00, 0x2828)               // (all of them lie below this)
+#define S_HEADING1 BF(0x1eac, 0x2694)
+#define S_HEADING2 BF(0x1ef8, 0x2830)
+#define S_END BF(0x1f00, 0x2838)               // (all of them lie below this)
 
 static bool active(void) { return g_on && g_hooked && session_connected() && session_simulating() && session_versus_or_coop(); }
+
+// How often a figure is posed is each game's own, on the 2026 beta. There (read in IDA, 26779327: the manager's update
+// adv_game+0x110b40 and its caller +0x10fec0) a record's +0xd4 is a period: the update adds the frame's time to +0xbc
+// and puts the record on the frame's list of figures to pose only when +0xbc has reached +0xd4 (+0xbc then starts
+// again). The soldier's own code sets it through slot 8 by how far the camera is from him - nought for every frame,
+// up to a second. Taken from the owner like the other numbers it was the HOST's camera that decided: with the laptop
+// hosting and nobody at it, 103 of the joining game's soldiers were posed once a second and 235 every frame (read from
+// the running game: 368 record slots, 301 in use) - the user, 2026-11-19, Susangerd: "infantry on client are not animated (or animate at
+// 2fps) even when zooming onto them". So on that build slot 8 is let through for every soldier, the owner's number is
+// not written into the record, and this game sends nought for it (a game with an older module then poses every
+// figure every frame; nothing else changes on the wire). The 2024 builds keep the owner's number as before (there
+// +0xd4 at nought was seen to hold the animation - see anim_frame - and their update has not been read again).
+static u64 g_stat_own_rate;
+static bool own_pose_rate(void) { return g_bi == BUILD_BETA26; }
 static inline bool held(u32 h) { return h < g_followed.size() && g_followed[h] && active(); }
 
 static u64 h4(char *m, u32 h, u32 v) { if (held(h)) { g_stat_dropped++; return 0; } return g_o4(m, h, v); }
 static u64 h10(char *m, u32 h, u32 v) { if (held(h)) { g_stat_dropped++; return 0; } return g_o10(m, h, v); }
 static u64 h12(char *m, u32 h, u32 v) { if (held(h)) { g_stat_dropped++; return 0; } return g_o12(m, h, v); }
 static u64 h21(char *m, u32 h, u32 v) { if (held(h)) { g_stat_dropped++; return 0; } return g_o21(m, h, v); }
-static void h8(char *m, u32 h, float v) { if (held(h)) { g_stat_dropped++; return; } g_o8(m, h, v); }
+static void h8(char *m, u32 h, float v)
+{
+    if (held(h)) {
+        if (!own_pose_rate()) { g_stat_dropped++; return; }
+        g_stat_own_rate++;
+    }
+    g_o8(m, h, v);
+}
 static void h16(char *m, u32 h, float v) { if (held(h)) { g_stat_dropped++; return; } g_o16(m, h, v); }
 static void h20(char *m, u32 h, float v) { if (held(h)) { g_stat_dropped++; return; } g_o20(m, h, v); }
 static void h13(char *m, u32 h) { if (held(h)) { g_stat_dropped++; return; } g_o13(m, h); }
@@ -143,6 +170,7 @@ static void read_record(const char *r, AnimRec &a)
     memcpy(&a.p100, r + 0x100, 4);
     memcpy(&a.p114, r + 0x114, 4);
     memcpy(&a.d4, r + 0xd4, 4);
+    if (own_pose_rate()) a.d4 = 0;          // (this game's own camera's: not the other game's business)
     memcpy(&a.a, r + 0x11c, 12);
     memcpy(&a.p128, r + 0x128, 8);
     a.b136 = (unsigned char)r[0x136];
@@ -165,7 +193,7 @@ static void write_record(char *r, u32 handle, const AnimRec &a)
     memcpy(r + 0xa8, &a.want, 4);
     memcpy(r + 0x100, &a.p100, 4);
     memcpy(r + 0x114, &a.p114, 4);
-    memcpy(r + 0xd4, &a.d4, 4);
+    if (!own_pose_rate()) memcpy(r + 0xd4, &a.d4, 4);
     memcpy(r + 0x11c, &a.a, 12);
     memcpy(r + 0x128, &a.p128, 8);
     r[0x136] = (char)a.b136;
@@ -189,15 +217,15 @@ static void install(ObjMan *om)
     char *m = build_module("adv_game.codelib");
     // the setters' slots and addresses (adv_game is the same code in both 2024 builds); beta26 read in IDA
     static const unsigned rva_old[] = { 0xa4040, 0xa1350, 0xa13b0, 0xa4ec0, 0xa4ff0, 0xa13d0, 0xa5030, 0xa1420, 0xa1440, 0xa1460, 0xa14c0 };
-    static const unsigned rva_26[] = { 0x100890, 0xfd470, 0xfd4d0, 0x102500, 0x102640, 0xfd4f0, 0x102680, 0xfd540, 0xfd560, 0xfd580, 0xfd5e0 };
+    static const unsigned rva_26[] = { 0x10fde0, 0x10c8a0, 0x10c900, 0x111ec0, 0x112000, 0x10c920, 0x112040, 0x10c970, 0x10c990, 0x10c9b0, 0x10ca10 };
     static const int slot_old[] = { 4, 8, 10, 11, 12, 13, 14, 16, 20, 21, 26 }, slot_26[] = { 4, 8, 10, 11, 12, 13, 14, 16, 21, 22, 27 };
     const unsigned *rva = BV(rva_old, rva_old, rva_26);
     const int *slot = BV(slot_old, slot_old, slot_26);
-    bool known = mgr && m && (char *)mgr->vtbl == m + BV(0x12f128, 0x12f128, 0x1e4e40);
+    bool known = mgr && m && (char *)mgr->vtbl == m + BV(0x12f128, 0x12f128, 0x1ff5c8);
     for (int i = 0; known && i < _countof(slot_old); i++) known = (char *)mgr->vtbl[slot[i]] == m + rva[i];
     if (!known) { mp_log("anim: unknown game build, each game animates every soldier for itself"); return; }
     void **vt = mgr->vtbl;
-    memcpy(g_copy, vt - 1, BF(42, 45) * sizeof(void *));
+    memcpy(g_copy, vt - 1, BF(42, 51) * sizeof(void *));
     g_o4 = (SetU)vt[slot[0]]; g_o8 = (SetF)vt[slot[1]]; g_o10 = (SetU)vt[slot[2]]; g_o11 = (Pick)vt[slot[3]]; g_o12 = (SetU)vt[slot[4]];
     g_o13 = (Set0)vt[slot[5]]; g_o14 = (Set14)vt[slot[6]]; g_o16 = (SetF)vt[slot[7]]; g_o20 = (SetF)vt[slot[8]]; g_o21 = (SetU)vt[slot[9]];
     g_o26 = (SetB)vt[slot[10]];
@@ -363,8 +391,9 @@ void anim_reset(void)
 
 void anim_report(void)
 {
-    if (!g_stat_sent && !g_stat_received && !g_stat_dropped) return;
+    if (!g_stat_sent && !g_stat_received && !g_stat_dropped && !g_stat_own_rate) return;
     mp_log("anim: 5 s: %llu soldiers' animation values sent, %llu received, %llu of this game's own orders for the other player's soldiers held back, %llu groups chosen from the owner's name",
            g_stat_sent, g_stat_received, g_stat_dropped, g_stat_groups);
-    g_stat_sent = g_stat_received = g_stat_dropped = g_stat_groups = 0;
+    if (g_stat_own_rate) mp_log("anim: 5 s: %llu times this game's own soldier code set how often one of the other player's soldiers is posed (by this game's camera)", g_stat_own_rate);
+    g_stat_sent = g_stat_received = g_stat_dropped = g_stat_groups = g_stat_own_rate = 0;
 }

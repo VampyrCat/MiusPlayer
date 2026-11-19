@@ -17,18 +17,18 @@
 #include <unordered_map>
 #include <vector>
 
-#define S_VEHICLE   BF(0x2388, 0x3080)
+#define S_VEHICLE   BF(0x2388, 0x30c0)
 #define S_VEHICLE2  BF(0x7d0, 0x800)
-#define S_STATION   BF(0x1da4, 0x255c)
-#define S_LEAVING   BF(0x2297, 0x2f53)        // a leave is pending (+1: at once); the in-vehicle update carries it out
-#define V_STATIONS  BF(0x1900, 0x1ef0)
-#define V_COUNT     BF(0x190c, 0x1efc)
-#define V_STATION   BF(0x140, 0x170)
+#define S_STATION   BF(0x1da4, 0x2568)
+#define S_LEAVING   BF(0x2297, 0x2f93)        // a leave is pending (+1: at once); the in-vehicle update carries it out
+#define V_STATIONS  BF(0x1900, 0x1f10)
+#define V_COUNT     BF(0x190c, 0x1f1c)
+#define V_STATION   BF(0x140, 0x180)
 #define ST_SOLDIER  BF(0xc8, 0xe8)
 #define BOARD_SLOT  BF(195, 197)
 #define UNSEAT_SLOT BF(185, 187)
-#define BOARD_FN    BV(0x6f9f0, 0x6f980, 0xe0100)
-#define UNSEAT_FN   BV(0x85680, 0x85610, 0x109610)
+#define BOARD_FN    BV(0x6f9f0, 0x6f980, 0xf07a0)
+#define UNSEAT_FN   BV(0x85680, 0x85610, 0x119f10)
 
 namespace {
 enum { SEATS = 16, PER_REC = 7 };
