@@ -35,9 +35,9 @@
 #include <unordered_map>
 #include <vector>
 
-#define OR_VTABLE  BV(0xe5110, 0xe5108, 0x1728f0)
-#define OBJ_HIT_FN BV(0xaea00, 0xae910, 0x102790)
-#define OBJ_BOUNDS BV(0xb5580, 0xb5490, 0x109b30)
+#define OR_VTABLE  BV(0xe5110, 0xe5108, 0x1700a0)
+#define OBJ_HIT_FN BV(0xaea00, 0xae910, 0x100450)
+#define OBJ_BOUNDS BV(0xb5580, 0xb5490, 0x1077f0)
 #define OR_POOL    BF(792, 880)
 #define OR_STORED  BF(2624, 2832)
 enum {

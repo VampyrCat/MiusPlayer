@@ -8,7 +8,7 @@
 //
 //   BUILD_BETA16  public_beta-16070931  Steam's beta branch of October 2024 - the modding copy
 //   BUILD_PUBLIC  public-15814271       Steam's default branch (September 2024)
-//   BUILD_BETA26  public_beta-26779327  Steam's beta branch of 2026-11-19 (11:05)
+//   BUILD_BETA26  public_beta-26834468  Steam's beta branch of 2026-11-21
 //
 // The two 2024 builds lay out every object alike; only the code of six modules moved (adv_opgame, adv_interf,
 // adv_physic, basic_game, adv_qbattle, one call in basic_physic). The 2026 beta rebuilt everything: fields,
@@ -30,8 +30,14 @@
 // "26779327"): adv_opgame, base_shell and base_main kept their code where it was, most of adv_interf's is 0xd0
 // further on, the other modules' code moved; the vehicle's fields from about +0x1100 on are 0x10 further on and
 // from about +0x2238 on 0x1b0 (the object 0x39a0 bytes), i_orender's stored hits are at +0xb10, i_animch has a
-// slot more (50) and the AI commander's group step begins otherwise. Addresses named "beta26" in this source's
-// comments are mostly the 11-06, 11-08, 11-14, 11-18 or first 11-19 build's; the values in BV / BF are 26779327's.
+// slot more (50) and the AI commander's group step begins otherwise. On 2026-11-21 it moved on to 26834468
+// (26779327 no longer served; ops\ports.md, "26834468"): every module relinked, most of them smaller (developers'
+// trace lines taken out), and all the code moved, adv_opgame's too; the vehicle's fields from about +0x1590 on are
+// 0x10 further on and from about +0x2250 on 0x270 (the object 0x3c10 bytes), the soldier's from about +0x2970 on
+// 0x4..0x70 (0x47b0 bytes), i_intereff's from about +0x1000 on 0x46c..0x470 nearer the start, the trigger manager's
+// from +0xd30 on 0x90 further on (0xf60 bytes), the AI commander's group records are 0x690 bytes, the battle timer's
+// pause is +0x1fc, and several hooked routines begin otherwise. Addresses named "beta26" in this source's comments
+// are mostly older builds'; the values in BV / BF are 26834468's.
 #pragma once
 #define WIN32_LEAN_AND_MEAN
 #include <windows.h>

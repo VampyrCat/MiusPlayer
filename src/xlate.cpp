@@ -204,8 +204,8 @@ void xlate_frame(ObjMan *om)
         char *shell = build_module("base_shell.codelib");
         void **vt = om->vtbl;
         // i_objman's vtable (63 slots in the 2024 builds, 62 in beta26; the copy holds more than either)
-        if (shell && (char *)vt == shell + BV(0x4ca10, 0x4ca10, 0xab6a8) && (char *)vt[OM_SLOT_OBJECT_BY_PLACE] == shell + BV(0x98e0, 0x98e0, 0xd8c0) &&
-            (char *)vt[OM_SLOT_DESC_PTR] == shell + BV(0x121d0, 0x121d0, 0x1d070)) {
+        if (shell && (char *)vt == shell + BV(0x4ca10, 0x4ca10, 0xac840) && (char *)vt[OM_SLOT_OBJECT_BY_PLACE] == shell + BV(0x98e0, 0x98e0, 0xd940) &&
+            (char *)vt[OM_SLOT_DESC_PTR] == shell + BV(0x121d0, 0x121d0, 0x1da60)) {
             memcpy(g_vtbl_copy, vt - 1, sizeof g_vtbl_copy);
             g_obj_by_place = (Lookup)vt[OM_SLOT_OBJECT_BY_PLACE];
             g_desc_by_num = (Lookup)vt[OM_SLOT_DESC_PTR];

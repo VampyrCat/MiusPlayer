@@ -23,8 +23,8 @@
 #include "protocol.h"
 #include <string.h>
 
-#define TM_VTABLE   BV(0x130640, 0x130640, 0x2070e8)
-#define CAPTURE_FN  BV(0xf4ff0, 0xf4ff0, 0x1b2240)
+#define TM_VTABLE   BV(0x130640, 0x130640, 0x1e2c98)
+#define CAPTURE_FN  BV(0xf4ff0, 0xf4ff0, 0x19ac00)
 // the trigger manager's cell table, its count and its change counter (the capture's ++[tm+0x290] in the 2026-11-14 beta)
 #define TM_CELLS    BF(0x240, 0x260)
 #define TM_CELL_N   BF(0x24c, 0x26c)

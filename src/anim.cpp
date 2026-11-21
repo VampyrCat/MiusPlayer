@@ -217,11 +217,11 @@ static void install(ObjMan *om)
     char *m = build_module("adv_game.codelib");
     // the setters' slots and addresses (adv_game is the same code in both 2024 builds); beta26 read in IDA
     static const unsigned rva_old[] = { 0xa4040, 0xa1350, 0xa13b0, 0xa4ec0, 0xa4ff0, 0xa13d0, 0xa5030, 0xa1420, 0xa1440, 0xa1460, 0xa14c0 };
-    static const unsigned rva_26[] = { 0x10fde0, 0x10c8a0, 0x10c900, 0x111ec0, 0x112000, 0x10c920, 0x112040, 0x10c970, 0x10c990, 0x10c9b0, 0x10ca10 };
+    static const unsigned rva_26[] = { 0x100a10, 0xfd4e0, 0xfd540, 0x102af0, 0x102c30, 0xfd560, 0x102c70, 0xfd5b0, 0xfd5d0, 0xfd5f0, 0xfd650 };
     static const int slot_old[] = { 4, 8, 10, 11, 12, 13, 14, 16, 20, 21, 26 }, slot_26[] = { 4, 8, 10, 11, 12, 13, 14, 16, 21, 22, 27 };
     const unsigned *rva = BV(rva_old, rva_old, rva_26);
     const int *slot = BV(slot_old, slot_old, slot_26);
-    bool known = mgr && m && (char *)mgr->vtbl == m + BV(0x12f128, 0x12f128, 0x1ff5c8);
+    bool known = mgr && m && (char *)mgr->vtbl == m + BV(0x12f128, 0x12f128, 0x1dfee8);
     for (int i = 0; known && i < _countof(slot_old); i++) known = (char *)mgr->vtbl[slot[i]] == m + rva[i];
     if (!known) { mp_log("anim: unknown game build, each game animates every soldier for itself"); return; }
     void **vt = mgr->vtbl;

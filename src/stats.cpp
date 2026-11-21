@@ -164,9 +164,9 @@ void stats_install(ObjMan *om)
     char v[8];
     if (GetEnvironmentVariableA("MP_SYNC_STATS", v, sizeof v)) g_enabled = atoi(v) != 0;
     if (!g_enabled) { mp_log("stats: each game counts its own battle statistics (MP_SYNC_STATS=0)"); return; }
-    void **vt = (void **)(base + BV(0x12df90, 0x12df90, 0x1fab50));
-    if (!readable(vt, 0x50) || vt[3] != base + BV(0x68080, 0x68080, 0xb5ad0) || vt[4] != base + BV(0x683e0, 0x683e0, 0xb5f10) ||
-        vt[6] != base + BV(0x68540, 0x68540, 0xb6070) || vt[7] != base + BV(0x68560, 0x68560, 0xb6090) || vt[8] != base + BV(0x68700, 0x68700, 0xb6220)) {
+    void **vt = (void **)(base + BV(0x12df90, 0x12df90, 0x1dcdb0));
+    if (!readable(vt, 0x50) || vt[3] != base + BV(0x68080, 0x68080, 0xaa230) || vt[4] != base + BV(0x683e0, 0x683e0, 0xaa670) ||
+        vt[6] != base + BV(0x68540, 0x68540, 0xaa7d0) || vt[7] != base + BV(0x68560, 0x68560, 0xaa7f0) || vt[8] != base + BV(0x68700, 0x68700, 0xaa980)) {
         g_enabled = false;
         mp_log("stats: unknown game build, each game counts its own battle statistics");
         return;

@@ -2,6 +2,12 @@
 
 Every release of MiusPlayer. Both players need the same network version; the launcher keeps the mod up to date.
 
+## 2.8.4 - 2026-11-21 (network 31)
+- Steam's new beta build, public_beta-26834468 of 2026-11-21. 2.8.3 was made for public_beta-26779327, which Steam
+  no longer serves, so 2.8.3 keeps multiplayer off on the new build. This release is 2.8.3 with the mod moved to the
+  new build and nothing else. The launcher recognises the new build and installs the mod for it; players on the two
+  2024 builds can keep playing with 2.8.3.
+
 ## 2.8.3 - 2026-11-19 (network 31)
 - Steam's new beta build, public_beta-26779327 of 2026-11-19. Steam's beta has changed five times since 2.8.2
   (which was made for public_beta-26665733 - Steam no longer serves that one, nor the four after it), so 2.8.2

@@ -220,9 +220,9 @@ void state_test_guard(void)
     char *render = build_module("basic_render.codelib");
     if (!render || !g_seen_render || !g_node_lookup || !g_node_matrix) { mp_log("test: render guards not ready"); return; }
     u64 before = g_bad_lookups;
-    u32 r = ((NodeLookup)(render + BV(0x13ab0, 0x13ab0, 0x19d20)))(g_seen_render, 0x3ffff0, 5);
+    u32 r = ((NodeLookup)(render + BV(0x13ab0, 0x13ab0, 0x19b30)))(g_seen_render, 0x3ffff0, 5);
     float m[16];
-    ((NodeMatrix)(render + BV(0x13120, 0x13120, 0x193b0)))(g_seen_render, 0xfffffc05ull, m, 0);
+    ((NodeMatrix)(render + BV(0x13120, 0x13120, 0x191c0)))(g_seen_render, 0xfffffc05ull, m, 0);
     mp_log("test: bad render handles - %llu of 2 calls caught (look-up gave %u, matrix [0] %.1f), the game goes on", g_bad_lookups - before, r, m[0]);
 }
 
@@ -252,7 +252,7 @@ static void install_part_guard(void)
     tried = true;
     bool b26 = g_bi == BUILD_BETA26;
     // the 2024 builds: one base load for every physical object; beta26: the soldier's, his carried object's, the vehicle's
-    const size_t loads[3] = { (size_t)BV(0x82090, 0x82020, 0x111f20), (size_t)BV(NP, NP, 0x1114a0), (size_t)BV(NP, NP, 0x1127a0) };
+    const size_t loads[3] = { (size_t)BV(0x82090, 0x82020, 0x1057e0), (size_t)BV(NP, NP, 0x104d60), (size_t)BV(NP, NP, 0x106060) };
     void (*const hooks[3])(char *, void *) = { base_load_hook0, base_load_hook1, base_load_hook2 };
     char *load[3] = {};
     int found = 0, wanted = 0;
@@ -265,10 +265,10 @@ static void install_part_guard(void)
     if (!found || found != wanted) { mp_log("state: unknown game build, render handles are not guarded"); return; }
     for (int k = 0; k < 3; k++)
         if (load[k]) g_base_load[k] = (BaseLoad)install_detour(load[k], b26 ? 20 : 14, (void *)hooks[k]);
-    if (char *lookup = build_code("basic_render.codelib", BV(0x13ab0, 0x13ab0, 0x19d20), b26 ? lookup_sig26 : lookup_sig,
+    if (char *lookup = build_code("basic_render.codelib", BV(0x13ab0, 0x13ab0, 0x19b30), b26 ? lookup_sig26 : lookup_sig,
                                   b26 ? sizeof lookup_sig26 : sizeof lookup_sig))
         g_node_lookup = (NodeLookup)install_detour(lookup, 15, node_lookup_hook);
-    if (char *matrix = build_code("basic_render.codelib", BV(0x13120, 0x13120, 0x193b0), b26 ? matrix_sig26 : matrix_sig,
+    if (char *matrix = build_code("basic_render.codelib", BV(0x13120, 0x13120, 0x191c0), b26 ? matrix_sig26 : matrix_sig,
                                   b26 ? sizeof matrix_sig26 : sizeof matrix_sig))
         g_node_matrix = (NodeMatrix)install_detour(matrix, 15, node_matrix_hook);
     if (g_node_lookup || g_node_matrix) AddVectoredExceptionHandler(1, guard_handler);
@@ -527,9 +527,14 @@ void state_translate_report(void)
 // from about +0x1100 on are 0x10 further on (points +0x1848, seats +0x1f10, fittings +0x1bf8 / +0x1c10, crates
 // +0x1b20, wheels +0x1798, tracks +0x17b0) and from about +0x2238 on 0x1b0 ("is drawn" +0x36bd); the soldier, the
 // unit's base and every record as before.
+// Beta 26834468 (2026-11-21): the loads +0x1057e0 / +0x104d60 / +0x106060 (the same code); the vehicle's fields from
+// about +0x1590 on are 0x10 further on (points +0x1858, seats +0x1f20, fittings +0x1c08 / +0x1c20, crates +0x1b30,
+// wheels +0x17a8, tracks +0x17c0) and from about +0x2250 on 0x270 ("is drawn" +0x392d); the soldier's from about
+// +0x2970 on 0x4..0x70 ("is drawn" +0x2fd8; his number +0x2518 and everything below as before); the unit's base, the
+// part list and every record as before.
 struct ViewFields { unsigned short view[7], view_bytes[2], human_drawn, techn_drawn, anim; };
 static const ViewFields k_view_old = { { 0x6b0, 0x6b4, 0x6e8, 0x6ec, 0x6f0, 0x714, 0x72c }, { 0x745, 0x749 }, 0x228c, 0x1e66, 0x1d60 };
-static const ViewFields k_view_b26 = { { 0x6e0, 0x6e4, 0x718, 0x71c, 0x720, 0x744, 0x75c }, { 0x775, 0x779 }, 0x2f88, 0x36bd, 0x2518 };
+static const ViewFields k_view_b26 = { { 0x6e0, 0x6e4, 0x718, 0x71c, 0x720, 0x744, 0x75c }, { 0x775, 0x779 }, 0x2fd8, 0x392d, 0x2518 };
 struct Fitted { unsigned short list, count, size, keep; };
 struct TechnLists {
     unsigned short points, points_n, points_room;       // model points, 0x20-byte records, node handle at +0x10
@@ -550,8 +555,8 @@ struct TechnLists {
 // uses +0x1a68 and +0x1b30 together, as +0x323a0 used +0x1530 and +0x15e8. Each list's room is its count + 4.
 static const TechnLists k_techn_old = { 0x1298, 0x12a4, 0x12a8, 0x1900, 0x190c, 0x1910, 0x140,
                                         { { 0x15e8, 0x15f4, 0x120, 8 }, { 0x1600, 0x160c, 0x1d0, 8 }, { 0x1530, 0x153c, 0x28, 0x28 } } };
-static const TechnLists k_techn_b26 = { 0x1848, 0x1854, 0x1858, 0x1f10, 0x1f1c, 0x1f20, 0x180,
-                                        { { 0x1bf8, 0x1c04, 0x120, 8 }, { 0x1c10, 0x1c1c, 0x1d0, 8 }, { 0x1b20, 0x1b2c, 0x40, 0x40 } } };
+static const TechnLists k_techn_b26 = { 0x1858, 0x1864, 0x1868, 0x1f20, 0x1f2c, 0x1f30, 0x180,
+                                        { { 0x1c08, 0x1c14, 0x120, 8 }, { 0x1c20, 0x1c2c, 0x1d0, 8 }, { 0x1b30, 0x1b3c, 0x40, 0x40 } } };
 
 // A vehicle's wheels (+0x11e8: records of 0x2a0 bytes, count +0x11f4; beta26 +0x1708, 0x2e0, +0x1714) are saved
 // with their vectors and matrices (+0x00..+0x130 - where the wheel is in the world and how it moves; the field
@@ -562,9 +567,9 @@ static const TechnLists k_techn_b26 = { 0x1848, 0x1854, 0x1858, 0x1f10, 0x1f1c, 
 // the wheel's drawn angle and spin (+0x1b0, +0x1b4) and a track's run (+0x16c and its total: where the links
 // are drawn) stay this game's; the rest of a wheel (suspension, damage) is the owner's.
 // MP_STATE_KEEP_WHEELS=0: loaded as they come.
-#define ST_WHEELS      BF(0x11e8, 0x1798)
+#define ST_WHEELS      BF(0x11e8, 0x17a8)
 #define ST_WHEEL_SIZE  BF(0x2a0, 0x2f0)
-#define ST_TRACKS      BF(0x1200, 0x17b0)
+#define ST_TRACKS      BF(0x1200, 0x17c0)
 #define ST_TRACK_SIZE  BF(0x2c0, 0x410)
 #define ST_TRACK_TOTAL BF(0x1a4, 0x198)
 static u64 g_stat_wheel_loads, g_stat_wheel_other;
