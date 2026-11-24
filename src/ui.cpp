@@ -99,7 +99,7 @@ static void close_menu(void)
 // The controller's fields this file reads, per build (beta26: read in its constructor and in the Skirmish
 // screen's code, which use them as the 2024 builds do):
 static size_t mc_screen(void) { return BF(0x1258, 0x1268); }   // current screen (the skirmish entry's cmp [rcx+...], 11h)
-static size_t mc_mode(void)   { return BF(0x1200, 0x1210); }   // 4 in the menus, 0 on an operation's map (constructor: qword 4)
+static size_t mc_mode(void)   { return BF(0x1200, 0x1210); }   // an operation's map view 0-3 (constructor: qword 4; it keeps the last view after the map)
 static size_t mc_date(void)   { return BF(0x1300, 0x1380); }   // Skirmish screen: year, season +4 (beta26 +0x6dc20 sets both)
 static size_t mc_size(void)   { return BF(0x131c, 0x139c); }   // battle size 0..3 (the screen's slot rows, beta26 +0x6ef70)
 static size_t mc_picks(void)  { return BF(0x1a74, 0x1af4); }   // the player's 0x84-byte picks, supports +0xf78 (beta26 +0x6ef70, +0x5d6f0)
@@ -120,11 +120,41 @@ static int menu_screen(ObjMan *om)
 }
 
 // The main menu itself: screen 0 while the program is in its menu mode. The operational map of an
-// operation is screen 0 as well; controller +0x1200 tells them apart (4 in the menus, 0 on the map).
+// operation is screen 0 as well; the program's mode, controller +0xa10 (every build), tells them apart: 0 in the
+// menus, 8 on an operation's map (9 / 0xb its statistics over it). The game sets it through adv_opgame+0x87440
+// (beta26; 0 at the start and when the player leaves the operation by the map's MENU button, do_og_menu +0x35710,
+// which goes to the Operations screen - its way back is the main menu). Up to 2.8.5 the map's view (+0x1200, beta26
+// +0x1210) was read instead: 4 from the program's start, the map's view 0-3 once a map has been shown, and nothing
+// puts the 4 back - after an operation the main menu had no MULTIPLAYER entry until the game was started again
+// (and views 1-3 were taken for the main menu: the entry showed over the map in those views).
+static size_t mc_game_mode(void) { return 0xa10; }
 static bool on_main_menu(ObjMan *om)
 {
     void *c = menu_controller(om);
-    return c && *(int *)((char *)c + mc_screen()) == 0 && *(int *)((char *)c + mc_mode()) != 0;
+    return c && *(int *)((char *)c + mc_screen()) == 0 && *(int *)((char *)c + mc_game_mode()) == 0;
+}
+
+// tests: "opleave" - the operational map's own MENU button (do_og_menu, adv_opgame+0x353e0(controller), public
+// +0x35280, beta26 +0x35710; it takes effect while +0xd78 (beta26 +0xd88) is 2): the operation left for the Operations
+// screen; "mainmenu" - the screen switch (+0x762e0(controller, 0, 0), public +0x75fe0, beta26 +0x87ac0) to the main
+// menu, as the Operations screen's way back does.
+static int g_leave_asked;               // 1 opleave, 2 mainmenu
+void ui_test_leave(int what) { g_leave_asked = what; }
+static void test_leave(ObjMan *om)
+{
+    unsigned char og_menu[] = { 0x40, 0x53, 0x48, 0x83, 0xec, 0x20, 0x83, 0xb9, 0x78, 0x0d, 0x00, 0x00, 0x02 };
+    static const unsigned char screen_to[] = { 0x48, 0x89, 0x5c, 0x24, 0x10, 0x48, 0x89, 0x6c, 0x24, 0x18, 0x56, 0x57, 0x41, 0x56, 0x48, 0x83, 0xec, 0x50 };
+    if (g_bi == BUILD_BETA26) og_menu[8] = 0x88;
+    int what = g_leave_asked;
+    g_leave_asked = 0;
+    const char *name = what == 1 ? "opleave" : "mainmenu";
+    char *c = (char *)menu_controller(om);
+    char *fn = what == 1 ? build_code("adv_opgame.codelib", BV(0x353e0, 0x35280, 0x35710), og_menu, sizeof og_menu)
+                         : build_code("adv_opgame.codelib", BV(0x762e0, 0x75fe0, 0x87ac0), screen_to, sizeof screen_to);
+    if (!fn || !c) { mp_log("test: %s - not here (%s)", name, !fn ? "not this game build" : "no controller"); return; }
+    if (what == 1) ((void (*)(void *))fn)(c);
+    else ((void (*)(void *, unsigned, unsigned))fn)(c, 0, 0);
+    mp_log("test: %s - done: screen %d, mode %d, view %d", name, *(int *)(c + mc_screen()), *(int *)(c + mc_game_mode()), *(int *)(c + mc_mode()));
 }
 
 // The stock Skirmish screen's start: the same handler as the entry that opens the screen (adv_opgame+0x627f0,
@@ -937,8 +967,22 @@ void ui_frame(ObjMan *om)
         g_action = ACT_NONE;
         return;
     }
+    if (g_leave_asked) test_leave(om);
     g_on_main_menu = on_main_menu(om);
     g_om_ui = om;
+    {   // (the menu program's state in the log when it changes: screen, program mode, map view, operation)
+        char *c = (char *)menu_controller(om);
+        static int last_scr = -9, last_game = -9, last_view = -9, last_main = -9;
+        if (c) {
+            int scr = *(int *)(c + mc_screen()), game = *(int *)(c + mc_game_mode()), view = *(int *)(c + mc_mode());
+            if (scr != last_scr || game != last_game || view != last_view || (int)g_on_main_menu != last_main) {
+                char *op = *(char **)(c + 0x1d8);
+                mp_log("ui: menu state - screen %d, mode %d, view %d%s; operation %s", scr, game, view, g_on_main_menu ? " (the main menu)" : "",
+                       !readable(op, 0xb0) ? "none" : op[0xa8] ? "quick battle" : "loaded");
+                last_scr = scr; last_game = game; last_view = view; last_main = g_on_main_menu;
+            }
+        }
+    }
     static DWORD priced_at;
     bool on_skirmish = menu_screen(om) == 0x11;
     if (!on_skirmish) g_pick_known = false;
@@ -1477,6 +1521,8 @@ static bool test_shot_request(char *name, size_t n)
     if (!strncmp(line, "ready", 5)) { session_test_ready(); return false; }
     if (!strncmp(line, "resign", 6)) { session_test_resign(); return false; }
     if (!strncmp(line, "paneldock", 9)) { void ui_test_panel_dock(int); ui_test_panel_dock(line[9] == ' ' ? atoi(line + 10) : -1); return false; }
+    if (!strncmp(line, "opleave", 7)) { void ui_test_leave(int); ui_test_leave(1); return false; }
+    if (!strncmp(line, "mainmenu", 8)) { void ui_test_leave(int); ui_test_leave(2); return false; }
     if (!strncmp(line, "withdraw", 8)) { session_test_withdraw(); return false; }
     if (!strncmp(line, "pause", 5)) { session_test_pause(); return false; }
     if (!strncmp(line, "speed ", 6)) { session_test_speed(atoi(line + 6)); return false; }

@@ -2,6 +2,14 @@
 
 Every release of MiusPlayer. Both players need the same network version; the launcher keeps the mod up to date.
 
+## 2.8.6 - 2026-11-24 (network 31)
+- Fixed: the main menu's MULTIPLAYER entry was gone after the player had been in an operation and left it - until the
+  game was started again (and F9 and Steam's "Join Game" waited for a main menu that never came). The mod read the
+  operational map's view to tell the main menu from the map, and the game leaves that at the map's last view; it now
+  reads the game's own mode (menus or operation). The entry also no longer shows over the operational map when the
+  map is in another view than its first (it could, on a map the game had opened straight after a battle).
+- Nothing changes on the wire (network 31): players of 2.8.5 and 2.8.6 can play together.
+
 ## 2.8.5 - 2026-11-24 (network 31)
 - Fixed: in an operation the turn did not go on when both players had pressed end turn - the joining player's game
   sent his moves only while his map was in its first view (the roster), and the game switches the map to the battle
