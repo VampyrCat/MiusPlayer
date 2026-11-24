@@ -38,7 +38,7 @@ static Flags g_flags;
 static ObjMan *g_om;
 static unsigned char g_hit_first[0x90];          // joining game: the first part of a hit record, waiting for the second
 // the hit record slot 3 reads (adv_game+0x68080 copies 0xc8 bytes of it, beta26 +0x9a030 0xd0)
-#define HIT_SIZE BF(0xc8, 0xd0)
+#define HIT_SIZE BF(0xc8, 0xd0, 0xd0)
 static bool g_hit_waiting;
 static Count g_count6, g_count8;
 static Kill g_kill;
@@ -164,9 +164,9 @@ void stats_install(ObjMan *om)
     char v[8];
     if (GetEnvironmentVariableA("MP_SYNC_STATS", v, sizeof v)) g_enabled = atoi(v) != 0;
     if (!g_enabled) { mp_log("stats: each game counts its own battle statistics (MP_SYNC_STATS=0)"); return; }
-    void **vt = (void **)(base + BV(0x12df90, 0x12df90, 0x1dcdb0));
-    if (!readable(vt, 0x50) || vt[3] != base + BV(0x68080, 0x68080, 0xaa230) || vt[4] != base + BV(0x683e0, 0x683e0, 0xaa670) ||
-        vt[6] != base + BV(0x68540, 0x68540, 0xaa7d0) || vt[7] != base + BV(0x68560, 0x68560, 0xaa7f0) || vt[8] != base + BV(0x68700, 0x68700, 0xaa980)) {
+    void **vt = (void **)(base + BV(0x12df90, 0x12df90, 0x1dcdb0, 0x204470));
+    if (!readable(vt, 0x50) || vt[3] != base + BV(0x68080, 0x68080, 0xaa230, 0xb9430) || vt[4] != base + BV(0x683e0, 0x683e0, 0xaa670, 0xb9870) ||
+        vt[6] != base + BV(0x68540, 0x68540, 0xaa7d0, 0xb99d0) || vt[7] != base + BV(0x68560, 0x68560, 0xaa7f0, 0xb99f0) || vt[8] != base + BV(0x68700, 0x68700, 0xaa980, 0xb9b80)) {
         g_enabled = false;
         mp_log("stats: unknown game build, each game counts its own battle statistics");
         return;

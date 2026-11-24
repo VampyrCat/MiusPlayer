@@ -29,8 +29,8 @@
 
 // i_render11's fields (beta26; the layer's +0x48 / +0x38). Only the swap chain is needed: it leads to the device
 // (GetDevice) and that to the context; the device field is read for the log only.
-static size_t r11_swap_chain(void) { return BV(NP, NP, 0x160); }
-static size_t r11_device(void)     { return BV(NP, NP, 0x150); }
+static size_t r11_swap_chain(void) { return BV(NP, NP, 0x160, 0x160); }
+static size_t r11_device(void)     { return BV(NP, NP, 0x150, 0x150); }
 
 // ---------------------------------------------------------------- this module's objects (of one device)
 static ID3D11Device *g_dev;                 // one reference held while the objects below exist

@@ -337,7 +337,7 @@ static void detonate_hook(char *vehicle, float dt)
 static void flare_hook(char *div, float *pos, u32 kind, float *dir, u32 side, int arg6, const void *params)
 {
     g_divisions = div;
-    if (g_bi != BUILD_BETA26) params = 0;           // (no 7th argument there: whatever is on the stack)
+    if (!IS2026) params = 0;           // (no 7th argument there: whatever is on the stack)
     if (g_injecting || GetCurrentThreadId() != g_main_thread || !replicating() || !g_enabled || !readable(pos, 12) || !readable(dir, 16) ||
         (params && !readable(params, FLARE_PARAMS))) {
         g_flare(div, pos, kind, dir, side, arg6, params);
@@ -385,10 +385,10 @@ void shots_install(ObjMan *om)
         g_file = _fsopen(path, "w", _SH_DENYNO);
     }
     if (!g_enabled && !g_file) { mp_log("shots: each game fires for itself (MP_SYNC_SHOTS=0)"); return; }
-    const unsigned char *lsig = BV(launch_sig, launch_sig, launch_sig26), *xsig = BV(explode_sig, explode_sig, explode_sig26);
-    size_t lsig_n = BV(sizeof launch_sig, sizeof launch_sig, sizeof launch_sig26), xsig_n = sizeof explode_sig;
-    char *launch = build_code("basic_physic.codelib", BV(0x18430, 0x18430, 0x2e730), lsig, lsig_n);
-    char *explode = build_code("basic_physic.codelib", BV(0x19260, 0x19260, 0x2fdb0), xsig, xsig_n);
+    const unsigned char *lsig = BV(launch_sig, launch_sig, launch_sig26, launch_sig26), *xsig = BV(explode_sig, explode_sig, explode_sig26, explode_sig26);
+    size_t lsig_n = BV(sizeof launch_sig, sizeof launch_sig, sizeof launch_sig26, sizeof launch_sig26), xsig_n = sizeof explode_sig;
+    char *launch = build_code("basic_physic.codelib", BV(0x18430, 0x18430, 0x2e730, 0x2fbc0), lsig, lsig_n);
+    char *explode = build_code("basic_physic.codelib", BV(0x19260, 0x19260, 0x2fdb0, 0x31240), xsig, xsig_n);
     if (!launch) { mp_log("shots: unknown game build, each game fires for itself"); g_enabled = false; return; }
     g_launch = (Launch)install_detour(launch, lsig_n, launch_hook);
     if (explode) g_explode = (Explode)install_detour(explode, xsig_n, explode_hook);
@@ -407,10 +407,10 @@ void shots_install(ObjMan *om)
     // beta26 +0x660e0 (mov [rsp+10h],rdx; push rbp/rbx/rsi/rdi/r13/r14; lea rbp,[rsp-68h]; sub rsp,168h)
     static const unsigned char flare_sig26[] = { 0x48, 0x89, 0x54, 0x24, 0x10, 0x55, 0x53, 0x56, 0x57, 0x41, 0x55, 0x41, 0x56, 0x48, 0x8d, 0x6c,
                                                  0x24, 0x98, 0x48, 0x81, 0xec, 0x68, 0x01, 0x00, 0x00 };
-    const unsigned char *dsig = BV(detonate_sig, detonate_sig, detonate_sig26), *fsig = BV(flare_sig, flare_sig, flare_sig26);
-    size_t dsig_n = BV(sizeof detonate_sig, sizeof detonate_sig, sizeof detonate_sig26), fsig_n = BV(sizeof flare_sig, sizeof flare_sig, sizeof flare_sig26);
-    char *detonate = build_code("adv_physic.codelib", BV(0x9b520, 0x9b4b0, 0x13b170), dsig, dsig_n);
-    char *flare = build_code("adv_game.codelib", BV(0x44c40, 0x44c40, 0x733a0), fsig, fsig_n);
+    const unsigned char *dsig = BV(detonate_sig, detonate_sig, detonate_sig26, detonate_sig26), *fsig = BV(flare_sig, flare_sig, flare_sig26, flare_sig26);
+    size_t dsig_n = BV(sizeof detonate_sig, sizeof detonate_sig, sizeof detonate_sig26, sizeof detonate_sig26), fsig_n = BV(sizeof flare_sig, sizeof flare_sig, sizeof flare_sig26, sizeof flare_sig26);
+    char *detonate = build_code("adv_physic.codelib", BV(0x9b520, 0x9b4b0, 0x13b170, 0x155770), dsig, dsig_n);
+    char *flare = build_code("adv_game.codelib", BV(0x44c40, 0x44c40, 0x733a0, 0x80210), fsig, fsig_n);
     if (g_explode && detonate) g_detonate = (Detonate)install_detour(detonate, dsig_n, detonate_hook);
     if (flare) g_flare = (Flare)install_detour(flare, fsig_n, flare_hook);
     mp_log("shots: %s%s; explosions %s (vehicles blown up by their crews: %s), flares %s; off-map fire goes by the side it is fired for",
@@ -649,7 +649,7 @@ static void carry_out_flare(const ShotRec &s, ObjMan *om)
     memcpy(params, s.launch + 32, FLARE_PARAMS);
     if (g_file) { fprintf(g_file, "F %llu received side=%08x kind=%u pos=%.2f,%.2f,%.2f\n", session_battle_ms(), side, kind, pos[0], pos[1], pos[2]); fflush(g_file); }
     g_injecting = true;
-    g_flare(g_divisions, pos, kind, dir, side, arg6, s.launch[28] && g_bi == BUILD_BETA26 ? params : 0);
+    g_flare(g_divisions, pos, kind, dir, side, arg6, s.launch[28] && IS2026 ? params : 0);
     g_injecting = false;
     g_stat_f_in++;
 }
@@ -672,18 +672,18 @@ static void test_artillery(ObjMan *om)
     void **vt = *(void ***)g_divisions;
     for (u32 squad : session_own_squads()) {
         char *sq = ((char *(*)(void *, u32))vt[11])(g_divisions, squad);
-        if (!readable(sq, BF(0x440, 0x560))) continue;
-        u32 support = *(u32 *)(sq + BF(0x2b0, 0x318));
-        if (!sq[BF(0x3e0, 0x448)] || support == 0xffffffffu) continue;
+        if (!readable(sq, BF(0x440, 0x560, 0x580))) continue;
+        u32 support = *(u32 *)(sq + BF(0x2b0, 0x318, 0x318));
+        if (!sq[BF(0x3e0, 0x448, 0x448)] || support == 0xffffffffu) continue;
         able++;
-        float *a = (float *)(sq + BF(0x170, 0x1c0)), *b = (float *)(sq + BF(0x180, 0x1d0));
+        float *a = (float *)(sq + BF(0x170, 0x1c0, 0x1c0)), *b = (float *)(sq + BF(0x180, 0x1d0, 0x1d0));
         // y and w are not heights: fractions the computer commander draws from 0..0.25 and 0..0.35 (how
         // long the battery takes to work the mission out, how far the rounds scatter)
         a[0] = centre[0] + 25; a[1] = 0.1f; a[2] = centre[2]; a[3] = 0.15f;
         b[0] = centre[0] - 25; b[1] = 0.1f; b[2] = centre[2]; b[3] = 0.15f;
-        sq[BF(0x194, 0x1e4)] = 1;
-        *(u32 *)(sq + BF(0x190, 0x1e0)) = 0;
-        u32 got = ((FireMission)vt[BF(31, 32)])(g_divisions, squad, 0, (u32)kind, (u32)rounds, -1.0f);
+        sq[BF(0x194, 0x1e4, 0x1e4)] = 1;
+        *(u32 *)(sq + BF(0x190, 0x1e0, 0x1e0)) = 0;
+        u32 got = ((FireMission)vt[BF(31, 32, 32)])(g_divisions, squad, 0, (u32)kind, (u32)rounds, -1.0f);
         mp_log("test: artillery - squad %08x (support %u, side %08x) called %d rounds of kind %d onto %.0f,%.0f: mission %d",
                squad, support, *(u32 *)(sq + 0x60), rounds, kind, centre[0], centre[2], (int)got);
         if (got != 0xffffffffu) called++;
@@ -704,11 +704,11 @@ static void test_blowup(ObjMan *om)
     Object **all = all_objects(om, &count);
     for (u32 i = 0; i < count && done < n; i++) {
         Object *o = all[i];
-        if (!readable(o, BF(0x1e60, 0x38ef)) || strncmp(o->full, "i_techn:", 8) || !session_owns(o)) continue;
+        if (!readable(o, BF(0x1e60, 0x38ef, 0x397f)) || strncmp(o->full, "i_techn:", 8) || !session_owns(o)) continue;
         char *v = (char *)o;
-        v[BF(0x1e1c, 0x38e0)] = 1;
-        *(u32 *)(v + BF(0x117c, 0x173c)) = 1;
-        *(float *)(v + BF(0x1184, 0x1744)) = 1.0f;
+        v[BF(0x1e1c, 0x38e0, 0x3970)] = 1;
+        *(u32 *)(v + BF(0x117c, 0x173c, 0x173c)) = 1;
+        *(float *)(v + BF(0x1184, 0x1744, 0x1744)) = 1.0f;
         mp_log("test: blowup - the crew of %s will blow it up in 1 s", o->full);
         done++;
     }
@@ -729,11 +729,11 @@ static void test_flares(ObjMan *om)
     void **vt = *(void ***)g_divisions;
     for (u32 squad : session_own_squads()) {
         char *sq = ((char *(*)(void *, u32))vt[11])(g_divisions, squad);
-        if (!readable(sq, BF(0x440, 0x560))) continue;
+        if (!readable(sq, BF(0x440, 0x560, 0x580))) continue;
         u32 side = *(u32 *)(sq + 0x60);
         for (int i = 0; i < n; i++) {
             alignas(16) float pos[4] = { centre[0] + 20.0f * i, centre[1] + 1, centre[2], 0 }, dir[4] = { 4.0f + i, 35, 6.0f - i, 0 };
-            ((Flare)vt[BF(45, 46)])(g_divisions, pos, 4, dir, side, 0, 0);
+            ((Flare)vt[BF(45, 46, 46)])(g_divisions, pos, 4, dir, side, 0, 0);
         }
         mp_log("test: flares - %d flares for squad %08x (side %08x) over %.0f,%.0f", n, squad, side, centre[0], centre[2]);
         return;

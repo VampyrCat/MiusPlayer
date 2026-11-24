@@ -17,7 +17,8 @@ inline DWORD buildid_file_stamp(const char *path)
     return ok ? nt.FileHeader.TimeDateStamp : 0;
 }
 
-// 0 public_beta-16070931, 1 public-15814271, 2 public_beta-26834468 (the BUILD_* numbers), -1 another build
+// 0 public_beta-16070931, 1 public-15814271, 2 public_beta-26834468, 3 public_beta-26858192 (the BUILD_* numbers), -1 another
+// build
 // (2 was public_beta-26779327 until 2026-11-21 20:55: base_shell 0x6afeaeb4, base_main 0x6afeae9d; public_beta-26768241
 // until 2026-11-19 11:05: 0x6afe0678, 0x6afe0660; public_beta-26744384
 // until 2026-11-19 01:53: 0x6afce297, 0x6afce286; public_beta-26665733
@@ -26,17 +27,17 @@ inline DWORD buildid_file_stamp(const char *path)
 // public_beta-26494568: 0x6aee3958, 0x6aee394a)
 inline int buildid_of_folder(const char *root)
 {
-    static const DWORD shell[3] = { 0x670d5899, 0x66ed7c47, 0x6b01a91e }, main[3] = { 0x670d5943, 0x66f2d70e, 0x6b01a90b };
+    static const DWORD shell[4] = { 0x670d5899, 0x66ed7c47, 0x6b01a91e, 0x6b03951a }, main[4] = { 0x670d5943, 0x66f2d70e, 0x6b01a90b, 0x6b039504 };
     char path[MAX_PATH];
     sprintf_s(path, "%s\\bin\\rel\\x64\\base_shell.codelib", root);
     DWORD s = buildid_file_stamp(path);
     sprintf_s(path, "%s\\bin\\rel\\x64\\base_main.codelib", root);
     DWORD m = buildid_file_stamp(path);
-    for (int b = 0; b < 3; b++) if (s == shell[b] && m == main[b]) return b;
+    for (int b = 0; b < 4; b++) if (s == shell[b] && m == main[b]) return b;
     return -1;
 }
 
 inline const char *buildid_name(int b)
 {
-    return b == 0 ? "2024 beta build" : b == 1 ? "Steam default branch" : b == 2 ? "Steam beta branch" : "an unknown build";
+    return b == 0 ? "2024 beta build" : b == 1 ? "Steam default branch" : b == 2 ? "Steam beta branch" : b == 3 ? "Steam beta branch of 2026-11-23" : "an unknown build";
 }

@@ -35,27 +35,27 @@
 #include <unordered_map>
 #include <vector>
 
-#define VM_VTABLE    BV(0x12ffb0, 0x12ffb0, 0x1e22a0)
-#define VM_TICK      BV(0xe4b20, 0xe4b20, 0x185fb0)
-#define VM_STEP      BV(0, 0, 0x185e00)
-#define VM_BUILD     BV(0, 0, 0x186170)
-#define VM_STATES    BV(0, 0, 0x187250)
-#define VM_SHOW      BV(0, 0, 0x1866e0)
-#define VM_ZERO4     BV(0, 0, 0x214ce0)
-#define VM_HALF      BV(0, 0, 0x1e5244)
-#define VM_SHORT     BV(0, 0, 0x1e53a0)
-#define VM_LONG      BV(0, 0, 0x1e54a8)
-#define VM_RECS      BF(0x158, 0x168)
-#define VR_SIZE      BF(288, 320)
-#define VR_UNIT      BF(0xe8, 0xf0)
-#define VR_SIDE      BF(0xf4, 0xfc)
-#define VR_ENEMY     BF(0x115, 0x11d)
-#define VR_OWN       BF(0x116, 0x11e)
-#define VR_NOOBS     BF(0x118, 0x120)
-#define VM_BATTLE    BF(0x1b4, 0x1c4)
-#define VM_TIMER     BF(0x1ac, 0x1bc)
-#define VM_SIDE_LIST BF(0x1c0, 0x1d8)
-#define VM_SEL_LIST  BF(0x1d8, 0x1f0)
+#define VM_VTABLE    BV(0x12ffb0, 0x12ffb0, 0x1e22a0, 0x210738)
+#define VM_TICK      BV(0xe4b20, 0xe4b20, 0x185fb0, 0x1a5e30)
+#define VM_STEP      BV(0, 0, 0x185e00, 0x1a5c80)
+#define VM_BUILD     BV(0, 0, 0x186170, 0x1a5ff0)
+#define VM_STATES    BV(0, 0, 0x187250, 0x1a70d0)
+#define VM_SHOW      BV(0, 0, 0x1866e0, 0x1a6560)
+#define VM_ZERO4     BV(0, 0, 0x214ce0, 0x244d50)
+#define VM_HALF      BV(0, 0, 0x1e5244, 0x213b38)
+#define VM_SHORT     BV(0, 0, 0x1e53a0, 0x213ca0)
+#define VM_LONG      BV(0, 0, 0x1e54a8, 0x213df8)
+#define VM_RECS      BF(0x158, 0x168, 0x168)
+#define VR_SIZE      BF(288, 320, 320)
+#define VR_UNIT      BF(0xe8, 0xf0, 0xf0)
+#define VR_SIDE      BF(0xf4, 0xfc, 0xfc)
+#define VR_ENEMY     BF(0x115, 0x11d, 0x11d)
+#define VR_OWN       BF(0x116, 0x11e, 0x11e)
+#define VR_NOOBS     BF(0x118, 0x120, 0x120)
+#define VM_BATTLE    BF(0x1b4, 0x1c4, 0x1c4)
+#define VM_TIMER     BF(0x1ac, 0x1bc, 0x1bc)
+#define VM_SIDE_LIST BF(0x1c0, 0x1d8, 0x1d8)
+#define VM_SEL_LIST  BF(0x1d8, 0x1f0, 0x1f0)
 enum {
     VM_TARGET = 0xf8, VM_GAMESPEC = 0x108, VM_BLOCK = 0x1cc, VR_A = 0x30, VR_IDENT = 0x121, VR_STATE = 0x123,
     U_ALIVE = 47, U_TARGET = 49, U_SHOW = 115, U_KEEP = 137, U_LONG = 138, TG_CONTACTS = 4,
@@ -209,7 +209,7 @@ static void put_host_list(void)
         memcpy(d + (size_t)k * 24 + 20, &ents[k].b, 4);
     }
     *(u32 *)(list + 12) = d ? n : 0;
-    if (g_bi != BUILD_BETA26) *(u32 *)(g_vm + VM_SEL_LIST + 12) = 0;     // (the 2026 beta only times units by it)
+    if (!IS2026) *(u32 *)(g_vm + VM_SEL_LIST + 12) = 0;     // (the 2026 beta only times units by it)
     g_put_seq = g_host_seq;
     g_stat_put++;
     g_stat_entries += n;
@@ -277,7 +277,7 @@ static void install(ObjMan *om)
     const char *agn = "adv_game.codelib";
     g_ag = build_module(agn);
     Object *vm = g_ag ? engine_find(om, "i_visman", "visman") : 0;
-    bool b26 = g_bi == BUILD_BETA26;
+    bool b26 = IS2026;
     char *tick = g_ag ? build_code(agn, VM_TICK, b26 ? tick_b26 : tick_old, b26 ? sizeof tick_b26 : sizeof tick_old) : 0;
     char *step = b26 && g_ag ? build_code(agn, VM_STEP, step_b26, sizeof step_b26) : 0;
     if (!vm || (char *)vm->vtbl != g_ag + VM_VTABLE || !tick || (b26 && (!step || *(float *)(g_ag + VM_HALF) != 0.5f ||

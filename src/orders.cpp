@@ -58,18 +58,18 @@ static size_t g_interf_base, g_interf_size;
 enum { ORDER_HEAD = 11, ORDER_UNITS = 12, KEYS_IN_HEAD = 9, KEYS_IN_MORE = 18 };
 enum { O_SETTINGS = 1, O_QUEUE = 2, O_REVERSE = 4 };
 // adv_interf: where the order worker and the reverse routine come back from the order call, and the worker itself
-#define WORKER_RETURN  BV(0x13fa6, 0x13fa6, 0x14310)
-#define REVERSE_RETURN BV(0x13eb2, 0x13eb2, 0x141bc)
-#define ORDER_WORKER   BV(0x13f20, 0x13f20, 0x14260)
+#define WORKER_RETURN  BV(0x13fa6, 0x13fa6, 0x14310, 0x147dd)
+#define REVERSE_RETURN BV(0x13eb2, 0x13eb2, 0x141bc, 0x14679)
+#define ORDER_WORKER   BV(0x13f20, 0x13f20, 0x14260, 0x14720)
 // unit vtable: put into reverse (arg 1; beta26 from the reverse routine), alive enough to be selected,
 // "this player commands the squad" (beta26 from the box selection +0x139020)
-#define ORD_VT_REVERSE    BF(0x590, 0x5a0)
-#define ORD_VT_SELECTABLE BF(0x350, 0x358)
-#define ORD_VT_COMMANDED  BF(0x550, 0x558)
+#define ORD_VT_REVERSE    BF(0x590, 0x5a0, 0x5a0)
+#define ORD_VT_SELECTABLE BF(0x350, 0x358, 0x358)
+#define ORD_VT_COMMANDED  BF(0x550, 0x558, 0x558)
 // soldier (adv_physic): the vehicle he sits in (0 on foot), his station in it (-1 none) - as the soldier's slot 182
 // (+0x62730) returns them, beta26 slot 184 (+0xa9130)
-#define ORD_HUMAN_VEHICLE BF(0x2388, 0x3110)
-#define ORD_HUMAN_STATION BF(0x1da4, 0x2568)
+#define ORD_HUMAN_VEHICLE BF(0x2388, 0x3110, 0x3198)
+#define ORD_HUMAN_STATION BF(0x1da4, 0x2568, 0x2588)
 
 static const char *const k_kinds[] = {
     "move", "defence", "targets", "sector", "rotate", "trg_gnd", "stop", "wait", "enter", "leave", "crew", "shot",
@@ -92,7 +92,7 @@ struct Incoming { ShotRec head; std::vector<u64> keys; u32 want; };
 // slot, pos = the point, launch +0 the vector, +16 the angle, +20 the tag, +72 the first unit numbers as in kind 11
 // (more in kind 12 records); the host makes the same call for those of the units that are the joining player's.
 enum { AIM_ORDER = 15, AIM_FIRST = 21, AIM_SLOTS = 4 };
-#define FORMATION_VT BV(0x12f930, 0x12f930, 0x1e1808)          // i_formation's vtable (adv_game)
+#define FORMATION_VT BV(0x12f930, 0x12f930, 0x1e1808, 0x20f528)          // i_formation's vtable (adv_game)
 typedef u64 (*AimSector)(char *, const float *, float, EngList *);
 typedef u64 (*AimClear)(char *, EngList *);
 typedef void (*AimGround)(char *, const float *, const float *, EngList *, int);
@@ -283,10 +283,11 @@ static void install_aim_hooks(char *ag)
 {
     static const size_t old[AIM_SLOTS] = { 0xcd6a0, 0xcd850, 0xcd920, 0xcdaf0 };
     static const size_t b26[AIM_SLOTS] = { 0x156370, 0x156530, 0x156610, 0x1567f0 };
+    static const size_t b26n[AIM_SLOTS] = { 0x173bb0, 0x173d70, 0x173e50, 0x174030 };     // (beta 26858192, identical code)
     void *hooks[AIM_SLOTS] = { (void *)aim21_hook, (void *)aim22_hook, (void *)aim23_hook, (void *)aim24_hook };
     void **vt = (void **)(ag + FORMATION_VT);
     for (int i = 0; i < AIM_SLOTS; i++)
-        if (!readable(vt + AIM_FIRST + i, 8) || vt[AIM_FIRST + i] != ag + BV(old[i], old[i], b26[i])) {
+        if (!readable(vt + AIM_FIRST + i, 8) || vt[AIM_FIRST + i] != ag + BV(old[i], old[i], b26[i], b26n[i])) {
             mp_log("orders: unknown game build - sector, turn and fire-at-ground orders stay in the joining player's game");
             return;
         }
@@ -315,9 +316,9 @@ void orders_install(ObjMan *om)
     g_interf_base = (size_t)ai;
     g_interf_size = nt->OptionalHeader.SizeOfImage;
     // i_formation slot 16 (beta26 +0x144d10: the same first bytes)
-    const unsigned char *osig = BV(sig, sig, sig26);
-    size_t osig_n = BV(sizeof sig, sizeof sig, sizeof sig26);
-    char *fn = build_code("adv_game.codelib", BV(0xd3910, 0xd3910, 0x160f40), osig, osig_n);
+    const unsigned char *osig = BV(sig, sig, sig26, sig26);
+    size_t osig_n = BV(sizeof sig, sizeof sig, sizeof sig26, sizeof sig26);
+    char *fn = build_code("adv_game.codelib", BV(0xd3910, 0xd3910, 0x160f40, 0x17f160), osig, osig_n);
     if (!fn) { mp_log("orders: unknown game build - the joining player's orders cannot reach the host"); return; }
     g_issue = (Issue)install_detour(fn, osig_n, issue_hook);
     mp_log("orders: %s%s", g_issue ? "the order call is hooked - a joining player's orders are carried out by the host's game" : "could not be hooked",
@@ -588,8 +589,8 @@ void orders_test_place(int index, float dx, float dz)
 // places, wheel +0x30). "wheelgap" logs, for every vehicle in this game, how far its wheels are from where they belong
 // - the largest change of a wheel's distance from the body since the battle description put it there is not known, so
 // the largest distance of a wheel from its vehicle's body is given, per vehicle over 6 m (a wheel left behind).
-#define PV_WHEELS BF(0x11e8, 0x17a8)
-#define PV_WHEEL_SIZE BF(0x2a0, 0x2f0)
+#define PV_WHEELS BF(0x11e8, 0x17a8, 0x17a8)
+#define PV_WHEEL_SIZE BF(0x2a0, 0x2f0, 0x2f0)
 void orders_test_place_vehicle(int index, float dx, float dz)
 {
     std::vector<u32> squads, all = session_own_squads();

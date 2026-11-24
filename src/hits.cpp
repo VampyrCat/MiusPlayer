@@ -62,8 +62,8 @@ enum { H_AMMO = 0x68, H_DESC2 = 0x70, H_SHOOTER = 0x78, H_SIZE = 0x80, H_ROOM = 
 // bytes its callers leave zero at +0x80); the 2026-11-18 beta's has a number more at +0x90 (zero, or set for a
 // hit by debris - the soldier's routine +0xcb890 reads it, and +0x5c, for its log line). The record a received hit
 // is carried out with is therefore H_ROOM bytes, zero beyond what was sent.
-#define SEED_VEHICLE BF(0xb64, 0xbd4)
-#define SEED_SOLDIER BF(0x2768, 0x4670)
+#define SEED_VEHICLE BF(0xb64, 0xbd4, 0xbd4)
+#define SEED_SOLDIER BF(0x2768, 0x4670, 0x4710)
 
 // The hit's place (+0x00), the shell's direction (+0x10) and the surface's normal (+0x20; the vehicle's
 // hit routine turns place and normal into a mark, and the direction into an angle). They are in the
@@ -221,8 +221,8 @@ static void install(ObjMan *om)
     InitializeCriticalSection(&g_lock);
     // the classes' tables, their hit slot and what it holds (beta26: i_techn::vftable +0x15bda8 and i_human::vftable
     // +0x156768, read in IDA; their only references besides the tables are the unwind data, no direct calls)
-    size_t techn_vt = BV(0xc7790, 0xc7750, 0x189f58), human_vt = BV(0xc6518, 0xc64d8, 0x184d90), slot = BF(81, 82);
-    char *techn_fn = base + BV(0x43230, 0x43230, 0x6adc0), *human_fn = base + BV(0x66cc0, 0x66c90, 0xc2910);
+    size_t techn_vt = BV(0xc7790, 0xc7750, 0x189f58, 0x1b0450), human_vt = BV(0xc6518, 0xc64d8, 0x184d90, 0x1aa938), slot = BF(81, 82, 82);
+    char *techn_fn = base + BV(0x43230, 0x43230, 0x6adc0, 0x743d0), *human_fn = base + BV(0x66cc0, 0x66c90, 0xc2910, 0xd2a10);
     void **techn = (void **)(base + techn_vt) + slot, **human = (void **)(base + human_vt) + slot;
     if (!techn_vt || !human_vt || !slot || !readable(techn, 8) || !readable(human, 8) || *techn != techn_fn || *human != human_fn) {
         g_enabled = false;
@@ -251,7 +251,7 @@ static void install(ObjMan *om)
 // copy of the soldier before every step (and as soon as it arrives, for the end of the battle).
 // beta26: the condition is at +0x7f8 (the soldier's hit +0x9d8c0 reads it, slot 189 +0xa9170 "alive" compares it
 // with 0.5), his flags at +0x808.
-#define S_LIFE BF(0x7c8, 0x7f8)
+#define S_LIFE BF(0x7c8, 0x7f8, 0x7f8)
 static std::unordered_map<u64, float> g_cond_sent;          // this game's soldiers: the value last sent
 static std::unordered_map<u64, float> g_cond_want;          // the other player's soldiers: their owner's value
 static u64 g_stat_cond_sent, g_stat_cond_set;

@@ -1,6 +1,8 @@
 // Recognising the game build (see build.h). The link stamps are those of the Steam builds' shipped files
 // (Mius Framework research, builds\<label>.json, checked against the files of each build). The third column is
-// public_beta-26834468's, read from Steam's files of 2026-11-21 (20:55); the betas it replaced (no longer served) had
+// public_beta-26834468's, read from Steam's files of 2026-11-21 (20:55; Steam's default branch since 2026-11-22), the
+// fourth public_beta-26858192's (the beta branch since 2026-11-23, read from its files on 2026-11-24); the betas the
+// third column replaced (no longer served) had
 // base_shell 0x6afeaeb4 / base_main 0x6afeae9d (26779327, 2026-11-19 11:05), 0x6afe0678 / 0x6afe0660 (26768241,
 // 2026-11-19 01:53), 0x6afce297 / 0x6afce286 (26744384,
 // 2026-11-18), 0x6af84458 / 0x6af8443f (26665733, 2026-11-14), 0x6aefc0ff / 0x6aefc0f2 (26514238, 2026-11-08) and
@@ -11,24 +13,24 @@
 
 int g_bi = BUILD_UNKNOWN;
 
-static const char *const k_labels[BUILD_COUNT] = { "public_beta-16070931", "public-15814271", "public_beta-26834468" };
+static const char *const k_labels[BUILD_COUNT] = { "public_beta-16070931", "public-15814271", "public_beta-26834468", "public_beta-26858192" };
 
 struct Stamp { const char *module; DWORD stamp[BUILD_COUNT]; };
 static const Stamp k_stamps[] = {
-    { "base_shell.codelib",   { 0x670d5899, 0x66ed7c47, 0x6b01a91e } },
-    { "base_main.codelib",    { 0x670d5943, 0x66f2d70e, 0x6b01a90b } },
-    { "adv_game.codelib",     { 0x670d58d4, 0x66f2d3a9, 0x6b01a9e6 } },
-    { "adv_interf.codelib",   { 0x670d58bf, 0x66f2a92e, 0x6b01a989 } },
-    { "adv_opgame.codelib",   { 0x670d58d4, 0x66f2d62b, 0x6b01a9c5 } },
-    { "adv_physic.codelib",   { 0x67101542, 0x66f2a91e, 0x6b01a987 } },
-    { "adv_qbattle.codelib",  { 0x670d589d, 0x66f32f3f, 0x6b01a986 } },
-    { "adv_render.codelib",   { 0x670d5948, 0x66f2d711, 0x6b01a8f1 } },
-    { "basic_game.codelib",   { 0x670d59b5, 0x66f2d772, 0x6b01a9d3 } },
-    { "basic_input.codelib",  { 0x670d593e, 0x66f2d70c, 0x6b01a8e8 } },
-    { "basic_physic.codelib", { 0x670d5886, 0x66f2a8ff, 0x6b01a94a } },
-    { "basic_render.codelib", { 0x670d5944, 0x66f2d710, 0x6b01a8e4 } },
-    { "basic_sound.codelib",  { 0x670d5942, 0x66f2d70b, 0x6b01a8a9 } },
-    { "basic_steam.codelib",  { 0x670d593a, 0x66f2d6f8, 0x6b01a892 } },
+    { "base_shell.codelib",   { 0x670d5899, 0x66ed7c47, 0x6b01a91e, 0x6b03951a } },
+    { "base_main.codelib",    { 0x670d5943, 0x66f2d70e, 0x6b01a90b, 0x6b039504 } },
+    { "adv_game.codelib",     { 0x670d58d4, 0x66f2d3a9, 0x6b01a9e6, 0x6b0395db } },
+    { "adv_interf.codelib",   { 0x670d58bf, 0x66f2a92e, 0x6b01a989, 0x6b039573 } },
+    { "adv_opgame.codelib",   { 0x670d58d4, 0x66f2d62b, 0x6b01a9c5, 0x6b0395bb } },
+    { "adv_physic.codelib",   { 0x67101542, 0x66f2a91e, 0x6b01a987, 0x6b03958c } },
+    { "adv_qbattle.codelib",  { 0x670d589d, 0x66f32f3f, 0x6b01a986, 0x6b03957d } },
+    { "adv_render.codelib",   { 0x670d5948, 0x66f2d711, 0x6b01a8f1, 0x6b0394f1 } },
+    { "basic_game.codelib",   { 0x670d59b5, 0x66f2d772, 0x6b01a9d3, 0x6b0395c8 } },
+    { "basic_input.codelib",  { 0x670d593e, 0x66f2d70c, 0x6b01a8e8, 0x6b0394e5 } },
+    { "basic_physic.codelib", { 0x670d5886, 0x66f2a8ff, 0x6b01a94a, 0x6b039546 } },
+    { "basic_render.codelib", { 0x670d5944, 0x66f2d710, 0x6b01a8e4, 0x6b0394dc } },
+    { "basic_sound.codelib",  { 0x670d5942, 0x66f2d70b, 0x6b01a8a9, 0x6b0394a1 } },
+    { "basic_steam.codelib",  { 0x670d593a, 0x66f2d6f8, 0x6b01a892, 0x6b03948e } },
 };
 
 static DWORD link_stamp(HMODULE m)

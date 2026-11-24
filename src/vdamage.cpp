@@ -56,16 +56,16 @@ static bool g_enabled = true, g_checked;
 static u64 g_stat_sent, g_stat_bytes, g_stat_set, g_stat_mismatch, g_stat_vehicles;
 static DWORD g_last_scan;
 
-#define TRK_SIZE   BF(0x2c0, 0x410)          // a track record (beta26: read in IDA, adv_physic +0x4f400 / +0xf7f20)
-#define TRK_FLAGS  BF(0x1c7, 0x1cd)          // broken, -, whole track off the wheels, a bare wheel on the ground
-#define TRK_REPAIR BF(0x19c, 0x190)          // repair progress (s of work)
+#define TRK_SIZE   BF(0x2c0, 0x410, 0x410)          // a track record (beta26: read in IDA, adv_physic +0x4f400 / +0xf7f20)
+#define TRK_FLAGS  BF(0x1c7, 0x1cd, 0x1cd)          // broken, -, whole track off the wheels, a bare wheel on the ground
+#define TRK_REPAIR BF(0x19c, 0x190, 0x190)          // repair progress (s of work)
 enum { MAX_TRK = 8, MOD_SIZE = 0x78, MOD_DAMAGE = 0x5c, SEC_SIZE = 0x24, SEC_LEFT = 0x1c, SEC_GONE = 0x20, MAX_MOD = 250, MAX_SEC = 230, ROOM = 1150 };      // (one part of either fits a 1200-byte datagram)
 // the vehicle's fields (above); NP: not in that build
-#define V_MODULES BF(0x1138, 0x16f8)
-#define V_TRACKS BF(0x1200, 0x17c0)
-#define V_SECOND BF(0x1db8, 0x3860)
-#define V_BUTTONED BF(0xd0b, 0xd7b)
-#define V_END BF(0x1e40, 0x390c)               // (all of them lie below this)
+#define V_MODULES BF(0x1138, 0x16f8, 0x16f8)
+#define V_TRACKS BF(0x1200, 0x17c0, 0x17c0)
+#define V_SECOND BF(0x1db8, 0x3860, 0x38f0)
+#define V_BUTTONED BF(0xd0b, 0xd7b, 0xd7b)
+#define V_END BF(0x1e40, 0x390c, 0x399c)               // (all of them lie below this)
 
 static bool on(void)
 {
@@ -124,14 +124,14 @@ static bool track_list(char *v, char **recs, u32 *count)
 // no track itself and makes the host's breaks through the same function at the same wheel; it takes the host's repair
 // progress every step, so that its own step repairs the track when the host's does; a track the host has whole again
 // that is still broken here is repaired with the step's own writes.
-#define TRK_BREAK      BV(0x34270, 0x34270, 0x53790)
-#define LINK_MGR       BV(0xd9d20, 0xd9d20, 0x1c3a08)
-#define TRK_WHEELS     BF(0x200, 0x350)    // the track's wheels: 16-byte entries {wheel, u8 its links on it +8}, count +0xc
-#define TRK_LINKSET    BF(0xd8, 0xe0)
-#define WHEEL_LINKS_ON BF(0x289, 0x2c1)
-#define V_TRACK_FLAG1  BF(0x1c30, 0x36d8)  // (cleared by a break's callers and by a repair)
-#define V_TRACK_FLAG2  BF(0x1e3b, 0x3902)  // (cleared by a repair)
-#define V_REPAIR_TIME  BV(0x15c8, 0x15c8, 0x1bc8)    // the work a repair takes (s; beta26: the repair +0xf7f20)
+#define TRK_BREAK      BV(0x34270, 0x34270, 0x53790, 0x5afb0)
+#define LINK_MGR       BV(0xd9d20, 0xd9d20, 0x1c3a08, 0x1ef9e8)
+#define TRK_WHEELS     BF(0x200, 0x350, 0x350)    // the track's wheels: 16-byte entries {wheel, u8 its links on it +8}, count +0xc
+#define TRK_LINKSET    BF(0xd8, 0xe0, 0xe0)
+#define WHEEL_LINKS_ON BF(0x289, 0x2c1, 0x2c1)
+#define V_TRACK_FLAG1  BF(0x1c30, 0x36d8, 0x3748)  // (cleared by a break's callers and by a repair)
+#define V_TRACK_FLAG2  BF(0x1e3b, 0x3902, 0x3992)  // (cleared by a repair)
+#define V_REPAIR_TIME  BV(0x15c8, 0x15c8, 0x1bc8, 0x1bc8)    // the work a repair takes (s; beta26: the repair +0xf7f20)
 enum { TRACK_KIND = 19 };
 typedef u64 (*TrackBreak)(char *track, char *wheel, void *contacts);
 static TrackBreak g_break;
@@ -199,7 +199,7 @@ static void tracks_install(ObjMan *om)
     static const unsigned char sig[] = { 0x40, 0x53, 0x41, 0x56, 0x48, 0x83, 0xec, 0x28, 0x80, 0xb9, 0xc7, 0x01, 0x00, 0x00, 0x00 };
     // beta26 +0x4f400: mov r11,rsp; push rdi; push r15; sub rsp,0e8h; mov rdi,rcx
     static const unsigned char sig26[] = { 0x4c, 0x8b, 0xdc, 0x57, 0x41, 0x57, 0x48, 0x81, 0xec, 0xe8, 0x00, 0x00, 0x00, 0x48, 0x8b, 0xf9 };
-    bool b26 = g_bi == BUILD_BETA26;
+    bool b26 = IS2026;
     g_physic = build_module("adv_physic.codelib");
     char *fn = TRK_BREAK && g_physic ? build_code("adv_physic.codelib", TRK_BREAK, b26 ? sig26 : sig, b26 ? sizeof sig26 : sizeof sig) : 0;
     if (fn) g_break = (TrackBreak)install_detour(fn, b26 ? sizeof sig26 : sizeof sig, break_hook);
@@ -246,7 +246,7 @@ static void make_repair(char *v, char *track)
         char *wheel = *(char **)(list + (size_t)k * 16);
         if (readable(wheel, WHEEL_LINKS_ON + 1)) wheel[WHEEL_LINKS_ON] = 1;
     }
-    if (g_bi == BUILD_BETA26) {
+    if (IS2026) {
         *(u32 *)(track + 0x16c) = *(u32 *)(track + 0x180);     // (beta26: the links' phase back, the repair display 0)
         *(u32 *)(track + 0x1d4) = 0;
     }

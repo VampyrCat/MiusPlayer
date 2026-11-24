@@ -66,8 +66,8 @@ static u32 fingerprint(const void *p)
 }
 
 // The object manager's description table (rows of 0x10 bytes: number, pointer at +8) and its count.
-#define OM_DESC_ROWS  BF(0x1748, 0x2bb0)
-#define OM_DESC_COUNT BF(0x1754, 0x2bbc)
+#define OM_DESC_ROWS  BF(0x1748, 0x2bb0, 0x2bc8)
+#define OM_DESC_COUNT BF(0x1754, 0x2bbc, 0x2bd4)
 
 static void local_tables(ObjMan *om, std::vector<std::pair<u32, u32>> &desc, std::vector<std::pair<u32, u32>> &obj)
 {
@@ -204,8 +204,8 @@ void xlate_frame(ObjMan *om)
         char *shell = build_module("base_shell.codelib");
         void **vt = om->vtbl;
         // i_objman's vtable (63 slots in the 2024 builds, 62 in beta26; the copy holds more than either)
-        if (shell && (char *)vt == shell + BV(0x4ca10, 0x4ca10, 0xac840) && (char *)vt[OM_SLOT_OBJECT_BY_PLACE] == shell + BV(0x98e0, 0x98e0, 0xd940) &&
-            (char *)vt[OM_SLOT_DESC_PTR] == shell + BV(0x121d0, 0x121d0, 0x1da60)) {
+        if (shell && (char *)vt == shell + BV(0x4ca10, 0x4ca10, 0xac840, 0xada38) && (char *)vt[OM_SLOT_OBJECT_BY_PLACE] == shell + BV(0x98e0, 0x98e0, 0xd940, 0xd960) &&
+            (char *)vt[OM_SLOT_DESC_PTR] == shell + BV(0x121d0, 0x121d0, 0x1da60, 0x1e200)) {
             memcpy(g_vtbl_copy, vt - 1, sizeof g_vtbl_copy);
             g_obj_by_place = (Lookup)vt[OM_SLOT_OBJECT_BY_PLACE];
             g_desc_by_num = (Lookup)vt[OM_SLOT_DESC_PTR];

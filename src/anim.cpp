@@ -48,8 +48,9 @@ typedef void (*Set14)(char *, u32, unsigned char, float, float, float);
 typedef void (*SetB)(char *, u32, unsigned char);
 
 static char *g_mgr;
-static void *g_copy[51];              // (42 entries copied in the 2024 builds; the 2026-11-18 beta: its RTTI pointer and 49 slots;
-                                      //  beta 26779327 of 2026-11-19: 50 slots - one more at the end, +0x10cc40)
+static void *g_copy[52];              // (42 entries copied in the 2024 builds; the 2026-11-18 beta: its RTTI pointer and 49 slots;
+                                      //  beta 26779327 of 2026-11-19: 50 slots - one more at the end, +0x10cc40;
+                                      //  beta 26858192: 51 slots - one more at the end again, +0x110f30)
 static SetU g_o4, g_o10, g_o12, g_o21;
 static SetF g_o8, g_o16, g_o20;
 static Pick g_o11;
@@ -82,14 +83,14 @@ static u64 g_stat_dropped, g_stat_sent, g_stat_received, g_stat_groups;
 // bytes - each of the eleven setters differs from the 11-14 build's in that multiplier alone, so every field of a
 // record this file reads is where it was. The 2026-11-19 beta (26768241): the vtable +0x1fe438 (49 slots), the eleven
 // setters the same code at other places, the records and the soldier's fields where they were.
-#define ANIM_RECORDS BF(0x140, 0x1c0)
-#define ANIM_REC_SIZE BF(0x140, 0x210)   // a record (2026-11-14 beta 0x150; 2026-11-18 beta: 0xc0 more, beyond +0x139)
-#define S_HANDLE BF(0x1d60, 0x2518)
-#define S_DIR8 BF(0x1e70, 0x2634)
-#define S_LIE BF(0x1210, 0x1290)
-#define S_HEADING1 BF(0x1eac, 0x2694)
-#define S_HEADING2 BF(0x1ef8, 0x2830)
-#define S_END BF(0x1f00, 0x2838)               // (all of them lie below this)
+#define ANIM_RECORDS BF(0x140, 0x1c0, 0x1c0)
+#define ANIM_REC_SIZE BF(0x140, 0x210, 0x210)   // a record (2026-11-14 beta 0x150; 2026-11-18 beta: 0xc0 more, beyond +0x139)
+#define S_HANDLE BF(0x1d60, 0x2518, 0x2538)
+#define S_DIR8 BF(0x1e70, 0x2634, 0x2654)
+#define S_LIE BF(0x1210, 0x1290, 0x1290)
+#define S_HEADING1 BF(0x1eac, 0x2694, 0x26b4)
+#define S_HEADING2 BF(0x1ef8, 0x2830, 0x2850)
+#define S_END BF(0x1f00, 0x2838, 0x2858)               // (all of them lie below this)
 
 static bool active(void) { return g_on && g_hooked && session_connected() && session_simulating() && session_versus_or_coop(); }
 
@@ -105,7 +106,7 @@ static bool active(void) { return g_on && g_hooked && session_connected() && ses
 // figure every frame; nothing else changes on the wire). The 2024 builds keep the owner's number as before (there
 // +0xd4 at nought was seen to hold the animation - see anim_frame - and their update has not been read again).
 static u64 g_stat_own_rate;
-static bool own_pose_rate(void) { return g_bi == BUILD_BETA26; }
+static bool own_pose_rate(void) { return IS2026; }
 static inline bool held(u32 h) { return h < g_followed.size() && g_followed[h] && active(); }
 
 static u64 h4(char *m, u32 h, u32 v) { if (held(h)) { g_stat_dropped++; return 0; } return g_o4(m, h, v); }
@@ -218,14 +219,16 @@ static void install(ObjMan *om)
     // the setters' slots and addresses (adv_game is the same code in both 2024 builds); beta26 read in IDA
     static const unsigned rva_old[] = { 0xa4040, 0xa1350, 0xa13b0, 0xa4ec0, 0xa4ff0, 0xa13d0, 0xa5030, 0xa1420, 0xa1440, 0xa1460, 0xa14c0 };
     static const unsigned rva_26[] = { 0x100a10, 0xfd4e0, 0xfd540, 0x102af0, 0x102c30, 0xfd560, 0x102c70, 0xfd5b0, 0xfd5d0, 0xfd5f0, 0xfd650 };
+    // (beta 26858192: the same eleven setters, identical code, at the same slots; the records and the manager as before)
+    static const unsigned rva_26n[] = { 0x114200, 0x110c10, 0x110c70, 0x116300, 0x116440, 0x110c90, 0x116480, 0x110ce0, 0x110d00, 0x110d20, 0x110d80 };
     static const int slot_old[] = { 4, 8, 10, 11, 12, 13, 14, 16, 20, 21, 26 }, slot_26[] = { 4, 8, 10, 11, 12, 13, 14, 16, 21, 22, 27 };
-    const unsigned *rva = BV(rva_old, rva_old, rva_26);
-    const int *slot = BV(slot_old, slot_old, slot_26);
-    bool known = mgr && m && (char *)mgr->vtbl == m + BV(0x12f128, 0x12f128, 0x1dfee8);
+    const unsigned *rva = BV(rva_old, rva_old, rva_26, rva_26n);
+    const int *slot = BV(slot_old, slot_old, slot_26, slot_26);
+    bool known = mgr && m && (char *)mgr->vtbl == m + BV(0x12f128, 0x12f128, 0x1dfee8, 0x209010);
     for (int i = 0; known && i < _countof(slot_old); i++) known = (char *)mgr->vtbl[slot[i]] == m + rva[i];
     if (!known) { mp_log("anim: unknown game build, each game animates every soldier for itself"); return; }
     void **vt = mgr->vtbl;
-    memcpy(g_copy, vt - 1, BF(42, 51) * sizeof(void *));
+    memcpy(g_copy, vt - 1, BF(42, 51, 52) * sizeof(void *));
     g_o4 = (SetU)vt[slot[0]]; g_o8 = (SetF)vt[slot[1]]; g_o10 = (SetU)vt[slot[2]]; g_o11 = (Pick)vt[slot[3]]; g_o12 = (SetU)vt[slot[4]];
     g_o13 = (Set0)vt[slot[5]]; g_o14 = (Set14)vt[slot[6]]; g_o16 = (SetF)vt[slot[7]]; g_o20 = (SetF)vt[slot[8]]; g_o21 = (SetU)vt[slot[9]];
     g_o26 = (SetB)vt[slot[10]];

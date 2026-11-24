@@ -2,6 +2,13 @@
 
 Every release of MiusPlayer. Both players need the same network version; the launcher keeps the mod up to date.
 
+## 2.8.7 - 2026-11-24 (network 31)
+- Steam's new beta (public_beta-26858192, on the beta branch since 2026-11-23) is supported. Steam made the build of
+  2026-11-21 (26834468) its default branch on 2026-11-22, so both are supported now: the mod knows four builds - the
+  two 2026 ones and the two of 2024. The launcher recognises the new beta and installs the mod there.
+- Nothing changes on the wire (network 31): players of 2.8.5, 2.8.6 and 2.8.7 can play together, each on the build
+  his game has.
+
 ## 2.8.6 - 2026-11-24 (network 31)
 - Fixed: the main menu's MULTIPLAYER entry was gone after the player had been in an operation and left it - until the
   game was started again (and F9 and Steam's "Join Game" waited for a main menu that never came). The mod read the

@@ -104,7 +104,7 @@ static bool replicated_singleton(Object *o)
     if (enabled < 0) {
         char v[8];
         enabled = GetEnvironmentVariableA("MP_SYNC_WORLD", v, sizeof v) ? atoi(v) : 0;
-        if (enabled && !BF(1, NP)) {
+        if (enabled && !BF(1, NP, NP)) {
             mp_log("state: MP_SYNC_WORLD is not ported to this build, only units are replicated");
             enabled = 0;
         }

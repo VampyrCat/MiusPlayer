@@ -23,12 +23,12 @@
 #include "protocol.h"
 #include <string.h>
 
-#define TM_VTABLE   BV(0x130640, 0x130640, 0x1e2c98)
-#define CAPTURE_FN  BV(0xf4ff0, 0xf4ff0, 0x19ac00)
+#define TM_VTABLE   BV(0x130640, 0x130640, 0x1e2c98, 0x2111f0)
+#define CAPTURE_FN  BV(0xf4ff0, 0xf4ff0, 0x19ac00, 0x1bac40)
 // the trigger manager's cell table, its count and its change counter (the capture's ++[tm+0x290] in the 2026-11-14 beta)
-#define TM_CELLS    BF(0x240, 0x260)
-#define TM_CELL_N   BF(0x24c, 0x26c)
-#define TM_CHANGES  BF(0x270, 0x290)
+#define TM_CELLS    BF(0x240, 0x260, 0x260)
+#define TM_CELL_N   BF(0x24c, 0x26c, 0x26c)
+#define TM_CHANGES  BF(0x270, 0x290, 0x290)
 enum {
     CELL_REC = 0x100, CELL_OWNER = 0x50, CELL_SHOWN = 0x54, CELL_TIMER = 0xe8, CELL_SIDE = 0xf0, CELL_UNIT = 0xf8,
     CELLS = 17, PER_REC = 32, CELLS_MAX = 8192, NEUT = 0x5455454e
@@ -86,7 +86,7 @@ static void install(ObjMan *om)
     const char *ag = "adv_game.codelib";
     char *base = build_module(ag);
     Object *tm = base ? engine_find(om, "i_trigman", "trigman") : 0;
-    char *fn = base ? build_code(ag, CAPTURE_FN, BV(sig_old, sig_old, sig_b26), BV(sizeof sig_old, sizeof sig_old, sizeof sig_b26)) : 0;
+    char *fn = base ? build_code(ag, CAPTURE_FN, BV(sig_old, sig_old, sig_b26, sig_b26), BV(sizeof sig_old, sizeof sig_old, sizeof sig_b26, sizeof sig_b26)) : 0;
     // (its function table may be endgame.cpp's private copy of the class's by now: the first entry tells)
     if (!tm || !fn || !readable(tm, TM_CHANGES + 4) || !readable(tm->vtbl, 8) || tm->vtbl[0] != ((void **)(base + TM_VTABLE))[0]) {
         mp_log("cells: unknown game build, each game takes its own ground");

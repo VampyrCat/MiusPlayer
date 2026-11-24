@@ -36,11 +36,11 @@ unsigned readable_calls(void);       // the system calls readable() has made sin
 // reads the inverse at +0x140 (+0x130) and the centre at +0x1c0 (+0x1b0) and adds to +0x1e0 / +0x1f0 (+0x1d0 /
 // +0x1e0); the point-velocity routines, slots 12 and 19 (+0xa8800, +0xcd750; +0x61d50, +0x617d0), read the rows at
 // +0x100..+0x120 (+0xf0..+0x110)). They are values of the running build, not constants.
-#define UNIT_ROT BF(0xf0, 0x100)
-#define UNIT_INV BF(0x130, 0x140)
-#define UNIT_POS BF(0x1b0, 0x1c0)
-#define UNIT_LIN BF(0x1d0, 0x1e0)
-#define UNIT_ANG BF(0x1e0, 0x1f0)
+#define UNIT_ROT BF(0xf0, 0x100, 0x100)
+#define UNIT_INV BF(0x130, 0x140, 0x140)
+#define UNIT_POS BF(0x1b0, 0x1c0, 0x1c0)
+#define UNIT_LIN BF(0x1d0, 0x1e0, 0x1e0)
+#define UNIT_ANG BF(0x1e0, 0x1f0, 0x1f0)
 // A unit's saved state starts with its rigid body, object UNIT_ROT .. UNIT_ROT + 0x1d0 (+0xf0..+0x2c0; beta26
 // +0x100..+0x2d0), as the first 0x1d0 bytes of the blob: the base save's first field table (adv_physic +0xd7e90;
 // beta26 +0x178360, +0x1785c0, +0x178490) has the same 0x1d0 bytes of fields there in both, 0x10 further on.

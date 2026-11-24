@@ -35,11 +35,11 @@
 #include <unordered_map>
 #include <vector>
 
-#define OR_VTABLE  BV(0xe5110, 0xe5108, 0x1700a0)
-#define OBJ_HIT_FN BV(0xaea00, 0xae910, 0x100450)
-#define OBJ_BOUNDS BV(0xb5580, 0xb5490, 0x1077f0)
-#define OR_POOL    BF(792, 880)
-#define OR_STORED  BF(2624, 2832)
+#define OR_VTABLE  BV(0xe5110, 0xe5108, 0x1700a0, 0x172910)
+#define OBJ_HIT_FN BV(0xaea00, 0xae910, 0x100450, 0x1027e0)
+#define OBJ_BOUNDS BV(0xb5580, 0xb5490, 0x1077f0, 0x109b90)
+#define OR_POOL    BF(792, 880, 880)
+#define OR_STORED  BF(2624, 2832, 2832)
 enum {
     OR_SCENE = 256, OR_ELEM = 272, OR_SLOT_ACTIVE = 4, OR_SLOT_DESTROYED = 15, STORED_SIZE = 48,
     OE_MATRIX = 16, OE_OWNER = 128, OE_HITFN = 136, OE_TYPE = 144, OE_BODY = 152, OE_INDEX = 168, OE_ID = 216, OE_LEVEL = 220,
@@ -274,7 +274,7 @@ static void apply_one(const unsigned char *e)
         unsigned char st = o[OE_STATE], lv = o[OE_LEVEL];
         int kind = *(const int *)(type + OT_KIND);
         bool gone_there = (hst & 0x0c) == 0x0c, gone_here = (st & 0x0c) == 0x0c;
-        bool building = kind == 2 || (g_bi == BUILD_BETA26 && kind == 3 && *(void *const *)(o + OE_BODY));
+        bool building = kind == 2 || (IS2026 && kind == 3 && *(void *const *)(o + OE_BODY));
         if (hlv > lv || (gone_there && !gone_here)) {
             if (building) {
                 if (!gone_here && type[OT_DESTRUCTIBLE]) {

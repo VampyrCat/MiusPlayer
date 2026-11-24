@@ -345,8 +345,8 @@ static void keep_running_unfocused(ObjMan *om)
     // (2026 beta: the same - i_loader's constructor base_main+0x1d8a0 reads b:lost_fwork into +0x2ac, and the loader
     //  hands it to i_window slot 8, +0x1afb0, which stores it at +0x2a7 like the 2024 builds' +0xc710.)
     Object *loader = engine_find(om, "i_loader", "loader"), *window = engine_find(om, "i_window", "window");
-    if (loader && BF(0x2ac, 0x2ac)) ((char *)loader)[BF(0x2ac, 0x2ac)] = 1;
-    if (window && BF(8, 8)) ((void (*)(Object *, char))window->vtbl[BF(8, 8)])(window, 1);
+    if (loader && BF(0x2ac, 0x2ac, 0x2ac)) ((char *)loader)[BF(0x2ac, 0x2ac, 0x2ac)] = 1;
+    if (window && BF(8, 8, 8)) ((void (*)(Object *, char))window->vtbl[BF(8, 8, 8)])(window, 1);
     EnumWindows(find_main_window, (LPARAM)&w);
     if (!w) return;
     g_prev_wndproc = (WNDPROC)SetWindowLongPtrA(w, GWLP_WNDPROC, (LONG_PTR)focus_wndproc);
@@ -604,7 +604,7 @@ static void on_sync(Object *o, void *)
     o->flags &= ~1u;
     // (this object declares no links, dep_n is 0. A link record is dep_size() bytes; on the 2026 beta it holds a
     //  setter instead of the destination, so the stock way of filling one is the 2024 builds' only.)
-    for (u32 i = 0; i < o->dep_n && g_bi != BUILD_BETA26; i++) {
+    for (u32 i = 0; i < o->dep_n && !IS2026; i++) {
         Dep *d = (Dep *)engine_dep(o, i);
         *d->dest = ((Object *(*)(ObjMan *, Dep *))o->objman->vtbl[9])(o->objman, d);
     }
@@ -650,7 +650,7 @@ static void on_ctrl_tick(Object *o, void *msg)
         }
     }
     // once per simulated second: fingerprint of every unit position, to compare instances step for step
-    if (n->trace && ms && before / 1000 != n->sim_ms / 1000 && g_bi != BUILD_BETA26) {
+    if (n->trace && ms && before / 1000 != n->sim_ms / 1000 && !IS2026) {
         ObjMan *om = o->objman;
         u32 count, units = 0;
         Object **all = all_objects(om, &count);
@@ -693,7 +693,7 @@ static void on_tick(Object *o, void *msg)
     // Never done in ordinary single-player use, where the player's speed buttons must keep working.
     //   i_ctrltimer: +0x108 requested speed, +0x10c current speed, +0x15c pause, +0x15d automatic speed control
     if (g_lockstep && !n->ctrltimer) n->ctrltimer = engine_find(o->objman, "i_ctrltimer", "ctrltimer");
-    if (g_lockstep && n->ctrltimer && g_bi != BUILD_BETA26) {       // (an experiment of the 2024 builds' timer layout)
+    if (g_lockstep && n->ctrltimer && !IS2026) {       // (an experiment of the 2024 builds' timer layout)
         char *ct = (char *)n->ctrltimer;
         ct[0x15d] = 0;
         *(float *)(ct + 0x108) = 1.0f;

@@ -98,12 +98,12 @@ static void close_menu(void)
 // before use, so a different game build simply skips them.
 // The controller's fields this file reads, per build (beta26: read in its constructor and in the Skirmish
 // screen's code, which use them as the 2024 builds do):
-static size_t mc_screen(void) { return BF(0x1258, 0x1268); }   // current screen (the skirmish entry's cmp [rcx+...], 11h)
-static size_t mc_mode(void)   { return BF(0x1200, 0x1210); }   // an operation's map view 0-3 (constructor: qword 4; it keeps the last view after the map)
-static size_t mc_date(void)   { return BF(0x1300, 0x1380); }   // Skirmish screen: year, season +4 (beta26 +0x6dc20 sets both)
-static size_t mc_size(void)   { return BF(0x131c, 0x139c); }   // battle size 0..3 (the screen's slot rows, beta26 +0x6ef70)
-static size_t mc_picks(void)  { return BF(0x1a74, 0x1af4); }   // the player's 0x84-byte picks, supports +0xf78 (beta26 +0x6ef70, +0x5d6f0)
-static size_t mc_spec(void)   { return BF(0x1950, 0x19d0); }   // -> the setup: +0x308 own side, +0x30c enemy (beta26 +0x5e120)
+static size_t mc_screen(void) { return BF(0x1258, 0x1268, 0x1268); }   // current screen (the skirmish entry's cmp [rcx+...], 11h)
+static size_t mc_mode(void)   { return BF(0x1200, 0x1210, 0x1210); }   // an operation's map view 0-3 (constructor: qword 4; it keeps the last view after the map)
+static size_t mc_date(void)   { return BF(0x1300, 0x1380, 0x1380); }   // Skirmish screen: year, season +4 (beta26 +0x6dc20 sets both)
+static size_t mc_size(void)   { return BF(0x131c, 0x139c, 0x139c); }   // battle size 0..3 (the screen's slot rows, beta26 +0x6ef70)
+static size_t mc_picks(void)  { return BF(0x1a74, 0x1af4, 0x1af4); }   // the player's 0x84-byte picks, supports +0xf78 (beta26 +0x6ef70, +0x5d6f0)
+static size_t mc_spec(void)   { return BF(0x1950, 0x19d0, 0x19d0); }   // -> the setup: +0x308 own side, +0x30c enemy (beta26 +0x5e120)
 
 static void *menu_controller(ObjMan *om)
 {
@@ -144,13 +144,13 @@ static void test_leave(ObjMan *om)
 {
     unsigned char og_menu[] = { 0x40, 0x53, 0x48, 0x83, 0xec, 0x20, 0x83, 0xb9, 0x78, 0x0d, 0x00, 0x00, 0x02 };
     static const unsigned char screen_to[] = { 0x48, 0x89, 0x5c, 0x24, 0x10, 0x48, 0x89, 0x6c, 0x24, 0x18, 0x56, 0x57, 0x41, 0x56, 0x48, 0x83, 0xec, 0x50 };
-    if (g_bi == BUILD_BETA26) og_menu[8] = 0x88;
+    if (IS2026) og_menu[8] = 0x88;
     int what = g_leave_asked;
     g_leave_asked = 0;
     const char *name = what == 1 ? "opleave" : "mainmenu";
     char *c = (char *)menu_controller(om);
-    char *fn = what == 1 ? build_code("adv_opgame.codelib", BV(0x353e0, 0x35280, 0x35710), og_menu, sizeof og_menu)
-                         : build_code("adv_opgame.codelib", BV(0x762e0, 0x75fe0, 0x87ac0), screen_to, sizeof screen_to);
+    char *fn = what == 1 ? build_code("adv_opgame.codelib", BV(0x353e0, 0x35280, 0x35710, 0x357d0), og_menu, sizeof og_menu)
+                         : build_code("adv_opgame.codelib", BV(0x762e0, 0x75fe0, 0x87ac0, 0x8a5d0), screen_to, sizeof screen_to);
     if (!fn || !c) { mp_log("test: %s - not here (%s)", name, !fn ? "not this game build" : "no controller"); return; }
     if (what == 1) ((void (*)(void *))fn)(c);
     else ((void (*)(void *, unsigned, unsigned))fn)(c, 0, 0);
@@ -165,9 +165,9 @@ static void test_leave(ObjMan *om)
 // the fade tick (+0x8cd00), with controller +0x3dbc set to 1 for that call. Called from here it gets 16 zero
 // bytes (the 2024 handler only keeps that argument on its stack: it is passed 0 there, as always).
 static const unsigned char k_no_event[16] = {};
-static u64 skirmish_event(void) { return g_bi == BUILD_BETA26 ? (u64)k_no_event : 0; }
+static u64 skirmish_event(void) { return IS2026 ? (u64)k_no_event : 0; }
 
-static size_t skirmish_rva(void) { return BV(0x627f0, 0x624f0, 0x6f860); }
+static size_t skirmish_rva(void) { return BV(0x627f0, 0x624f0, 0x6f860, 0x71c60); }
 
 static bool skirmish_stub_ok(void)
 {
@@ -178,7 +178,7 @@ static bool skirmish_stub_ok(void)
         // beta26: push rbx / sub rsp,80h / cmp dword [rcx+1268h],11h / mov rbx,rcx
         static const unsigned char head26[] = { 0x40, 0x53, 0x48, 0x81, 0xec, 0x80, 0x00, 0x00, 0x00, 0x83, 0xb9, 0x68, 0x12, 0x00, 0x00, 0x11,
                                                 0x48, 0x8b, 0xd9 };
-        bool b26 = g_bi == BUILD_BETA26;
+        bool b26 = IS2026;
         ok = build_code("adv_opgame.codelib", skirmish_rva(), b26 ? head26 : head, b26 ? sizeof head26 : sizeof head) != 0;
     }
     return ok != 0;
@@ -197,9 +197,9 @@ static bool skirmish_cost(ObjMan *om, unsigned *cost, unsigned *side, unsigned *
     // beta26: push rbp / push r12 / push r14 / push r15 / sub rsp,78h / cmp word [rdx],0
     static const unsigned char sig26[] = { 0x40, 0x55, 0x41, 0x54, 0x41, 0x56, 0x41, 0x57, 0x48, 0x83, 0xec, 0x78, 0x66, 0x83, 0x3a, 0x00 };
     static const unsigned table_sig[] = { 6, 10, 14, 18 };
-    bool b26 = g_bi == BUILD_BETA26;
-    char *fn = build_code("adv_opgame.codelib", BV(0x66650, 0x66350, 0x74310), b26 ? sig26 : sig, b26 ? sizeof sig26 : sizeof sig);
-    const unsigned *table = (const unsigned *)build_code("adv_opgame.codelib", BV(0x134698, 0x133698, 0x16a228), table_sig, sizeof table_sig);
+    bool b26 = IS2026;
+    char *fn = build_code("adv_opgame.codelib", BV(0x66650, 0x66350, 0x74310, 0x76710), b26 ? sig26 : sig, b26 ? sizeof sig26 : sizeof sig);
+    const unsigned *table = (const unsigned *)build_code("adv_opgame.codelib", BV(0x134698, 0x133698, 0x16a228, 0x175818), table_sig, sizeof table_sig);
     char *c = (char *)menu_controller(om);
     if (!fn || !table || !c || !readable(c, mc_picks() + 0xf78 + 2 * 0x84)) return false;
     int size = *(int *)(c + mc_size());
@@ -231,14 +231,15 @@ static void open_stock_screen(ObjMan *om, int mode)
         // user-made missions) are stubs of the same shape: xor r8d,r8d / mov edx,<screen> / jmp switch
         // (beta26 +0x2b110 / +0x2b150, registered under those names in +0x2e5f0; their jumps, checked too
         // there, lead to its screen switch +0x847c0)
-        size_t at = mode == HOST_MODE_OPERATION ? BV(0x2b210, 0x2b210, 0x2b3e0) : BV(0x2b250, 0x2b250, 0x2b420);
+        size_t at = mode == HOST_MODE_OPERATION ? BV(0x2b210, 0x2b210, 0x2b3e0, 0x2b3f0) : BV(0x2b250, 0x2b250, 0x2b420, 0x2b430);
+        // (beta 26858192's: the stubs +0x2b3f0 / +0x2b430, their jumps +0x5f1d3 / +0x5f193 to the switch +0x8a5d0)
         // (beta 26834468's jumps: +0x5c6d3 / +0x5c693 to the switch +0x87ac0, the stubs where they were)
         // (the 2026-11-18 beta's jumps: +0x5cbb3 / +0x5cb73 to the switch +0x87fa0 - the stubs where they were; the 11-14
         // beta's were +0x5b8b3 / +0x5b873 to +0x86ca0, the 11-08 beta's +0x59743 / +0x59703 to +0x84b10, the 11-06 beta's
         // +0x596a3 / +0x59663)
         const unsigned char stub[] = { 0x45, 0x33, 0xc0, 0xba, (unsigned char)(mode == HOST_MODE_OPERATION ? 2 : 3), 0x00, 0x00, 0x00, 0xe9,
-                                       (unsigned char)(mode == HOST_MODE_OPERATION ? 0xd3 : 0x93), 0xc6, 0x05, 0x00 };
-        char *fn = build_code("adv_opgame.codelib", at, stub, g_bi == BUILD_BETA26 ? sizeof stub : 9);
+                                       (unsigned char)(mode == HOST_MODE_OPERATION ? 0xd3 : 0x93), (unsigned char)BV(0, 0, 0xc6, 0xf1), 0x05, 0x00 };
+        char *fn = build_code("adv_opgame.codelib", at, stub, IS2026 ? sizeof stub : 9);
         if (!fn) { mp_log("ui: unknown game build, open the %s screen yourself", name); return; }
         ((void (*)(void *))fn)(c);
     }
@@ -272,7 +273,7 @@ template <class T> static IDirect3DDevice9 *device_of(IUnknown *u)
 static bool render_is_d3d11(Object *render)
 {
     char *m = build_module("basic_render.codelib");
-    size_t vt = BV(NP, NP, 0xf1ba8);
+    size_t vt = BV(NP, NP, 0xf1ba8, 0xf2070);
     return m && vt && *(char **)render == m + vt;
 }
 
@@ -823,7 +824,7 @@ static bool hosting_skirmish(void) { return session_role() == ROLE_HOST && sessi
 // (controller +0x3dbc set by the fade tick, see skirmish_event): it was decided on then, so it goes straight on.
 static bool deferred_start(void *c)
 {
-    size_t at = BV(NP, NP, 0x3dbc);
+    size_t at = BV(NP, NP, 0x3dbc, 0x3dbc);
     return at && readable(c, at + 1) && *((unsigned char *)c + at) != 0;
 }
 
@@ -861,7 +862,7 @@ static void catch_battle_start(void)
     if (!g_skirmish && skirmish_stub_ok()) {
         char *at = build_module("adv_opgame.codelib") + skirmish_rva();
         // (2024: 5 + 5 + 1 + 4 bytes of whole instructions; beta26: 2 + 7 + 7, push / sub rsp / cmp [rcx+1268h])
-        g_skirmish = (SkirmishFn)install_detour(at, BF(15, 16), skirmish_hook);
+        g_skirmish = (SkirmishFn)install_detour(at, BF(15, 16, 16), skirmish_hook);
     }
     if (g_real_create) return;
     char *base = (char *)GetModuleHandleA("base_shell.codelib");
@@ -2031,7 +2032,7 @@ void ui_render(ObjMan *om)
         if (g_frames % 600 == 0) ui11_idle();
         return;
     }
-    if (g_bi == BUILD_BETA26)          // (the only build with a Direct3D 11 renderer)
+    if (IS2026)          // (the only build with a Direct3D 11 renderer)
         if (Object *render = engine_find(om, "i_render", "render"))
             if (render_is_d3d11(render)) {
                 static int off = -1;       // tests: MP_UI_D3D11=0 draws nothing on Direct3D 11 (to tell the menu's drawing from the game's)

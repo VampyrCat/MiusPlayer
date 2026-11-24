@@ -8,7 +8,8 @@
 //
 //   BUILD_BETA16  public_beta-16070931  Steam's beta branch of October 2024 - the modding copy
 //   BUILD_PUBLIC  public-15814271       Steam's default branch (September 2024)
-//   BUILD_BETA26  public_beta-26834468  Steam's beta branch of 2026-11-21
+//   BUILD_BETA26  public_beta-26834468  Steam's beta branch of 2026-11-21 - its DEFAULT branch since 2026-11-22
+//   BUILD_BETA26N public_beta-26858192  Steam's beta branch of 2026-11-23
 //
 // The two 2024 builds lay out every object alike; only the code of six modules moved (adv_opgame, adv_interf,
 // adv_physic, basic_game, adv_qbattle, one call in basic_physic). The 2026 beta rebuilt everything: fields,
@@ -37,12 +38,15 @@
 // 0x4..0x70 (0x47b0 bytes), i_intereff's from about +0x1000 on 0x46c..0x470 nearer the start, the trigger manager's
 // from +0xd30 on 0x90 further on (0xf60 bytes), the AI commander's group records are 0x690 bytes, the battle timer's
 // pause is +0x1fc, and several hooked routines begin otherwise. Addresses named "beta26" in this source's comments
-// are mostly older builds'; the values in BV / BF are 26834468's.
+// are mostly older builds'; the third values in BV / the second in BF are 26834468's.
+// On 2026-11-22 Steam made 26834468 its default branch and on 11-23 put 26858192 on the beta branch: both are served,
+// so from 2026-11-24 the module knows four builds. BUILD_BETA26N is 26858192: the fourth value of BV and the third of
+// BF (ops\ports.md, "26858192"). IS2026 is either 2026 build - what the source did "on the 2026 beta" it does on both.
 #pragma once
 #define WIN32_LEAN_AND_MEAN
 #include <windows.h>
 
-enum { BUILD_UNKNOWN = -1, BUILD_BETA16 = 0, BUILD_PUBLIC = 1, BUILD_BETA26 = 2, BUILD_COUNT = 3 };
+enum { BUILD_UNKNOWN = -1, BUILD_BETA16 = 0, BUILD_PUBLIC = 1, BUILD_BETA26 = 2, BUILD_BETA26N = 3, BUILD_COUNT = 4 };
 extern int g_bi;                            // the running game's build (BUILD_UNKNOWN until build_detect())
 
 int build_detect(void);                     // once, before anything else; BUILD_UNKNOWN on an unknown build
@@ -52,9 +56,11 @@ char *build_module(const char *name);       // the module's base when it is load
 bool build_known(void);
 
 // A value per build, in the order of the enum above.
-#define BV(beta16, pub, beta26) (g_bi == BUILD_BETA26 ? (beta26) : g_bi == BUILD_PUBLIC ? (pub) : (beta16))
+#define BV(beta16, pub, beta26, beta26n) (g_bi == BUILD_BETA26N ? (beta26n) : g_bi == BUILD_BETA26 ? (beta26) : g_bi == BUILD_PUBLIC ? (pub) : (beta16))
 // Object fields, record sizes and vtable slots: the same in both 2024 builds.
-#define BF(old, beta26) BV(old, old, beta26)
+#define BF(old, beta26, beta26n) BV(old, old, beta26, beta26n)
+// Either 2026 build (26834468, 26858192): the 2026 layout, routines and renderer.
+#define IS2026 (g_bi >= BUILD_BETA26)
 // Not found in that build: what needs it stays off there.
 #define NP 0
 

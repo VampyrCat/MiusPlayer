@@ -52,7 +52,7 @@ struct Dep {
     u32         flags;      // bit 0: required, bit 1: reference counted
     u32         pad;
 };
-inline size_t dep_size(void) { return BF(0x20, 0x30); }
+inline size_t dep_size(void) { return BF(0x20, 0x30, 0x30); }
 
 // Object manager, reachable from every object at +0x60.
 //   vtbl[9]  (+0x48): Object *find(objman, Dep *)                                    (every build)
@@ -66,9 +66,9 @@ struct ObjMan { void **vtbl; };
 //   OM_SLOT_OBJECT_BY_PLACE  Object *(objman, u32 place)      the object at that place of the list at +0x150
 //   OM_SLOT_DESC_ID          u32 (objman, void *description)  its savegame number, 0xffffffff for none
 //   OM_SLOT_DESC_PTR         void *(objman, u32 number)       the description with that number, 0 for none
-#define OM_SLOT_OBJECT_BY_PLACE BF(54, 47)
-#define OM_SLOT_DESC_ID         BF(56, 49)
-#define OM_SLOT_DESC_PTR        BF(57, 50)
+#define OM_SLOT_OBJECT_BY_PLACE BF(54, 47, 47)
+#define OM_SLOT_DESC_ID         BF(56, 49, 49)
+#define OM_SLOT_DESC_PTR        BF(57, 50, 50)
 
 // Base header shared by every engine class (0xf0 bytes).
 //   vtbl[0] deleting destructor(self, flags)   vtbl[1] query(self, u32 *out) -> 0   vtbl[2] dispatch(self, msg)

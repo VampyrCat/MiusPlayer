@@ -166,13 +166,16 @@ namespace MiusPlayer
     {
         public static readonly KnownBuild[] Known = {
             new KnownBuild("public_beta-16070931", "older Steam beta build", 0x670d5899, 0x670d5943),
-            new KnownBuild("public-15814271", "Steam default branch", 0x66ed7c47, 0x66f2d70e),
-            // Steam's beta branch since 2026-11-21 20:55 (it replaced public_beta-26779327, 0x6afeaeb4 / 0x6afeae9d, of
+            new KnownBuild("public-15814271", "older Steam default build", 0x66ed7c47, 0x66f2d70e),
+            // Steam's beta branch from 2026-11-21 20:55 and its DEFAULT branch since 2026-11-22 17:34 (it replaced
+            // public-15814271 there; on the beta branch it had replaced public_beta-26779327, 0x6afeaeb4 / 0x6afeae9d, of
             // 2026-11-19 11:05, which had replaced public_beta-26768241, 0x6afe0678 / 0x6afe0660, of 2026-11-19 01:53,
             // public_beta-26744384, 0x6afce297 / 0x6afce286, of 2026-11-18, public_beta-26665733, 0x6af84458 / 0x6af8443f,
             // of 2026-11-14, public_beta-26514238, 0x6aefc0ff / 0x6aefc0f2, of 2026-11-08 and public_beta-26494568,
             // 0x6aee3958 / 0x6aee394a)
-            new KnownBuild("public_beta-26834468", "Steam beta branch", 0x6b01a91e, 0x6b01a90b),
+            new KnownBuild("public_beta-26834468", "Steam default branch", 0x6b01a91e, 0x6b01a90b),
+            // Steam's beta branch since 2026-11-23 03:33
+            new KnownBuild("public_beta-26858192", "Steam beta branch", 0x6b03951a, 0x6b039504),
         };
 
         public static KnownBuild Find(uint shell, uint main)

@@ -50,7 +50,7 @@ static bool on(void)
 static bool weapons(Object *o, char **arr, unsigned *n)
 {
     char *v = (char *)o;
-    size_t list = BF(0x1600, 0x1c20);           // the array; its count 12 bytes on
+    size_t list = BF(0x1600, 0x1c20, 0x1c20);           // the array; its count 12 bytes on
     if (!readable(v + list, 16)) return false;
     *arr = *(char **)(v + list);
     *n = *(u32 *)(v + list + 0xc);

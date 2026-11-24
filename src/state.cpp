@@ -97,8 +97,8 @@ bool state_is_unit(Object *o)
 // All three write the same stream as before (the two field tables of the same sizes, 0x296 bytes, then the
 // same lists); the part list moved to +0x880 (count +0x88c, room +0x890), 0x60-byte records with the handles
 // at +0x48 / +0x4c as before (the saves write 0x40 bytes, +0x48, +0x4c, +0x50 of each, adv_physic +0xdaf52..).
-#define PARTS   BF(0x850, 0x880)
-#define PARTS_N BF(0x85c, 0x88c)
+#define PARTS   BF(0x850, 0x880, 0x880)
+#define PARTS_N BF(0x85c, 0x88c, 0x88c)
 typedef void (*BaseLoad)(char *, void *);
 static BaseLoad g_base_load[3];
 static int g_remote_load;
@@ -220,9 +220,9 @@ void state_test_guard(void)
     char *render = build_module("basic_render.codelib");
     if (!render || !g_seen_render || !g_node_lookup || !g_node_matrix) { mp_log("test: render guards not ready"); return; }
     u64 before = g_bad_lookups;
-    u32 r = ((NodeLookup)(render + BV(0x13ab0, 0x13ab0, 0x19b30)))(g_seen_render, 0x3ffff0, 5);
+    u32 r = ((NodeLookup)(render + BV(0x13ab0, 0x13ab0, 0x19b30, 0x19d20)))(g_seen_render, 0x3ffff0, 5);
     float m[16];
-    ((NodeMatrix)(render + BV(0x13120, 0x13120, 0x191c0)))(g_seen_render, 0xfffffc05ull, m, 0);
+    ((NodeMatrix)(render + BV(0x13120, 0x13120, 0x191c0, 0x193b0)))(g_seen_render, 0xfffffc05ull, m, 0);
     mp_log("test: bad render handles - %llu of 2 calls caught (look-up gave %u, matrix [0] %.1f), the game goes on", g_bad_lookups - before, r, m[0]);
 }
 
@@ -250,9 +250,9 @@ static void install_part_guard(void)
     static bool tried;
     if (tried) return;
     tried = true;
-    bool b26 = g_bi == BUILD_BETA26;
+    bool b26 = IS2026;
     // the 2024 builds: one base load for every physical object; beta26: the soldier's, his carried object's, the vehicle's
-    const size_t loads[3] = { (size_t)BV(0x82090, 0x82020, 0x1057e0), (size_t)BV(NP, NP, 0x104d60), (size_t)BV(NP, NP, 0x106060) };
+    const size_t loads[3] = { (size_t)BV(0x82090, 0x82020, 0x1057e0, 0x11a5d0), (size_t)BV(NP, NP, 0x104d60, 0x119b50), (size_t)BV(NP, NP, 0x106060, 0x11ae50) };
     void (*const hooks[3])(char *, void *) = { base_load_hook0, base_load_hook1, base_load_hook2 };
     char *load[3] = {};
     int found = 0, wanted = 0;
@@ -265,10 +265,10 @@ static void install_part_guard(void)
     if (!found || found != wanted) { mp_log("state: unknown game build, render handles are not guarded"); return; }
     for (int k = 0; k < 3; k++)
         if (load[k]) g_base_load[k] = (BaseLoad)install_detour(load[k], b26 ? 20 : 14, (void *)hooks[k]);
-    if (char *lookup = build_code("basic_render.codelib", BV(0x13ab0, 0x13ab0, 0x19b30), b26 ? lookup_sig26 : lookup_sig,
+    if (char *lookup = build_code("basic_render.codelib", BV(0x13ab0, 0x13ab0, 0x19b30, 0x19d20), b26 ? lookup_sig26 : lookup_sig,
                                   b26 ? sizeof lookup_sig26 : sizeof lookup_sig))
         g_node_lookup = (NodeLookup)install_detour(lookup, 15, node_lookup_hook);
-    if (char *matrix = build_code("basic_render.codelib", BV(0x13120, 0x13120, 0x191c0), b26 ? matrix_sig26 : matrix_sig,
+    if (char *matrix = build_code("basic_render.codelib", BV(0x13120, 0x13120, 0x191c0, 0x193b0), b26 ? matrix_sig26 : matrix_sig,
                                   b26 ? sizeof matrix_sig26 : sizeof matrix_sig))
         g_node_matrix = (NodeMatrix)install_detour(matrix, 15, node_matrix_hook);
     if (g_node_lookup || g_node_matrix) AddVectoredExceptionHandler(1, guard_handler);
@@ -313,7 +313,7 @@ bool state_handles_match(Object *o, const unsigned char *data, size_t size)
     pos += 8;
     // (the fourth list, the one at unit +0x868: 0x40-byte records, 0x30 in the 2026-11-18 beta - its three base loads
     //  +0x111260 / +0x1107e0 / +0x111ae0 read 48 bytes a record where the 11-14 beta's read 64)
-    if (list(4) < 0 || list(BF(0x40, 0x30)) < 0) return false;
+    if (list(4) < 0 || list(BF(0x40, 0x30, 0x30)) < 0) return false;
     long long parts = list(0x4c);
     if (parts < 0) return false;
     u32 n = (u32)(parts >> 40);
@@ -387,7 +387,7 @@ static bool translate_enabled(void)
     if (on < 0) {
         char v[8];
         on = GetEnvironmentVariableA("MP_STATE_TRANSLATE", v, sizeof v) ? atoi(v) != 0 : 0;
-        if (on && !BF(1, NP)) {
+        if (on && !BF(1, NP, NP)) {
             mp_log("state: MP_STATE_TRANSLATE is not ported to this build, states of the other game's numbering are not loaded");
             on = 0;
         }
@@ -442,7 +442,7 @@ static size_t list_bytes(void *p)
 
 static void translate_unit(Object *o, const GroupMap &m, bool techn)
 {
-    if (!BF(1, NP)) return;         // 2024 builds only (see translate_enabled)
+    if (!BF(1, NP, NP)) return;         // 2024 builds only (see translate_enabled)
     static const unsigned short techn_lists[] = { 0x498, 0x758, 0x820, 0x838, 0xbd8, 0xc00, 0xc28, 0xc50, 0xe80, 0x1158, 0x11e8, 0x1298, 0x1470,
                                                   0x14c8, 0x1600, 0x1838, 0x1868, 0x18a0, 0x18b8, 0x18d0, 0x18e8, 0x1900, 0x1db8, 0x1e98 };
     static const unsigned short human_lists[] = { 0x27a0 };
@@ -535,6 +535,10 @@ void state_translate_report(void)
 struct ViewFields { unsigned short view[7], view_bytes[2], human_drawn, techn_drawn, anim; };
 static const ViewFields k_view_old = { { 0x6b0, 0x6b4, 0x6e8, 0x6ec, 0x6f0, 0x714, 0x72c }, { 0x745, 0x749 }, 0x228c, 0x1e66, 0x1d60 };
 static const ViewFields k_view_b26 = { { 0x6e0, 0x6e4, 0x718, 0x71c, 0x720, 0x744, 0x75c }, { 0x775, 0x779 }, 0x2fd8, 0x392d, 0x2518 };
+// Beta 26858192 (2026-11-23): the soldier's fields from about +0x24a0 on are 0x20..0xa0 further on ("is drawn" +0x3058, his
+// number +0x2538), the vehicle's from about +0x28d0 on 0x10..0xa0 ("is drawn" +0x39bd); the vehicle's lists below that, the
+// unit's base, the part list, every record and the loads' code as in 26834468.
+static const ViewFields k_view_b26n = { { 0x6e0, 0x6e4, 0x718, 0x71c, 0x720, 0x744, 0x75c }, { 0x775, 0x779 }, 0x3058, 0x39bd, 0x2538 };
 struct Fitted { unsigned short list, count, size, keep; };
 struct TechnLists {
     unsigned short points, points_n, points_room;       // model points, 0x20-byte records, node handle at +0x10
@@ -567,11 +571,11 @@ static const TechnLists k_techn_b26 = { 0x1858, 0x1864, 0x1868, 0x1f20, 0x1f2c, 
 // the wheel's drawn angle and spin (+0x1b0, +0x1b4) and a track's run (+0x16c and its total: where the links
 // are drawn) stay this game's; the rest of a wheel (suspension, damage) is the owner's.
 // MP_STATE_KEEP_WHEELS=0: loaded as they come.
-#define ST_WHEELS      BF(0x11e8, 0x17a8)
-#define ST_WHEEL_SIZE  BF(0x2a0, 0x2f0)
-#define ST_TRACKS      BF(0x1200, 0x17c0)
-#define ST_TRACK_SIZE  BF(0x2c0, 0x410)
-#define ST_TRACK_TOTAL BF(0x1a4, 0x198)
+#define ST_WHEELS      BF(0x11e8, 0x17a8, 0x17a8)
+#define ST_WHEEL_SIZE  BF(0x2a0, 0x2f0, 0x2f0)
+#define ST_TRACKS      BF(0x1200, 0x17c0, 0x17c0)
+#define ST_TRACK_SIZE  BF(0x2c0, 0x410, 0x410)
+#define ST_TRACK_TOTAL BF(0x1a4, 0x198, 0x198)
 static u64 g_stat_wheel_loads, g_stat_wheel_other;
 static float g_stat_wheel_shift;
 // when each unit last had a state of the other game loaded (GetTickCount), for the joining game's report of
@@ -593,8 +597,8 @@ void state_wheels_report(void)
 
 int state_load_keep_motion(Object *o, const unsigned char *data, size_t size, bool keep_view)
 {
-    const ViewFields &vf = g_bi == BUILD_BETA26 ? k_view_b26 : k_view_old;
-    const TechnLists &tl = g_bi == BUILD_BETA26 ? k_techn_b26 : k_techn_old;
+    const ViewFields &vf = g_bi == BUILD_BETA26N ? k_view_b26n : IS2026 ? k_view_b26 : k_view_old;
+    const TechnLists &tl = IS2026 ? k_techn_b26 : k_techn_old;
     const unsigned short *view = vf.view, *view_bytes = vf.view_bytes;
     const int n_view = _countof(vf.view), n_view_bytes = _countof(vf.view_bytes);
     unsigned char body[UNIT_MOTION_SIZE], kept_bytes[_countof(vf.view_bytes)], kept_drawn;
@@ -687,7 +691,7 @@ int state_load_keep_motion(Object *o, const unsigned char *data, size_t size, bo
     install_part_guard();
     // beta26: without the guard the parts' handles could not be kept, so no state of the other game is loaded
     // (the 2024 builds always have it: their routine is checked byte for byte like everything else)
-    if (g_bi == BUILD_BETA26 && !g_base_load[0]) return -1;
+    if (IS2026 && !g_base_load[0]) return -1;
     g_remote_load++;
     int r = state_load(o, data, size);
     g_remote_load--;

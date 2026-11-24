@@ -17,18 +17,18 @@
 #include <unordered_map>
 #include <vector>
 
-#define S_VEHICLE   BF(0x2388, 0x3110)
-#define S_VEHICLE2  BF(0x7d0, 0x800)
-#define S_STATION   BF(0x1da4, 0x2568)
-#define S_LEAVING   BF(0x2297, 0x2fe3)        // a leave is pending (+1: at once); the in-vehicle update carries it out
-#define V_STATIONS  BF(0x1900, 0x1f20)
-#define V_COUNT     BF(0x190c, 0x1f2c)
-#define V_STATION   BF(0x140, 0x180)
-#define ST_SOLDIER  BF(0xc8, 0xe8)
-#define BOARD_SLOT  BF(195, 197)
-#define UNSEAT_SLOT BF(185, 187)
-#define BOARD_FN    BV(0x6f9f0, 0x6f980, 0xe6ab0)
-#define UNSEAT_FN   BV(0x85680, 0x85610, 0x10d7f0)
+#define S_VEHICLE   BF(0x2388, 0x3110, 0x3198)
+#define S_VEHICLE2  BF(0x7d0, 0x800, 0x800)
+#define S_STATION   BF(0x1da4, 0x2568, 0x2588)
+#define S_LEAVING   BF(0x2297, 0x2fe3, 0x306b)        // a leave is pending (+1: at once); the in-vehicle update carries it out
+#define V_STATIONS  BF(0x1900, 0x1f20, 0x1f20)
+#define V_COUNT     BF(0x190c, 0x1f2c, 0x1f2c)
+#define V_STATION   BF(0x140, 0x180, 0x180)
+#define ST_SOLDIER  BF(0xc8, 0xe8, 0xe8)
+#define BOARD_SLOT  BF(195, 197, 197)
+#define UNSEAT_SLOT BF(185, 187, 187)
+#define BOARD_FN    BV(0x6f9f0, 0x6f980, 0xe6ab0, 0xf91a0)
+#define UNSEAT_FN   BV(0x85680, 0x85610, 0x10d7f0, 0x122610)
 
 namespace {
 enum { SEATS = 16, PER_REC = 7 };
