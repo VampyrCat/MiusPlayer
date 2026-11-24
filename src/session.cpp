@@ -1928,7 +1928,7 @@ static bool g_scouted;            // the other player's map: his own scouting ha
 // (the mode switch adv_opgame+0xac7a0 writes +0x1210; the scouting pass +0x35540 tests +0x1268 against 0x11;
 // the next-turn control +0x370a0 tests +0x1274 against 2 - each where the 2024 builds' routines have +0x1200,
 // +0x1258, +0x1260). The operation at +0x1d8 stays.
-#define OPC_MODE BF(0x1200, 0x1210)         // 0 on an operation's map, 4 in the menus
+#define OPC_MODE BF(0x1200, 0x1210)         // the operational map's view, 0-3; 4 in the menus
 #define OPC_SCREEN BF(0x1258, 0x1268)       // the menu screen: 0 main menu, 2 operations, 0x11 skirmish
 #define OPC_STAGE BF(0x1260, 0x1274)        // the turn's stage: 2 while its battles are fought
 #define OPC_QUICK_DATA BF(0x1360, 0x13e0)   // a quick battle's operation data, inside the controller (screen 0x11)
@@ -1940,15 +1940,20 @@ static void *menu_controller_of(ObjMan *om)
     return readable(c, 0x1400) ? c : 0;
 }
 
-// The operation object while its map is on screen: the controller is in operation mode (+0x1200 == 0; it
-// is 4 in the menus) and holds the operation at +0x1d8. The screen number (+0x1258) is 0 when the program
-// was started straight on the operation (as after a battle) and stays 2, the Operations screen's, when
-// the player opened the operation from that screen.
+// The operation object while its map is on screen: the controller shows an operation's map (+0x1200 is the
+// map's view - 0 to 3, the toolbar's four views "roster", "levels", "bgs" (battle groups), "oob"; it is 4 in
+// the menus) and holds the operation at +0x1d8. The screen number (+0x1258) is 0 when the program was started
+// straight on the operation (as after a battle) and stays 2, the Operations screen's, when the player opened
+// the operation from that screen. (The game itself turns view 0 into 2 when the player gives a battle group an
+// order. Up to 2.8.4 only view 0 counted: a joining player in another view - usually after giving orders - held
+// the end of the turn up for ever: his game never sent his moves.)
 static void *operation_on_screen(ObjMan *om)
 {
     if (g_tactical) return 0;
     char *c = (char *)menu_controller_of(om);
-    if (!c || (*(int *)(c + OPC_SCREEN) != 0 && *(int *)(c + OPC_SCREEN) != 2) || *(int *)(c + OPC_MODE) != 0) return 0;
+    static int view0_only = -1;         // (tests: MP_TEST_VIEW0_ONLY=1 - the check of 2.8.4 and before)
+    if (view0_only < 0) view0_only = GetEnvironmentVariableA("MP_TEST_VIEW0_ONLY", 0, 0) ? 1 : 0;
+    if (!c || (*(int *)(c + OPC_SCREEN) != 0 && *(int *)(c + OPC_SCREEN) != 2) || (unsigned)*(int *)(c + OPC_MODE) > (view0_only ? 0u : 3u)) return 0;
     void *op = *(void **)(c + 0x1d8);
     return readable(op, 0x100) ? op : 0;
 }
@@ -2478,6 +2483,29 @@ void session_test_new_map(void)
     mp_log("test: the operation is declared to have moved on");
 }
 void session_test_save(void) { g_test_save_asked = true; }
+
+// Tests: "mapview <n>" - the map's view, as the toolbar's buttons set it (adv_opgame+0x9a1c0(controller, view,
+// 0), public +0x99e90 (controller, view), beta26 +0xafae0): 0 roster, 1 levels, 2 battle groups, 3 order of battle.
+static int g_map_view_asked = -1;
+void session_test_map_view(int view) { g_map_view_asked = view; }
+static void test_map_view(ObjMan *om)
+{
+    static const unsigned char sig[] = { 0x48, 0x89, 0x5c, 0x24, 0x08, 0x48, 0x89, 0x6c, 0x24, 0x10, 0x48, 0x89, 0x74, 0x24, 0x18,
+                                         0x57, 0x41, 0x54, 0x41, 0x55, 0x41, 0x56, 0x41, 0x57, 0x48, 0x83, 0xec, 0x20 };
+    static const unsigned char sig_pub[] = { 0x48, 0x89, 0x5c, 0x24, 0x08, 0x48, 0x89, 0x6c, 0x24, 0x10, 0x48, 0x89, 0x74, 0x24, 0x18,
+                                             0x57, 0x41, 0x56, 0x41, 0x57, 0x48, 0x83, 0xec, 0x20, 0x8b, 0xf2 };
+    int view = g_map_view_asked;
+    g_map_view_asked = -1;
+    bool pub = g_bi == BUILD_PUBLIC;
+    char *fn = build_code("adv_opgame.codelib", BV(0x9a1c0, 0x99e90, 0xafae0), pub ? sig_pub : sig, pub ? sizeof sig_pub : sizeof sig);
+    char *c = (char *)menu_controller_of(om);
+    if (!fn || !c || !operation_on_screen(om) || view < 0 || view > 3) {
+        mp_log("test: mapview - not here (%s)", !fn ? "unknown game build" : "no operation on screen");
+        return;
+    }
+    ((void (*)(void *, unsigned, char))fn)(c, (unsigned)view, 0);
+    mp_log("test: mapview - the map's view is %d now", *(int *)(c + OPC_MODE));
+}
 
 // Host, once its operation program is up on the map (it is started again after every battle and every
 // shared turn): the battle groups of the host that have fought - the game marks them when a battle's result
@@ -5080,6 +5108,7 @@ void session_frame(ObjMan *om)
         mp_log("test: operation %s (%s, %zu bytes, turn phase %d, %u orders)", ok ? "saved" : "not saved", file, save.size(),
                ok ? opsave::turn_phase(save) : -1, ok ? opsave::rows_of(save, "user_orders") : 0);
     }
+    if (g_map_view_asked >= 0 && !g_tactical) test_map_view(om);
     if (g_map_mode && g_end_turn_asked) {                   // tests: this player presses "next turn"
         g_end_turn_asked = false;
         if (!g_turn_done && !g_map_given && !g_map_sent) press_next_turn();

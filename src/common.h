@@ -104,6 +104,7 @@ void session_test_next_turn(void);
 void session_test_start_battle(void);       // tests: the host's map goes into its selected battle ("startbattle")
 void session_test_new_map(void);
 void session_test_save(void);
+void session_test_map_view(int view);      // tests: the operational map's view (0-3, as the toolbar sets it)
 const char *session_status(void);        // banner text, "" outside multiplayer
 const char *session_status_line(void);   // ... what is going on, without who plays (the player panel's status line)
 // The player panel (ui.cpp): who plays - the host first, then the others in the order they joined. tag: "host,

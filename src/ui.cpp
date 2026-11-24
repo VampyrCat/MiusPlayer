@@ -69,6 +69,12 @@ bool ui_blocks_input(void) { return g_screen != SCR_NONE || chat_is_open() || g_
 // The player panel (bottom left, see draw_panel): open (the list of players shown), the mouse on it, a press that
 // began on it / elsewhere, hidden with Ctrl+Backspace where the game has no hidden interface of its own to follow.
 static bool g_panel_open, g_panel_hot, g_panel_press, g_game_press, g_own_hidden;
+// Docked: the panel is a small circle in its corner, out of the way of the game's own panels along the bottom of the
+// screen (a player: the panel hid the bottom of the battle's units panel). Its button docks it, a click on the circle
+// shows it again, F11 does either; the choice is kept in users\mp_panel.txt for the next programs and game starts.
+static bool g_panel_docked, g_panel_dock_read;
+static int g_panel_dock_asked = -1;          // tests: "paneldock [0|1]"
+static void panel_dock(bool docked, const char *how);
 // A press that begins on the panel is the panel's, all of it; one that begins elsewhere is the game's, even where it
 // ends on the panel (a selection box dragged over it). Only the buttons are kept from the game: the keys, the wheel
 // and the view go on working while the mouse passes over the panel, which stays on screen all through a battle.
@@ -911,6 +917,10 @@ void ui_frame(ObjMan *om)
     if (game_hidden < 0 && focused && g_screen == SCR_NONE && !chat_is_open() && key_pressed(VK_BACK) &&
         (GetAsyncKeyState(VK_CONTROL) & 0x8000) && session_status()[0])
         g_own_hidden = !g_own_hidden;
+    // F11 docks the player panel to its circle and shows it again (not while the chat line or a menu field takes keys)
+    bool f11 = key_pressed(VK_F11);
+    if (focused && f11 && g_screen == SCR_NONE && !chat_is_open() && session_status()[0]) panel_dock(!g_panel_docked, "F11");
+    if (g_panel_dock_asked >= 0) { panel_dock(g_panel_dock_asked != 0, "test command"); g_panel_dock_asked = -1; }
     {
         static bool was_hidden;             // (each change once in the log, for tests)
         bool hidden = game_hidden >= 0 ? game_hidden != 0 : g_own_hidden;
@@ -1466,6 +1476,7 @@ static bool test_shot_request(char *name, size_t n)
     DeleteFileA(path);
     if (!strncmp(line, "ready", 5)) { session_test_ready(); return false; }
     if (!strncmp(line, "resign", 6)) { session_test_resign(); return false; }
+    if (!strncmp(line, "paneldock", 9)) { void ui_test_panel_dock(int); ui_test_panel_dock(line[9] == ' ' ? atoi(line + 10) : -1); return false; }
     if (!strncmp(line, "withdraw", 8)) { session_test_withdraw(); return false; }
     if (!strncmp(line, "pause", 5)) { session_test_pause(); return false; }
     if (!strncmp(line, "speed ", 6)) { session_test_speed(atoi(line + 6)); return false; }
@@ -1490,6 +1501,7 @@ static bool test_shot_request(char *name, size_t n)
     if (!strncmp(line, "startbattle", 11)) { session_test_start_battle(); return false; }
     if (!strncmp(line, "savemap", 7)) { session_test_save(); return false; }
     if (!strncmp(line, "newmap", 6)) { session_test_new_map(); return false; }
+    if (!strncmp(line, "mapview ", 8)) { session_test_map_view(atoi(line + 8)); return false; }
     if (!strncmp(line, "flares", 6)) { shots_test_flares(atoi(line + 6)); return false; }
     if (!strncmp(line, "badnode", 7)) { state_test_guard(); return false; }
     if (!strncmp(line, "order ", 6)) { int n = 0; float dx = 0, dz = 0; if (sscanf_s(line + 6, "%d %f %f", &n, &dx, &dz) >= 2) orders_test_move(n, dx, dz); return false; }
@@ -1754,10 +1766,65 @@ static void round_box(float x, float y, float w, float h, int r, DWORD fill, DWO
 static const DWORD k_player_colors[5] = { 0xff4fc35a, 0xffa877f2, 0xffff9c40, 0xff45cfe2, 0xffffd84a };   // host, then the others
 static const DWORD k_pn_text = 0xfff2e6c8, k_pn_label = 0xffb4aa96, k_pn_value = 0xffffe7a8, k_pn_off = 0xff8a8276, k_pn_rule = 0x50f2e6c8;
 
+// The docked panel's state, kept between programs and game starts (users\mp_panel.txt: "docked" or nothing).
+static void read_dock(void)
+{
+    if (g_panel_dock_read) return;
+    g_panel_dock_read = true;
+    char path[MAX_PATH], line[32] = "";
+    sprintf_s(path, "%s\\users\\mp_panel.txt", g_root);
+    FILE *f = 0;
+    if (!fopen_s(&f, path, "r") && f) { fgets(line, sizeof line, f); fclose(f); }
+    g_panel_docked = !strncmp(line, "docked", 6);
+    if (g_panel_docked) mp_log("ui: player panel docked (as it was left)");
+}
+
+static void panel_dock(bool docked, const char *how)
+{
+    read_dock();
+    if (docked == g_panel_docked) return;
+    g_panel_docked = docked;
+    if (docked) g_panel_open = false;
+    char path[MAX_PATH];
+    sprintf_s(path, "%s\\users\\mp_panel.txt", g_root);
+    FILE *f = 0;
+    if (!fopen_s(&f, path, "w") && f) { fprintf(f, "%s\n", docked ? "docked" : "shown"); fclose(f); }
+    mp_log("ui: player panel %s (%s)", docked ? "docked to its circle" : "shown again", how);
+}
+void ui_test_panel_dock(int v) { g_panel_dock_asked = v < 0 ? (g_panel_docked ? 0 : 1) : v ? 1 : 0; }
+
+// A tip above (x, y): a dark box with a line of text.
+static void tip(const char *s, float x, float y, float size)
+{
+    float w = text_width(s, size) + roundf(12 * g_s), h = roundf(size * 1.7f * g_s);
+    quad(x, y - h, w, h, 0xe0181410);
+    text(s, x + roundf(6 * g_s), y - h + roundf(size * 0.3f * g_s), size, 0xfff2e6c8, 0);
+}
+
+// The docked panel: a circle in the panel's corner - its border, the connection's dot in the middle (green while
+// another player is connected, grey otherwise). A click on it shows the panel again.
+static void draw_dock_circle(float s, float margin, float lift)
+{
+    float r = roundf(14 * s), cx = margin + r, cy = roundf(g_h - margin - lift - r);
+    float dx = g_mx - cx, dy = g_my - cy;
+    bool hot = dx * dx + dy * dy <= r * r;
+    g_panel_hot = hot;
+    if (hot && g_clicked) { panel_dock(false, "its circle clicked"); return; }
+    disc(cx, cy, r, hot ? 0xc0f2e6c8 : 0x70f2e6c8);
+    disc(cx, cy, r - 1, hot ? 0xe85c5c58 : 0xe050504c);
+    disc(cx, cy, roundf(5 * s), session_connected() ? k_player_colors[0] : k_pn_off);
+    if (hot) tip("Players (F11)", margin, cy - r - roundf(4 * s), 12);
+}
+
 static void draw_panel(void)
 {
     // (a tenth smaller than the first version, the user found it too big; grey like the game's top buttons)
     float s = g_s * 0.9f, size = 13.5f, tagsize = 11.7f, pad = roundf(10 * s), padv = roundf(6 * s), row = roundf(24 * s), line = roundf(21 * s), rule = roundf(9 * s);
+    read_dock();
+    if (g_panel_docked) {
+        draw_dock_circle(s, roundf(12 * s), !g_tactical && !g_on_op_map ? roundf(48 * s) : 0);
+        return;
+    }
     float gap = roundf(6 * s), dotw = roundf(16 * s), iconw = roundf(20 * s), arroww = roundf(9 * s);
     float maxw = roundf(440 * s), w = roundf(250 * s);
     PanelPlayer players[5];
@@ -1799,13 +1866,18 @@ static void draw_panel(void)
     }
     for (int i = 0; i < nl; i++) w = max(w, 2 * pad + text_width(lines[i].c_str(), size));
     w = max(w, 2 * pad + text_width("Latency", size) + gap + text_width(lat, size) + 3 * gap + text_width("FPS", size) + gap + text_width(fps, size) + 2 * arroww);
-    w = max(w, 2 * pad + iconw + text_width(mode, size));
+    float dockw = roundf(16 * s);           // the dock button, at the right of the last row
+    w = max(w, 2 * pad + iconw + text_width(mode, size) + gap + dockw);
     w = roundf(w);
     float h = 2 * padv + np * row + (np ? rule : 0) + nl * line + (nl ? rule : 0) + 2 * row;
     // 12 pixels from the corner; in the menus clear of the stock screens' back button there (the Skirmish screen's)
     float margin = roundf(12 * s), lift = !g_tactical && !g_on_op_map ? roundf(48 * s) : 0;
     float x = margin, y = roundf(g_h - margin - lift - h);
     g_panel_hot = g_mx >= x && g_mx < x + w && g_my >= y && g_my < y + h;
+    // the dock button: the last row's right end
+    float bx = x + w - pad - dockw, by = roundf(y + h - padv - row / 2 - dockw / 2);
+    bool dock_hot = g_mx >= bx - 2 && g_mx < bx + dockw + 2 && g_my >= by - 2 && g_my < by + dockw + 2;
+    if (dock_hot && g_clicked) { panel_dock(true, "its button"); draw_dock_circle(s, margin, lift); return; }
     if (g_panel_hot && g_clicked) {
         g_panel_open = !g_panel_open;
         mp_log("ui: player panel %s", g_panel_open ? "opened" : "closed");
@@ -1835,6 +1907,13 @@ static void draw_panel(void)
     cy += row;
     calendar(x + pad, cy + row / 2, k_pn_label);
     text(mode, x + pad + iconw, top(cy, row, size), size, k_pn_text, 0);
+    // the dock button: a small round frame with a dot - the circle the panel becomes
+    DWORD bc = dock_hot ? k_pn_value : k_pn_label;
+    float bcx = bx + dockw / 2, bcy = by + dockw / 2, t = max(2.0f, roundf(1.5f * s));
+    disc(bcx, bcy, dockw / 2, bc);
+    disc(bcx, bcy, dockw / 2 - t, dock_hot ? 0xe85c5c58 : 0xe050504c);
+    disc(bcx, bcy, max(2.0f, roundf(2.5f * s)), bc);
+    if (dock_hot) tip("Dock the panel (F11)", x, y - roundf(4 * s), 12);
 }
 
 static void draw_overlays(const char *status, bool hint, bool picking, bool host_wait)

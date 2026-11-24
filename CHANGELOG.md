@@ -2,6 +2,19 @@
 
 Every release of MiusPlayer. Both players need the same network version; the launcher keeps the mod up to date.
 
+## 2.8.5 - 2026-11-24 (network 31)
+- Fixed: in an operation the turn did not go on when both players had pressed end turn - the joining player's game
+  sent his moves only while his map was in its first view (the roster), and the game switches the map to the battle
+  groups' view by itself when a player gives an order. Every view of the map counts now. (In every release since
+  2.0; fixed in the development version after 2.8.1, released now.)
+- Fixed: the two 1980 Khuzestan operations (Susangerd, Iran / Iraq) could not be shared - the joining player got
+  the host's side of the map, his own side's units were left to the computer and the end of the turn hung. The mod
+  now finds the Iran / Iraq operation of the other side as it does the German / Soviet one.
+- The player panel (bottom left) can be docked to a small circle, out of the way of the game's own panels along the
+  bottom of the screen: its small round button (lower right) docks it, a click on the circle shows it again, and
+  F11 does either. It stays docked in the next battle and the next time the game starts.
+- Nothing changes on the wire (network 31); both players should update for the two operation fixes.
+
 ## 2.8.4 - 2026-11-21 (network 31)
 - Steam's new beta build, public_beta-26834468 of 2026-11-21. 2.8.3 was made for public_beta-26779327, which Steam
   no longer serves, so 2.8.3 keeps multiplayer off on the new build. This release is 2.8.3 with the mod moved to the

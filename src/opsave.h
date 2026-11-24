@@ -223,11 +223,19 @@ inline void set_operation_name(std::vector<byte> &b, const std::string &name)
 // "07_02_odintsov_rus" <-> "07_02_odintsov_ger": the same operation played from the other side, when the
 // game has one. Started on the other player's state it gives him his own side's view: his territory, fog
 // of war over the opponent.
+// (The 1980 Khuzestan operations are "..._iran" / "..._iraq"; the ending is taken in either case and given back
+// in the case it was written in. Up to 2.8.4 they had no other side: the joining player got the host's own map.)
 inline std::string counterpart(const std::string &operation)
 {
+    static const char *const pairs[][2] = { { "_rus", "_ger" }, { "_ger", "_rus" }, { "_iran", "_iraq" }, { "_iraq", "_iran" } };
     size_t n = operation.size();
-    if (n > 4 && !operation.compare(n - 4, 4, "_rus")) return operation.substr(0, n - 4) + "_ger";
-    if (n > 4 && !operation.compare(n - 4, 4, "_ger")) return operation.substr(0, n - 4) + "_rus";
+    for (auto &p : pairs) {
+        size_t k = strlen(p[0]);
+        if (n <= k || _strnicmp(operation.c_str() + n - k, p[0], k)) continue;
+        std::string to = p[1];
+        if (operation[n - 1] >= 'A' && operation[n - 1] <= 'Z') for (char &ch : to) if (ch >= 'a' && ch <= 'z') ch = (char)(ch - 32);
+        return operation.substr(0, n - k) + to;
+    }
     return "";
 }
 
